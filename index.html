@@ -1,352 +1,71 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f62fe" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="RML Pliage" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <title>RML PLIAGE ALU</title>
-  <style>
-    :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
-    *{box-sizing:border-box}
-    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef3f8 0%,#f7f9fc 100%);color:var(--text);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
-    .container{max-width:1200px;margin:0 auto;padding:18px}
-    .hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px;margin-bottom:18px}
-    .brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
-    .brand img{display:block}.brand .header-logo{height:95px;width:auto;max-width:100%;object-fit:contain;border-radius:0;background:transparent}
-    h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
-    .subline{font-size:1rem;color:#1f2937;margin-top:4px;font-weight:700}
-    .baseline{color:var(--muted);margin-top:10px;font-size:1rem}
-    .install{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef5ff;color:#1f4ea8;font-size:.9rem;font-weight:700}
-    .grid{display:grid;grid-template-columns:1.2fr .9fr;gap:20px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
-    .section-title{margin:0 0 14px 0;font-size:1.08rem;font-weight:700}
-    .row{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end}
-    .field{display:flex;flex-direction:column;gap:6px}
-    .field label{font-size:.88rem;color:var(--muted);font-weight:600}
-    .field input,.field select,.field textarea,button{font:inherit}
-    .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;color:var(--text);min-height:46px}
-    .field textarea{min-height:90px;resize:vertical}
-    .filebox{border:1px dashed var(--line);border-radius:14px;padding:12px;background:#fafcff;margin-top:10px}
-    .col-12{grid-column:span 12}.col-6{grid-column:span 6}.col-4{grid-column:span 4}.col-3{grid-column:span 3}
-    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
-    button{border:none;border-radius:12px;padding:11px 14px;cursor:pointer;font-weight:700;transition:transform .05s ease,background .2s ease}
-    button:active{transform:translateY(1px)}
-    .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
-    .btn-secondary{background:#eaf1ff;color:var(--accent)}.btn-danger{background:#ffe6e6;color:var(--danger)}.btn-light{background:#f3f5f7;color:#233241}
-    .pieces{display:flex;flex-direction:column;gap:12px;margin-top:8px}
-    .piece{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fcfdff}
-    .piece-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
-    .piece-title{font-weight:800}.piece-tools{display:flex;gap:8px;align-items:center}.small-btn{min-width:42px;padding:10px 12px;border-radius:10px}
-    .result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
-    .result-box{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfe}
-    .result-label{color:var(--muted);font-size:.86rem;font-weight:600;margin-bottom:6px}
-    .result-value{font-size:1.45rem;font-weight:800;word-break:break-word}.result-value.small{font-size:1.1rem}
-    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;margin-top:12px}
-    table{width:100%;border-collapse:collapse;min-width:720px;background:#fff}
-    th,td{border-bottom:1px solid var(--line);padding:11px 10px;text-align:left;font-size:.94rem}
-    th{background:#f7faff;color:#425466;position:sticky;top:0;z-index:1}
-    tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);margin-top:10px;line-height:1.45}
-    .danger-text{color:var(--danger);font-weight:700}.success-text{color:var(--ok);font-weight:700}
-    @media (max-width:960px){.grid{grid-template-columns:1fr}}
-    @media (max-width:700px){.row{grid-template-columns:repeat(6,1fr)}.col-12,.col-6,.col-4,.col-3{grid-column:span 6}.result-grid{grid-template-columns:1fr}.container{padding:14px}.card,.hero{padding:14px}.brand .header-logo{height:70px;width:auto}}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="hero">
-      <div class="brand">
-        <img src="header-logo.png" alt="RML PLIAGE ALU" class="header-logo">
-        <div class="brand-text">
-          <h1>RML PLIAGE ALU</h1>
-          <div class="subline">by Micouleau &amp; Lhérisson</div>
-          <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        </div>
-      </div>
-      <div class="install">
-        <span class="pill">Prêt pour GitHub Pages</span>
-        <button class="btn-secondary" id="installHelpBtn">Installer sur iPhone</button>
-      </div>
-    </div>
-
-    <div class="grid">
-      <div class="card">
-        <h2 class="section-title">1. Saisie des pièces</h2>
-        <div class="row">
-          <div class="field col-6">
-            <label for="selectedClient">Client / mémo tarifaire</label>
-            <select id="selectedClient"></select>
-          </div>
-          <div class="field col-3">
-            <label for="selectedThickness">Épaisseur métal</label>
-            <select id="selectedThickness">
-              <option value="7/10">Alu 7/10</option>
-              <option value="10/10">Alu 10/10</option>
-              <option value="15/10">Alu 15/10</option>
-            </select>
-          </div>
-          <div class="field col-3">
-            <label for="globalPriceDisplay">Tarif actif €/m²</label>
-            <input id="globalPriceDisplay" type="text" readonly />
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn-primary" id="addPieceBtn">+ Ajouter une pièce</button>
-          <button class="btn-light" id="duplicateLastBtn">Dupliquer la dernière</button>
-          <button class="btn-danger" id="clearPiecesBtn">Vider les pièces</button>
-        </div>
-        <div id="pieces" class="pieces"></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>Développé (mm)</th><th>Longueur (m)</th><th>Quantité</th><th>Surface unitaire (m²)</th><th>Surface totale (m²)</th><th>Montant</th></tr></thead>
-            <tbody id="resultTableBody"></tbody>
-          </table>
-        </div>
-        <div class="note"><strong>Formule :</strong> m² = (développé en mm / 1000) × longueur en m × quantité.</div>
-      </div>
-
-      <div class="card">
-        <h2 class="section-title">2. Résultat du calcul</h2>
-        <div class="result-grid">
-          <div class="result-box"><div class="result-label">Client sélectionné</div><div class="result-value small" id="summaryClient">—</div></div>
-          <div class="result-box"><div class="result-label">Épaisseur</div><div class="result-value small" id="summaryThickness">—</div></div>
-          <div class="result-box"><div class="result-label">Surface totale</div><div class="result-value" id="summaryArea">0,000 m²</div></div>
-          <div class="result-box"><div class="result-label">Tarif appliqué</div><div class="result-value" id="summaryPricePerM2">0,00 €/m²</div></div>
-          <div class="result-box"><div class="result-label">Montant total à facturer</div><div class="result-value" id="summaryAmount">0,00 €</div></div>
-          <div class="result-box"><div class="result-label">Nombre de lignes</div><div class="result-value" id="summaryLines">0</div></div>
-        </div>
-        <div class="actions">
-          <button class="btn-secondary" id="printBtn">Imprimer / PDF</button>
-          <button class="btn-light" id="exportJsonBtn">Sauvegarde clients</button>
-          <button class="btn-light" id="exportFullBackupBtn">Sauvegarde complète</button>
-        </div>
-        <div class="filebox">
-          <div class="field col-12">
-            <label for="importJsonFile">Restaurer une sauvegarde</label>
-            <input id="importJsonFile" type="file" accept=".json,application/json" />
-          </div>
-          <div class="note">Choisissez directement votre fichier JSON de sauvegarde.</div>
-        </div>
-
-        <hr style="border:none;border-top:1px solid var(--line);margin:20px 0">
-        <h2 class="section-title">3. Mémo clients / tarifs modulables</h2>
-        <div class="row">
-          <div class="field col-12"><label for="clientName">Nom du client</label><input id="clientName" type="text" placeholder="Ex. Dupont Couverture" /></div>
-          <div class="field col-4"><label for="price710">Tarif Alu 7/10 (€/m²)</label><input id="price710" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-          <div class="field col-4"><label for="price1010">Tarif Alu 10/10 (€/m²)</label><input id="price1010" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-          <div class="field col-4"><label for="price1510">Tarif Alu 15/10 (€/m²)</label><input id="price1510" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-          <div class="field col-12"><label for="clientNote">Mémo / remarque</label><textarea id="clientNote" placeholder="Ex. Tarif spécifique chantier, remise habituelle, conditions particulières..."></textarea></div>
-        </div>
-        <div class="actions">
-          <button class="btn-primary" id="saveClientBtn">Enregistrer / mettre à jour</button>
-          <button class="btn-danger" id="deleteClientBtn">Supprimer le client</button>
-          <button class="btn-light" id="newClientBtn">Nouveau client</button>
-        </div>
-        <div class="note"><strong>Astuce GitHub Pages :</strong> une fois le site en ligne, ouvrez-le dans Safari puis faites <strong>Partager → Sur l’écran d’accueil</strong>.</div>
-        <div id="status"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
-    }
-    const STORAGE_KEY_CLIENTS = "pliage_clients_v4";
-    const STORAGE_KEY_PIECES = "pliage_pieces_v4";
-    const defaultClients = [{id: crypto.randomUUID(), name: "Client standard", prices: {"7/10": 48, "10/10": 59, "15/10": 74}, note: "Tarifs standards modifiables."}];
-    let clients = loadClients();
-    let pieces = loadPieces();
-
-    const selectedClient = document.getElementById("selectedClient");
-    const selectedThickness = document.getElementById("selectedThickness");
-    const globalPriceDisplay = document.getElementById("globalPriceDisplay");
-    const piecesEl = document.getElementById("pieces");
-    const resultTableBody = document.getElementById("resultTableBody");
-    const statusEl = document.getElementById("status");
-    const clientName = document.getElementById("clientName");
-    const price710 = document.getElementById("price710");
-    const price1010 = document.getElementById("price1010");
-    const price1510 = document.getElementById("price1510");
-    const clientNote = document.getElementById("clientNote");
-
-    function fmtNumber(n, decimals = 2){ return Number(n || 0).toLocaleString("fr-FR", {minimumFractionDigits: decimals, maximumFractionDigits: decimals}); }
-    function fmtArea(n){ return fmtNumber(n, 3) + " m²"; }
-    function fmtEuro(n){ return fmtNumber(n, 2) + " €"; }
-    function setStatus(msg, ok = true){ statusEl.textContent = msg; statusEl.className = ok ? "success-text" : "danger-text"; }
-
-    function loadClients(){
-      try{
-        const raw = localStorage.getItem(STORAGE_KEY_CLIENTS);
-        if(!raw) return structuredClone(defaultClients);
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) && parsed.length ? parsed : structuredClone(defaultClients);
-      }catch{ return structuredClone(defaultClients); }
-    }
-    function saveClients(){ localStorage.setItem(STORAGE_KEY_CLIENTS, JSON.stringify(clients)); }
-    function loadPieces(){
-      try{
-        const raw = localStorage.getItem(STORAGE_KEY_PIECES);
-        if(!raw) return [{id: crypto.randomUUID(), developed: "", length: "", qty: 1}];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) && parsed.length ? parsed : [{id: crypto.randomUUID(), developed: "", length: "", qty: 1}];
-      }catch{ return [{id: crypto.randomUUID(), developed: "", length: "", qty: 1}]; }
-    }
-    function savePieces(){ localStorage.setItem(STORAGE_KEY_PIECES, JSON.stringify(pieces)); }
-    function getCurrentClient(){ return clients.find(c => c.id === selectedClient.value) || clients[0]; }
-    function getCurrentPricePerM2(){ const client = getCurrentClient(); return Number(client?.prices?.[selectedThickness.value] || 0); }
-
-    function renderClientSelect(){
-      const previous = selectedClient.value;
-      selectedClient.innerHTML = "";
-      clients.forEach(client => {
-        const option = document.createElement("option");
-        option.value = client.id;
-        option.textContent = client.name;
-        selectedClient.appendChild(option);
-      });
-      selectedClient.value = clients.some(c => c.id === previous) ? previous : (clients[0]?.id || "");
-      renderClientForm(); updatePriceDisplay();
-    }
-
-    function renderClientForm(){
-      const client = getCurrentClient();
-      if(!client) return;
-      clientName.value = client.name || "";
-      price710.value = client.prices?.["7/10"] ?? "";
-      price1010.value = client.prices?.["10/10"] ?? "";
-      price1510.value = client.prices?.["15/10"] ?? "";
-      clientNote.value = client.note || "";
-      document.getElementById("summaryClient").textContent = client.name || "—";
-    }
-
-    function updatePriceDisplay(){
-      const price = getCurrentPricePerM2();
-      globalPriceDisplay.value = fmtNumber(price, 2);
-      document.getElementById("summaryThickness").textContent = selectedThickness.value || "—";
-      document.getElementById("summaryPricePerM2").textContent = fmtEuro(price) + "/m²";
-      recalcAll();
-    }
-
-    function createPieceRow(piece, index){
-      const wrap = document.createElement("div");
-      wrap.className = "piece";
-      wrap.innerHTML = `
-        <div class="piece-head">
-          <div class="piece-title">Pièce ${index + 1}</div>
-          <div class="piece-tools">
-            <button class="btn-light small-btn" data-action="minus">−</button>
-            <button class="btn-light small-btn" data-action="plus">+</button>
-            <button class="btn-danger" data-action="delete">Supprimer</button>
-          </div>
-        </div>
-        <div class="row">
-          <div class="field col-4"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed ?? ""}" data-field="developed" placeholder="Ex. 320" /></div>
-          <div class="field col-4"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length ?? ""}" data-field="length" placeholder="Ex. 2.50" /></div>
-          <div class="field col-4"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty ?? 1}" data-field="qty" placeholder="1" /></div>
-        </div>`;
-      wrap.querySelectorAll("input").forEach(input => {
-        input.addEventListener("input", (e) => { pieces[index][e.target.dataset.field] = e.target.value; savePieces(); recalcAll(); });
-      });
-      wrap.querySelector('[data-action="plus"]').addEventListener("click", () => { pieces[index].qty = Number(pieces[index].qty || 1) + 1; savePieces(); renderPieces(); });
-      wrap.querySelector('[data-action="minus"]').addEventListener("click", () => { pieces[index].qty = Math.max(1, Number(pieces[index].qty || 1) - 1); savePieces(); renderPieces(); });
-      wrap.querySelector('[data-action="delete"]').addEventListener("click", () => {
-        pieces.splice(index, 1); if(!pieces.length) pieces.push({id: crypto.randomUUID(), developed: "", length: "", qty: 1}); savePieces(); renderPieces();
-      });
-      return wrap;
-    }
-
-    function renderPieces(){ piecesEl.innerHTML = ""; pieces.forEach((piece, index) => piecesEl.appendChild(createPieceRow(piece, index))); recalcAll(); }
-    function recalcAll(){
-      const pricePerM2 = getCurrentPricePerM2();
-      let totalArea = 0, totalAmount = 0;
-      resultTableBody.innerHTML = "";
-      pieces.forEach((piece, index) => {
-        const developedMm = Number(piece.developed || 0), lengthM = Number(piece.length || 0), qty = Number(piece.qty || 0);
-        const unitArea = (developedMm / 1000) * lengthM, lineArea = unitArea * qty, lineAmount = lineArea * pricePerM2;
-        totalArea += lineArea; totalAmount += lineAmount;
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${index + 1}</td><td>${fmtNumber(developedMm, 0)}</td><td>${fmtNumber(lengthM, 2)}</td><td>${fmtNumber(qty, 0)}</td><td>${fmtNumber(unitArea, 3)}</td><td>${fmtNumber(lineArea, 3)}</td><td>${fmtEuro(lineAmount)}</td>`;
-        resultTableBody.appendChild(tr);
-      });
-      document.getElementById("summaryArea").textContent = fmtArea(totalArea);
-      document.getElementById("summaryAmount").textContent = fmtEuro(totalAmount);
-      document.getElementById("summaryLines").textContent = String(pieces.length);
-    }
-
-    function addPiece(data = null){ pieces.push(data || {id: crypto.randomUUID(), developed: "", length: "", qty: 1}); savePieces(); renderPieces(); }
-    function duplicateLastPiece(){ const last = pieces[pieces.length - 1]; addPiece(last ? {...last, id: crypto.randomUUID()} : null); }
-
-    function saveOrUpdateClient(){
-      const name = clientName.value.trim();
-      if(!name){ setStatus("Le nom du client est obligatoire.", false); return; }
-      const currentId = selectedClient.value;
-      const existing = clients.find(c => c.id === currentId);
-      const payload = {id: existing?.id || crypto.randomUUID(), name, prices: {"7/10": Number(price710.value || 0), "10/10": Number(price1010.value || 0), "15/10": Number(price1510.value || 0)}, note: clientNote.value.trim()};
-      if(existing) Object.assign(existing, payload); else clients.push(payload);
-      saveClients(); renderClientSelect(); selectedClient.value = payload.id; renderClientForm(); updatePriceDisplay(); setStatus("Client enregistré.");
-    }
-
-    function deleteCurrentClient(){
-      if(clients.length === 1){ setStatus("Impossible de supprimer le dernier client.", false); return; }
-      const current = getCurrentClient(); if(!current) return;
-      if(!confirm(`Supprimer le client "${current.name}" ?`)) return;
-      clients = clients.filter(c => c.id !== current.id); saveClients(); renderClientSelect(); updatePriceDisplay(); setStatus("Client supprimé.");
-    }
-    function newClientForm(){ selectedClient.value = ""; clientName.value = ""; price710.value = ""; price1010.value = ""; price1510.value = ""; clientNote.value = ""; setStatus("Formulaire prêt pour un nouveau client."); }
-
-    function downloadJson(data, filename){
-      const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
-      const url = URL.createObjectURL(blob); const a = document.createElement("a");
-      a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url);
-    }
-    function exportClients(){ downloadJson({app: "Calcul pliage - clients", version: 4, exportedAt: new Date().toISOString(), clients}, "sauvegarde-clients-pliage.json"); setStatus("Sauvegarde clients créée."); }
-    function exportFullBackup(){ downloadJson({app: "Calcul pliage - sauvegarde complète", version: 4, exportedAt: new Date().toISOString(), clients, pieces, selectedClientId: selectedClient.value, selectedThickness: selectedThickness.value}, "sauvegarde-complete-pliage.json"); setStatus("Sauvegarde complète créée."); }
-
-    function normalizeClients(input){
-      const incoming = Array.isArray(input) ? input : input?.clients;
-      if(!Array.isArray(incoming) || !incoming.length) throw new Error("Aucun client trouvé dans la sauvegarde.");
-      return incoming.map(c => ({id: c.id || crypto.randomUUID(), name: c.name || "Client sans nom", prices: {"7/10": Number(c.prices?.["7/10"] || 0), "10/10": Number(c.prices?.["10/10"] || 0), "15/10": Number(c.prices?.["15/10"] || 0)}, note: c.note || ""}));
-    }
-
-    function importBackupFromText(text){
-      const parsed = JSON.parse(text); clients = normalizeClients(parsed);
-      if(Array.isArray(parsed.pieces)){
-        pieces = parsed.pieces.map(p => ({id: p.id || crypto.randomUUID(), developed: p.developed ?? "", length: p.length ?? "", qty: p.qty ?? 1}));
-        if(!pieces.length) pieces = [{id: crypto.randomUUID(), developed: "", length: "", qty: 1}];
-        savePieces();
-      }
-      saveClients(); renderClientSelect();
-      if(parsed.selectedClientId && clients.some(c => c.id === parsed.selectedClientId)) selectedClient.value = parsed.selectedClientId;
-      if(parsed.selectedThickness && ["7/10","10/10","15/10"].includes(parsed.selectedThickness)) selectedThickness.value = parsed.selectedThickness;
-      renderClientForm(); renderPieces(); updatePriceDisplay(); setStatus("Sauvegarde restaurée."); alert("Restauration terminée.");
-    }
-
-    document.getElementById("addPieceBtn").addEventListener("click", () => addPiece());
-    document.getElementById("duplicateLastBtn").addEventListener("click", duplicateLastPiece);
-    document.getElementById("clearPiecesBtn").addEventListener("click", () => { pieces = [{id: crypto.randomUUID(), developed: "", length: "", qty: 1}]; savePieces(); renderPieces(); setStatus("Pièces réinitialisées."); });
-    document.getElementById("saveClientBtn").addEventListener("click", saveOrUpdateClient);
-    document.getElementById("deleteClientBtn").addEventListener("click", deleteCurrentClient);
-    document.getElementById("newClientBtn").addEventListener("click", newClientForm);
-    selectedClient.addEventListener("change", () => { renderClientForm(); updatePriceDisplay(); });
-    selectedThickness.addEventListener("change", updatePriceDisplay);
-    document.getElementById("printBtn").addEventListener("click", () => window.print());
-    document.getElementById("exportJsonBtn").addEventListener("click", exportClients);
-    document.getElementById("exportFullBackupBtn").addEventListener("click", exportFullBackup);
-    document.getElementById("installHelpBtn").addEventListener("click", () => { alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil."); });
-    document.getElementById("importJsonFile").addEventListener("change", async (e) => {
-      const file = e.target.files?.[0]; if(!file) return;
-      try{ const text = await file.text(); importBackupFromText(text); }
-      catch(err){ console.error(err); setStatus("Import impossible : fichier JSON non valide ou non lisible.", false); alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l’application."); }
-      finally{ e.target.value = ""; }
-    });
-
-    renderClientSelect(); renderPieces(); updatePriceDisplay();
-  </script>
-</body>
-</html>
+<!DOCTYPE html><html lang="fr"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#0f62fe"/><meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/><meta name="apple-mobile-web-app-title" content="RML Pliage"/>
+<link rel="manifest" href="manifest.json"/><link rel="apple-touch-icon" href="apple-touch-icon.png"/><title>RML PLIAGE ALU</title>
+<style>
+:root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef3f8 0%,#f7f9fc 100%);color:var(--text);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+.container{max-width:1280px;margin:0 auto;padding:18px}.hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px;margin-bottom:18px}
+.brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}.brand .header-logo{height:95px;width:auto;max-width:100%;object-fit:contain;display:block}
+h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}.subline{font-size:1rem;color:#1f2937;margin-top:4px;font-weight:700}.baseline{color:var(--muted);margin-top:10px;font-size:1rem}
+.install{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef5ff;color:#1f4ea8;font-size:.9rem;font-weight:700}
+.grid{display:grid;grid-template-columns:1.7fr .95fr;gap:20px}.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}.section-title{margin:0 0 14px 0;font-size:1.08rem;font-weight:700}
+.row{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end}.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:.88rem;color:var(--muted);font-weight:600}
+.field input,.field select,.field textarea,button{font:inherit}.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;color:var(--text);min-height:46px}.field textarea{min-height:90px;resize:vertical}
+.filebox{border:1px dashed var(--line);border-radius:14px;padding:12px;background:#fafcff;margin-top:10px}.col-12{grid-column:span 12}.col-6{grid-column:span 6}.col-4{grid-column:span 4}.col-3{grid-column:span 3}.col-2{grid-column:span 2}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}button{border:none;border-radius:12px;padding:11px 14px;cursor:pointer;font-weight:700;transition:transform .05s ease,background .2s ease}button:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}.btn-secondary{background:#eaf1ff;color:var(--accent)}.btn-danger{background:#ffe6e6;color:var(--danger)}.btn-light{background:#f3f5f7;color:#233241}
+.pieces{display:flex;flex-direction:column;gap:12px;margin-top:8px}.piece{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fcfdff}.piece-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.piece-title{font-weight:800}.piece-tools{display:flex;gap:8px;align-items:center}.small-btn{min-width:42px;padding:10px 12px;border-radius:10px}.result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+.result-box{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfe}.result-label{color:var(--muted);font-size:.86rem;font-weight:600;margin-bottom:6px}.result-value{font-size:1.45rem;font-weight:800;word-break:break-word}.result-value.small{font-size:1.1rem}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;margin-top:12px}table{width:100%;border-collapse:collapse;min-width:1200px;background:#fff}th,td{border-bottom:1px solid var(--line);padding:11px 10px;text-align:left;font-size:.94rem}th{background:#f7faff;color:#425466;position:sticky;top:0;z-index:1}
+tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);margin-top:10px;line-height:1.45}.danger-text{color:var(--danger);font-weight:700}.success-text{color:var(--ok);font-weight:700}
+@media (max-width:960px){.grid{grid-template-columns:1fr}} @media (max-width:700px){.row{grid-template-columns:repeat(6,1fr)}.col-12,.col-6,.col-4,.col-3,.col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}.container{padding:14px}.card,.hero{padding:14px}.brand .header-logo{height:70px;width:auto}}
+</style></head><body><div class="container"><div class="hero"><div class="brand"><img src="header-logo.png" alt="RML PLIAGE ALU" class="header-logo"><div class="brand-text"><h1>RML PLIAGE ALU</h1><div class="subline">by Micouleau &amp; Lhérisson</div><div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div></div></div><div class="install"><span class="pill">Calcul détaillé par ligne</span><button class="btn-secondary" id="installHelpBtn">Installer sur iPhone</button></div></div>
+<div class="grid"><div class="card"><h2 class="section-title">1. Saisie des pièces</h2><div class="row"><div class="field col-6"><label for="selectedClient">Client / mémo tarifaire</label><select id="selectedClient"></select></div><div class="field col-3"><label for="selectedThickness">Épaisseur métal</label><select id="selectedThickness"><option value="7/10">Alu 7/10</option><option value="10/10">Alu 10/10</option><option value="15/10">Alu 15/10</option></select></div><div class="field col-3"><label for="globalPriceDisplay">Tarif matière €/m²</label><input id="globalPriceDisplay" type="text" readonly /></div></div>
+<div class="actions"><button class="btn-primary" id="addPieceBtn">+ Ajouter une pièce</button><button class="btn-light" id="duplicateLastBtn">Dupliquer la dernière</button><button class="btn-danger" id="clearPiecesBtn">Vider les pièces</button></div><div id="pieces" class="pieces"></div>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Développé (mm)</th><th>Longueur (m)</th><th>Qté</th><th>Plis</th><th>Coupes</th><th>Temps (min)</th><th>Chute (%)</th><th>Surface brute (m²)</th><th>Surface facturée (m²)</th><th>Matière</th><th>Plis</th><th>Coupes</th><th>Temps</th><th>Total ligne</th></tr></thead><tbody id="resultTableBody"></tbody></table></div>
+<div class="note"><strong>Formule matière :</strong> surface brute = (développé mm / 1000) × longueur m × quantité. Surface facturée = surface brute × (1 + chute %).</div></div>
+<div class="card"><h2 class="section-title">2. Résultat du calcul</h2><div class="result-grid"><div class="result-box"><div class="result-label">Client sélectionné</div><div class="result-value small" id="summaryClient">—</div></div><div class="result-box"><div class="result-label">Épaisseur</div><div class="result-value small" id="summaryThickness">—</div></div><div class="result-box"><div class="result-label">Surface totale facturée</div><div class="result-value" id="summaryArea">0,000 m²</div></div><div class="result-box"><div class="result-label">Tarif matière</div><div class="result-value" id="summaryPricePerM2">0,00 €/m²</div></div><div class="result-box"><div class="result-label">Montant total à facturer</div><div class="result-value" id="summaryAmount">0,00 €</div></div><div class="result-box"><div class="result-label">Nombre de lignes</div><div class="result-value" id="summaryLines">0</div></div></div>
+<div class="actions"><button class="btn-secondary" id="printBtn">Imprimer / PDF</button><button class="btn-light" id="exportJsonBtn">Sauvegarde clients</button><button class="btn-light" id="exportFullBackupBtn">Sauvegarde complète</button></div>
+<div class="filebox"><div class="field col-12"><label for="importJsonFile">Restaurer une sauvegarde</label><input id="importJsonFile" type="file" accept=".json,application/json" /></div><div class="note">Choisissez directement votre fichier JSON de sauvegarde.</div></div>
+<hr style="border:none;border-top:1px solid var(--line);margin:20px 0"><h2 class="section-title">3. Mémo clients / tarifs modulables</h2><div class="row"><div class="field col-12"><label for="clientName">Nom du client</label><input id="clientName" type="text" placeholder="Ex. Dupont Couverture" /></div><div class="field col-4"><label for="price710">Tarif Alu 7/10 (€/m²)</label><input id="price710" type="number" step="0.01" min="0" placeholder="0,00" /></div><div class="field col-4"><label for="price1010">Tarif Alu 10/10 (€/m²)</label><input id="price1010" type="number" step="0.01" min="0" placeholder="0,00" /></div><div class="field col-4"><label for="price1510">Tarif Alu 15/10 (€/m²)</label><input id="price1510" type="number" step="0.01" min="0" placeholder="0,00" /></div><div class="field col-12"><label for="clientNote">Mémo / remarque</label><textarea id="clientNote" placeholder="Ex. Tarif spécifique chantier, remise habituelle, conditions particulières..."></textarea></div></div>
+<div class="actions"><button class="btn-primary" id="saveClientBtn">Enregistrer / mettre à jour</button><button class="btn-danger" id="deleteClientBtn">Supprimer le client</button><button class="btn-light" id="newClientBtn">Nouveau client</button></div>
+<div class="note">Coûts internes inclus dans le calcul détaillé : <strong>1,70 € / pli</strong> · <strong>1,00 € / coupe</strong> · <strong>0,80 € / minute</strong>.</div><div id="status"></div></div></div></div>
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {})); }
+const STORAGE_KEY_CLIENTS="pliage_clients_v6", STORAGE_KEY_PIECES="pliage_pieces_v6", COST_PER_FOLD=1.70, COST_PER_CUT=1.00, COST_PER_MINUTE=0.80;
+const defaultClients=[{id:crypto.randomUUID(),name:"Client standard",prices:{"7/10":48,"10/10":59,"15/10":74},note:"Tarifs standards modifiables."}];
+let clients=loadClients(), pieces=loadPieces();
+const selectedClient=document.getElementById("selectedClient"), selectedThickness=document.getElementById("selectedThickness"), globalPriceDisplay=document.getElementById("globalPriceDisplay"), piecesEl=document.getElementById("pieces"), resultTableBody=document.getElementById("resultTableBody"), statusEl=document.getElementById("status"), clientName=document.getElementById("clientName"), price710=document.getElementById("price710"), price1010=document.getElementById("price1010"), price1510=document.getElementById("price1510"), clientNote=document.getElementById("clientNote");
+function fmtNumber(n,d=2){return Number(n||0).toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d})} function fmtArea(n){return fmtNumber(n,3)+" m²"} function fmtEuro(n){return fmtNumber(n,2)+" €"} function setStatus(msg,ok=true){statusEl.textContent=msg;statusEl.className=ok?"success-text":"danger-text";}
+function loadClients(){try{const raw=localStorage.getItem(STORAGE_KEY_CLIENTS); if(!raw) return structuredClone(defaultClients); const p=JSON.parse(raw); return Array.isArray(p)&&p.length?p:structuredClone(defaultClients)}catch{return structuredClone(defaultClients)}}
+function saveClients(){localStorage.setItem(STORAGE_KEY_CLIENTS,JSON.stringify(clients))}
+function loadPieces(){try{const raw=localStorage.getItem(STORAGE_KEY_PIECES); if(!raw) return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:0}]; const p=JSON.parse(raw); return Array.isArray(p)&&p.length?p:[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:0}]}catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:0}]}}
+function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
+function getCurrentClient(){return clients.find(c=>c.id===selectedClient.value)||clients[0]} function getCurrentPricePerM2(){const c=getCurrentClient(); return Number(c?.prices?.[selectedThickness.value]||0)}
+function renderClientSelect(){const previous=selectedClient.value; selectedClient.innerHTML=""; clients.forEach(c=>{const o=document.createElement("option"); o.value=c.id; o.textContent=c.name; selectedClient.appendChild(o)}); selectedClient.value=clients.some(c=>c.id===previous)?previous:(clients[0]?.id||""); renderClientForm(); updatePriceDisplay();}
+function renderClientForm(){const c=getCurrentClient(); if(!c)return; clientName.value=c.name||""; price710.value=c.prices?.["7/10"]??""; price1010.value=c.prices?.["10/10"]??""; price1510.value=c.prices?.["15/10"]??""; clientNote.value=c.note||""; document.getElementById("summaryClient").textContent=c.name||"—";}
+function updatePriceDisplay(){const p=getCurrentPricePerM2(); globalPriceDisplay.value=fmtNumber(p,2); document.getElementById("summaryThickness").textContent=selectedThickness.value||"—"; document.getElementById("summaryPricePerM2").textContent=fmtEuro(p)+"/m²"; recalcAll();}
+function createPieceRow(piece,index){const wrap=document.createElement("div"); wrap.className="piece"; wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools"><button class="btn-light small-btn" data-action="minus">−</button><button class="btn-light small-btn" data-action="plus">+</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div><div class="row"><div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div><div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div><div class="field col-2"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div><div class="field col-2"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div><div class="field col-2"><label>Nombre de coupes</label><input type="number" min="0" step="1" value="${piece.cuts??0}" data-field="cuts" placeholder="0"/></div><div class="field col-2"><label>Temps (min)</label><input type="number" min="0" step="1" value="${piece.time??0}" data-field="time" placeholder="0"/></div><div class="field col-2"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste??0}" data-field="waste" placeholder="0"/></div></div>`;
+wrap.querySelectorAll("input").forEach(input=>input.addEventListener("input",e=>{pieces[index][e.target.dataset.field]=e.target.value; savePieces(); recalcAll();}));
+wrap.querySelector('[data-action="plus"]').addEventListener("click",()=>{pieces[index].qty=Number(pieces[index].qty||1)+1; savePieces(); renderPieces();});
+wrap.querySelector('[data-action="minus"]').addEventListener("click",()=>{pieces[index].qty=Math.max(1,Number(pieces[index].qty||1)-1); savePieces(); renderPieces();});
+wrap.querySelector('[data-action="delete"]').addEventListener("click",()=>{pieces.splice(index,1); if(!pieces.length) pieces.push({id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:0}); savePieces(); renderPieces();});
+return wrap;}
+function renderPieces(){piecesEl.innerHTML=""; pieces.forEach((piece,index)=>piecesEl.appendChild(createPieceRow(piece,index))); recalcAll();}
+function recalcAll(){const pricePerM2=getCurrentPricePerM2(); let totalArea=0,totalAmount=0; resultTableBody.innerHTML=""; pieces.forEach((piece,index)=>{const developedMm=Number(piece.developed||0), lengthM=Number(piece.length||0), qty=Number(piece.qty||0), folds=Number(piece.folds||0), cuts=Number(piece.cuts||0), time=Number(piece.time||0), waste=Number(piece.waste||0); const surfaceBrute=(developedMm/1000)*lengthM*qty; const surfaceFacturee=surfaceBrute*(1+waste/100); const matiere=surfaceFacturee*pricePerM2; const foldsCost=folds*COST_PER_FOLD; const cutsCost=cuts*COST_PER_CUT; const timeCost=time*COST_PER_MINUTE; const totalLigne=matiere+foldsCost+cutsCost+timeCost; totalArea+=surfaceFacturee; totalAmount+=totalLigne; const tr=document.createElement("tr"); tr.innerHTML=`<td>${index+1}</td><td>${fmtNumber(developedMm,0)}</td><td>${fmtNumber(lengthM,2)}</td><td>${fmtNumber(qty,0)}</td><td>${fmtNumber(folds,0)}</td><td>${fmtNumber(cuts,0)}</td><td>${fmtNumber(time,0)}</td><td>${fmtNumber(waste,2)}</td><td>${fmtNumber(surfaceBrute,3)}</td><td>${fmtNumber(surfaceFacturee,3)}</td><td>${fmtEuro(matiere)}</td><td>${fmtEuro(foldsCost)}</td><td>${fmtEuro(cutsCost)}</td><td>${fmtEuro(timeCost)}</td><td>${fmtEuro(totalLigne)}</td>`; resultTableBody.appendChild(tr);}); document.getElementById("summaryArea").textContent=fmtArea(totalArea); document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount); document.getElementById("summaryLines").textContent=String(pieces.length);}
+function addPiece(data=null){pieces.push(data||{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:0}); savePieces(); renderPieces();}
+function duplicateLastPiece(){const last=pieces[pieces.length-1]; addPiece(last?{...last,id:crypto.randomUUID()}:null);}
+function saveOrUpdateClient(){const name=clientName.value.trim(); if(!name){setStatus("Le nom du client est obligatoire.",false); return;} const currentId=selectedClient.value; const existing=clients.find(c=>c.id===currentId); const payload={id:existing?.id||crypto.randomUUID(), name, prices:{"7/10":Number(price710.value||0),"10/10":Number(price1010.value||0),"15/10":Number(price1510.value||0)}, note:clientNote.value.trim()}; if(existing) Object.assign(existing,payload); else clients.push(payload); saveClients(); renderClientSelect(); selectedClient.value=payload.id; renderClientForm(); updatePriceDisplay(); setStatus("Client enregistré.");}
+function deleteCurrentClient(){if(clients.length===1){setStatus("Impossible de supprimer le dernier client.",false); return;} const current=getCurrentClient(); if(!current) return; if(!confirm(`Supprimer le client "${current.name}" ?`)) return; clients=clients.filter(c=>c.id!==current.id); saveClients(); renderClientSelect(); updatePriceDisplay(); setStatus("Client supprimé.");}
+function newClientForm(){selectedClient.value=""; clientName.value=""; price710.value=""; price1010.value=""; price1510.value=""; clientNote.value=""; setStatus("Formulaire prêt pour un nouveau client.");}
+function downloadJson(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);}
+function exportClients(){downloadJson({app:"Calcul pliage - clients",version:6,exportedAt:new Date().toISOString(),clients},"sauvegarde-clients-pliage.json"); setStatus("Sauvegarde clients créée.");}
+function exportFullBackup(){downloadJson({app:"Calcul pliage - sauvegarde complète",version:6,exportedAt:new Date().toISOString(),clients,pieces,selectedClientId:selectedClient.value,selectedThickness:selectedThickness.value},"sauvegarde-complete-pliage.json"); setStatus("Sauvegarde complète créée.");}
+function normalizeClients(input){const incoming=Array.isArray(input)?input:input?.clients; if(!Array.isArray(incoming)||!incoming.length) throw new Error("Aucun client trouvé dans la sauvegarde."); return incoming.map(c=>({id:c.id||crypto.randomUUID(),name:c.name||"Client sans nom",prices:{"7/10":Number(c.prices?.["7/10"]||0),"10/10":Number(c.prices?.["10/10"]||0),"15/10":Number(c.prices?.["15/10"]||0)},note:c.note||""}));}
+function importBackupFromText(text){const parsed=JSON.parse(text); clients=normalizeClients(parsed); if(Array.isArray(parsed.pieces)){pieces=parsed.pieces.map(p=>({id:p.id||crypto.randomUUID(),developed:p.developed??"",length:p.length??"",qty:p.qty??1,folds:p.folds??0,cuts:p.cuts??0,time:p.time??0,waste:p.waste??0})); if(!pieces.length) pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:0}]; savePieces();} saveClients(); renderClientSelect(); if(parsed.selectedClientId&&clients.some(c=>c.id===parsed.selectedClientId)) selectedClient.value=parsed.selectedClientId; if(parsed.selectedThickness&&["7/10","10/10","15/10"].includes(parsed.selectedThickness)) selectedThickness.value=parsed.selectedThickness; renderClientForm(); renderPieces(); updatePriceDisplay(); setStatus("Sauvegarde restaurée."); alert("Restauration terminée.");}
+document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece()); document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece); document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:0}]; savePieces(); renderPieces(); setStatus("Pièces réinitialisées.");}); document.getElementById("saveClientBtn").addEventListener("click",saveOrUpdateClient); document.getElementById("deleteClientBtn").addEventListener("click",deleteCurrentClient); document.getElementById("newClientBtn").addEventListener("click",newClientForm); selectedClient.addEventListener("change",()=>{renderClientForm(); updatePriceDisplay();}); selectedThickness.addEventListener("change",updatePriceDisplay); document.getElementById("printBtn").addEventListener("click",()=>window.print()); document.getElementById("exportJsonBtn").addEventListener("click",exportClients); document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup); document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");}); document.getElementById("importJsonFile").addEventListener("change",async e=>{const file=e.target.files?.[0]; if(!file) return; try{const text=await file.text(); importBackupFromText(text);}catch(err){console.error(err); setStatus("Import impossible : fichier JSON non valide ou non lisible.",false); alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l’application.");}finally{e.target.value="";}});
+renderClientSelect(); renderPieces(); updatePriceDisplay();
+</script></body></html>
