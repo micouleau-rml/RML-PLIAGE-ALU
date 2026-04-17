@@ -15,7 +15,7 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef3f8 0%,#f7f9fc 100%);color:var(--text);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);overflow-x:hidden}
 .container{width:100%;max-width:1120px;margin:0 auto;padding:16px}
-.hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;margin:0 auto 18px auto;text-align:center}
+.hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;margin:0 auto 18px auto;text-align:center;max-width:100%}
 .brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;width:100%;margin:0 auto}
 .brand .header-logo{height:95px;width:auto;max-width:100%;object-fit:contain;display:block}
 h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
@@ -23,8 +23,8 @@ h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
 .baseline{color:var(--muted);margin-top:10px;font-size:1rem}
 .install{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef5ff;color:#1f4ea8;font-size:.9rem;font-weight:700}
-.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.grid{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;width:100%}
 .section-title{margin:0 0 14px 0;font-size:1.08rem;font-weight:700}
 .row{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end}
 .field{display:flex;flex-direction:column;gap:6px}
@@ -43,16 +43,16 @@ button:active{transform:translateY(1px)}
 .piece{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fcfdff}
 .piece-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
 .piece-title{font-weight:800}.piece-tools{display:flex;gap:8px;align-items:center}.small-btn{min-width:42px;padding:10px 12px;border-radius:10px}
-.result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+.result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
 .result-box{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfe}
 .result-label{color:var(--muted);font-size:.86rem;font-weight:600;margin-bottom:6px}
 .result-value{font-size:1.45rem;font-weight:800;word-break:break-word}.result-value.small{font-size:1.1rem}
 .table-wrap{overflow-x:auto;overflow-y:hidden;border:1px solid var(--line);border-radius:14px;margin-top:12px}
-table{width:100%;border-collapse:collapse;min-width:100%;background:#fff}
+table{width:100%;border-collapse:collapse;min-width:1100px;background:#fff}
 th,td{border-bottom:1px solid var(--line);padding:11px 10px;text-align:left;font-size:.94rem}
 th{background:#f7faff;color:#425466;position:sticky;top:0;z-index:1}
 tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);margin-top:10px;line-height:1.45}.danger-text{color:var(--danger);font-weight:700}.success-text{color:var(--ok);font-weight:700}
-@media (max-width:960px){.grid{grid-template-columns:1fr}.hero{max-width:100%}}
+@media (max-width:1100px){.result-grid{grid-template-columns:repeat(2,minmax(0,1fr));}} @media (max-width:960px){.grid{grid-template-columns:1fr}.hero{max-width:100%}.result-grid{grid-template-columns:1fr}}
 @media (max-width:700px){.row{grid-template-columns:repeat(6,1fr)}.col-12,.col-6,.col-4,.col-3,.col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}.container{padding:14px}.card,.hero{padding:14px}.brand .header-logo{height:70px;width:auto}.install{justify-content:center}.piece-tools{width:100%;justify-content:flex-end}}
 </style>
 </head>
@@ -130,7 +130,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
       <div class="note"><strong>Formule matière :</strong> surface brute = (développé mm / 1000) × longueur m × quantité. Surface facturée = surface brute × (1 + chute %).</div>
     </div>
 
-    <div class="card">
+    <div class="card" id="resultats-card">
       <h2 class="section-title">2. Résultat du calcul</h2>
       <div class="result-grid">
         <div class="result-box"><div class="result-label">Client sélectionné</div><div class="result-value small" id="summaryClient">—</div></div>
@@ -280,13 +280,13 @@ function createPieceRow(piece,index){
   wrap.className="piece";
   wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools"><button class="btn-light small-btn" data-action="minus">−</button><button class="btn-light small-btn" data-action="plus">+</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
   <div class="row">
-    <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
-    <div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
-    <div class="field col-2"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div>
-    <div class="field col-2"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div>
-    <div class="field col-2"><label>Nombre de coupes</label><input type="number" min="0" step="1" value="${piece.cuts??0}" data-field="cuts" placeholder="0"/></div>
-    <div class="field col-2"><label>Temps (min)</label><input type="number" min="0" step="1" value="${piece.time??0}" data-field="time" placeholder="0"/></div>
-    <div class="field col-2"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste ?? ""}" data-field="waste" placeholder="défaut client"/></div>
+    <div class="field col-3"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
+    <div class="field col-3"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
+    <div class="field col-3"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div>
+    <div class="field col-3"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div>
+    <div class="field col-3"><label>Nombre de coupes</label><input type="number" min="0" step="1" value="${piece.cuts??0}" data-field="cuts" placeholder="0"/></div>
+    <div class="field col-3"><label>Temps (min)</label><input type="number" min="0" step="1" value="${piece.time??0}" data-field="time" placeholder="0"/></div>
+    <div class="field col-3"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste ?? ""}" data-field="waste" placeholder="défaut client"/></div>
   </div>`;
   wrap.querySelectorAll("input").forEach(input=>input.addEventListener("input",e=>{pieces[index][e.target.dataset.field]=e.target.value;savePieces();recalcAll();}));
   wrap.querySelector('[data-action="plus"]').addEventListener("click",()=>{pieces[index].qty=Number(pieces[index].qty||1)+1;savePieces();renderPieces();});
