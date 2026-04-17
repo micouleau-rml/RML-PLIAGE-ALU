@@ -15,7 +15,7 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef3f8 0%,#f7f9fc 100%);color:var(--text);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);overflow-x:hidden}
 .container{width:100%;max-width:1120px;margin:0 auto;padding:16px}
-.hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;margin:0 auto 18px auto;text-align:center;max-width:100%}
+.hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;margin:0 auto 18px auto;text-align:center}
 .brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;width:100%;margin:0 auto}
 .brand .header-logo{height:95px;width:auto;max-width:100%;object-fit:contain;display:block}
 h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
@@ -23,8 +23,8 @@ h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
 .baseline{color:var(--muted);margin-top:10px;font-size:1rem}
 .install{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef5ff;color:#1f4ea8;font-size:.9rem;font-weight:700}
-.grid{display:grid;grid-template-columns:1fr;gap:20px;align-items:start}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;width:100%}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
 .section-title{margin:0 0 14px 0;font-size:1.08rem;font-weight:700}
 .row{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end}
 .field{display:flex;flex-direction:column;gap:6px}
@@ -43,17 +43,25 @@ button:active{transform:translateY(1px)}
 .piece{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fcfdff}
 .piece-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
 .piece-title{font-weight:800}.piece-tools{display:flex;gap:8px;align-items:center}.small-btn{min-width:42px;padding:10px 12px;border-radius:10px}
-.result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:8px}
+.result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
 .result-box{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfe}
 .result-label{color:var(--muted);font-size:.86rem;font-weight:600;margin-bottom:6px}
 .result-value{font-size:1.45rem;font-weight:800;word-break:break-word}.result-value.small{font-size:1.1rem}
 .table-wrap{overflow-x:auto;overflow-y:hidden;border:1px solid var(--line);border-radius:14px;margin-top:12px}
-table{width:100%;border-collapse:collapse;min-width:1100px;background:#fff}
+table{width:100%;border-collapse:collapse;min-width:100%;background:#fff}
 th,td{border-bottom:1px solid var(--line);padding:11px 10px;text-align:left;font-size:.94rem}
 th{background:#f7faff;color:#425466;position:sticky;top:0;z-index:1}
 tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);margin-top:10px;line-height:1.45}.danger-text{color:var(--danger);font-weight:700}.success-text{color:var(--ok);font-weight:700}
-@media (max-width:1100px){.result-grid{grid-template-columns:repeat(2,minmax(0,1fr));}} @media (max-width:960px){.grid{grid-template-columns:1fr}.hero{max-width:100%}.result-grid{grid-template-columns:1fr}}
+@media (max-width:960px){.grid{grid-template-columns:1fr}.hero{max-width:100%}}
 @media (max-width:700px){.row{grid-template-columns:repeat(6,1fr)}.col-12,.col-6,.col-4,.col-3,.col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}.container{padding:14px}.card,.hero{padding:14px}.brand .header-logo{height:70px;width:auto}.install{justify-content:center}.piece-tools{width:100%;justify-content:flex-end}}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000}
+.modal-overlay.open{display:flex}
+.modal-card{background:#fff;width:min(980px,100%);max-height:90vh;overflow:auto;border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,.18);padding:20px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.modal-head h2{margin:0;font-size:1.2rem}
+.modal-close{background:#f3f5f7;color:#233241}
+@media (max-width:700px){.modal-card{padding:14px;max-height:92vh}}
 </style>
 </head>
 <body>
@@ -69,7 +77,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
     </div>
     <div class="install">
       <span class="pill">Calcul détaillé par ligne</span>
-      <button class="btn-secondary" id="installHelpBtn">Installer sur iPhone</button>
+      <button class="btn-secondary" id="installHelpBtn">Installer sur iPhone</button><button class="btn-light" id="openSettingsBtn">Réglages</button>
     </div>
   </div>
 
@@ -130,7 +138,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
       <div class="note"><strong>Formule matière :</strong> surface brute = (développé mm / 1000) × longueur m × quantité. Surface facturée = surface brute × (1 + chute %).</div>
     </div>
 
-    <div class="card" id="resultats-card">
+    <div class="card">
       <h2 class="section-title">2. Résultat du calcul</h2>
       <div class="result-grid">
         <div class="result-box"><div class="result-label">Client sélectionné</div><div class="result-value small" id="summaryClient">—</div></div>
@@ -155,27 +163,35 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
         <div class="note">Choisissez directement votre fichier JSON de sauvegarde.</div>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--line);margin:20px 0">
-      <h2 class="section-title">3. Mémo clients / tarifs modulables</h2>
-      <div class="row">
-        <div class="field col-12"><label for="clientName">Nom du client</label><input id="clientName" type="text" placeholder="Ex. Dupont Couverture" /></div>
-        <div class="field col-4"><label for="price710">Tarif Alu 7/10 (€/m²)</label><input id="price710" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-        <div class="field col-4"><label for="price1010">Tarif Alu 10/10 (€/m²)</label><input id="price1010" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-        <div class="field col-4"><label for="price1510">Tarif Alu 15/10 (€/m²)</label><input id="price1510" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-        <div class="field col-4"><label for="costFold">Tarif pli (€)</label><input id="costFold" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-        <div class="field col-4"><label for="costCut">Tarif coupe (€)</label><input id="costCut" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-        <div class="field col-4"><label for="hourlyRate">Tx horaire (€ / h)</label><input id="hourlyRate" type="number" step="0.01" min="0" placeholder="0,00" /></div>
-        <div class="field col-4"><label for="defaultWaste">Chute par défaut (%)</label><input id="defaultWaste" type="number" step="0.1" min="0" placeholder="0,0" /></div>
-        <div class="field col-12"><label for="clientNote">Mémo / remarque</label><textarea id="clientNote" placeholder="Ex. Tarif spécifique chantier, remise habituelle, conditions particulières..."></textarea></div>
-      </div>
-      <div class="actions">
-        <button class="btn-primary" id="saveClientBtn">Enregistrer / mettre à jour</button>
-        <button class="btn-danger" id="deleteClientBtn">Supprimer le client</button>
-        <button class="btn-light" id="newClientBtn">Nouveau client</button>
-      </div>
-      <div class="note">Les coûts de fabrication sont maintenant modulables <strong>par client</strong> : tarif pli, tarif coupe, taux horaire et chute par défaut.</div>
-      <div id="status"></div>
+      <div class="note" style="margin-top:18px">La gestion des clients et des tarifs se fait désormais dans <strong>Réglages</strong>.</div><div id="status"></div>
     </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Réglages clients et tarifs</h2>
+      <button class="modal-close" id="closeSettingsBtn">Fermer</button>
+    </div>
+    <div class="row">
+      <div class="field col-12"><label for="clientName">Nom du client</label><input id="clientName" type="text" placeholder="Ex. Dupont Couverture" /></div>
+      <div class="field col-4"><label for="price710">Tarif Alu 7/10 (€/m²)</label><input id="price710" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="price1010">Tarif Alu 10/10 (€/m²)</label><input id="price1010" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="price1510">Tarif Alu 15/10 (€/m²)</label><input id="price1510" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="costFold">Tarif pli (€)</label><input id="costFold" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="costCut">Tarif coupe (€)</label><input id="costCut" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="hourlyRate">Tx horaire (€ / h)</label><input id="hourlyRate" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="defaultWaste">Chute par défaut (%)</label><input id="defaultWaste" type="number" step="0.1" min="0" placeholder="0,0" /></div>
+      <div class="field col-12"><label for="clientNote">Mémo / remarque</label><textarea id="clientNote" placeholder="Ex. Tarif spécifique chantier, remise habituelle, conditions particulières..."></textarea></div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" id="saveClientBtn">Enregistrer / mettre à jour</button>
+      <button class="btn-danger" id="deleteClientBtn">Supprimer le client</button>
+      <button class="btn-light" id="newClientBtn">Nouveau client</button>
+    </div>
+    <div class="note">Les coûts de fabrication sont modulables par client : tarif pli, tarif coupe, taux horaire et chute par défaut.</div>
   </div>
 </div>
 
@@ -280,13 +296,13 @@ function createPieceRow(piece,index){
   wrap.className="piece";
   wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools"><button class="btn-light small-btn" data-action="minus">−</button><button class="btn-light small-btn" data-action="plus">+</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
   <div class="row">
-    <div class="field col-3"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
-    <div class="field col-3"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
-    <div class="field col-3"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div>
-    <div class="field col-3"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div>
-    <div class="field col-3"><label>Nombre de coupes</label><input type="number" min="0" step="1" value="${piece.cuts??0}" data-field="cuts" placeholder="0"/></div>
-    <div class="field col-3"><label>Temps (min)</label><input type="number" min="0" step="1" value="${piece.time??0}" data-field="time" placeholder="0"/></div>
-    <div class="field col-3"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste ?? ""}" data-field="waste" placeholder="défaut client"/></div>
+    <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
+    <div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
+    <div class="field col-2"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div>
+    <div class="field col-2"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div>
+    <div class="field col-2"><label>Nombre de coupes</label><input type="number" min="0" step="1" value="${piece.cuts??0}" data-field="cuts" placeholder="0"/></div>
+    <div class="field col-2"><label>Temps (min)</label><input type="number" min="0" step="1" value="${piece.time??0}" data-field="time" placeholder="0"/></div>
+    <div class="field col-2"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste ?? ""}" data-field="waste" placeholder="défaut client"/></div>
   </div>`;
   wrap.querySelectorAll("input").forEach(input=>input.addEventListener("input",e=>{pieces[index][e.target.dataset.field]=e.target.value;savePieces();recalcAll();}));
   wrap.querySelector('[data-action="plus"]').addEventListener("click",()=>{pieces[index].qty=Number(pieces[index].qty||1)+1;savePieces();renderPieces();});
@@ -386,7 +402,18 @@ document.getElementById("exportJsonBtn").addEventListener("click",exportClients)
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");});
 document.getElementById("importJsonFile").addEventListener("change",async e=>{const file=e.target.files?.[0]; if(!file) return; try{const text=await file.text(); importBackupFromText(text);}catch(err){console.error(err); setStatus("Import impossible : fichier JSON non valide ou non lisible.",false); alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l’application.");}finally{e.target.value="";}});
+
+const settingsModal=document.getElementById("settingsModal");
+const openSettingsBtn=document.getElementById("openSettingsBtn");
+const closeSettingsBtn=document.getElementById("closeSettingsBtn");
+function openSettings(){settingsModal.classList.add("open");}
+function closeSettings(){settingsModal.classList.remove("open");}
+openSettingsBtn.addEventListener("click",openSettings);
+closeSettingsBtn.addEventListener("click",closeSettings);
+settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
 renderClientSelect(); renderPieces(); updatePriceDisplay();
+
 </script>
 </body>
 </html>
