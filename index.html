@@ -176,6 +176,10 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
       <button class="modal-close" id="closeSettingsBtn">Fermer</button>
     </div>
     <div class="row">
+    <div class="field col-12">
+     <label for="settingsClientSelect">Choisir un client</label>
+     <select id="settingsClientSelect"></select>
+</div>      
       <div class="field col-12"><label for="clientName">Nom du client</label><input id="clientName" type="text" placeholder="Ex. Dupont Couverture" /></div>
       <div class="field col-4"><label for="price710">Tarif Alu 7/10 (€/m²)</label><input id="price710" type="number" step="0.01" min="0" placeholder="0,00" /></div>
       <div class="field col-4"><label for="price1010">Tarif Alu 10/10 (€/m²)</label><input id="price1010" type="number" step="0.01" min="0" placeholder="0,00" /></div>
@@ -213,6 +217,7 @@ let clients=loadClients();
 let pieces=loadPieces();
 
 const selectedClient=document.getElementById("selectedClient");
+const settingsClientSelect = document.getElementById("settingsClientSelect");
 const selectedThickness=document.getElementById("selectedThickness");
 const globalPriceDisplay=document.getElementById("globalPriceDisplay");
 const piecesEl=document.getElementById("pieces");
@@ -227,6 +232,31 @@ const costCut=document.getElementById("costCut");
 const hourlyRate=document.getElementById("hourlyRate");
 const defaultWaste=document.getElementById("defaultWaste");
 const clientNote=document.getElementById("clientNote");
+function renderSettingsClientSelect(){
+  settingsClientSelect.innerHTML = "";
+
+  clients.forEach(c => {
+    const option = document.createElement("option");
+    option.value = c.id;
+    option.textContent = c.name;
+    settingsClientSelect.appendChild(option);
+  });
+}
+
+function loadClientIntoForm(id){
+  const c = clients.find(cl => cl.id === id);
+  if(!c) return;
+
+  clientName.value = c.name || "";
+  price710.value = c.prices?.["7/10"] ?? "";
+  price1010.value = c.prices?.["10/10"] ?? "";
+  price1510.value = c.prices?.["15/10"] ?? "";
+  costFold.value = c.costs?.fold ?? "";
+  costCut.value = c.costs?.cut ?? "";
+  hourlyRate.value = c.costs?.hourly ?? "";
+  defaultWaste.value = c.costs?.defaultWaste ?? "";
+  clientNote.value = c.note || "";
+}
 
 function fmtNumber(n,d=2){return Number(n||0).toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d})}
 function fmtArea(n){return fmtNumber(n,3)+" m²"}
@@ -359,13 +389,25 @@ function saveOrUpdateClient(){
     note:clientNote.value.trim()
   });
   if(existing) Object.assign(existing,payload); else clients.push(payload);
-  saveClients(); renderClientSelect(); selectedClient.value=payload.id; renderClientForm(); updatePriceDisplay(); setStatus("Client enregistré.");
+saveClients();
+renderClientSelect();
+renderSettingsClientSelect();
+settingsClientSelect.value = payload.id;
+selectedClient.value = payload.id;
+renderClientForm();
+updatePriceDisplay();
+setStatus("Client enregistré.");
 }
 function deleteCurrentClient(){
   if(clients.length===1){setStatus("Impossible de supprimer le dernier client.",false);return;}
   const current=getCurrentClient(); if(!current) return;
   if(!confirm(`Supprimer le client "${current.name}" ?`)) return;
-  clients=clients.filter(c=>c.id!==current.id); saveClients(); renderClientSelect(); updatePriceDisplay(); setStatus("Client supprimé.");
+  clients = clients.filter(c => c.id !== current.id);
+saveClients();
+renderClientSelect();
+renderSettingsClientSelect();
+updatePriceDisplay();
+setStatus("Client supprimé.");
 }
 function newClientForm(){
   selectedClient.value=""; clientName.value=""; price710.value=""; price1010.value=""; price1510.value="";
@@ -406,14 +448,62 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{co
 const settingsModal=document.getElementById("settingsModal");
 const openSettingsBtn=document.getElementById("openSettingsBtn");
 const closeSettingsBtn=document.getElementById("closeSettingsBtn");
-function openSettings(){settingsModal.classList.add("open");}
-function closeSettings(){settingsModal.classList.remove("open");}
-openSettingsBtn.addEventListener("click",openSettings);
-closeSettingsBtn.addEventListener("click",closeSettings);
-settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
-document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
-renderClientSelect(); renderPieces(); updatePriceDisplay();
 
+function renderSettingsClientSelect(){
+  settingsClientSelect.innerHTML = "";
+
+  clients.forEach(c => {
+    const option = document.createElement("option");
+    option.value = c.id;
+    option.textContent = c.name;
+    settingsClientSelect.appendChild(option);
+  });
+}
+
+function loadClientIntoForm(id){
+  const c = clients.find(cl => cl.id === id);
+  if(!c) return;
+
+  clientName.value = c.name || "";
+  price710.value = c.prices?.["7/10"] ?? "";
+  price1010.value = c.prices?.["10/10"] ?? "";
+  price1510.value = c.prices?.["15/10"] ?? "";
+  costFold.value = c.costs?.fold ?? "";
+  costCut.value = c.costs?.cut ?? "";
+  hourlyRate.value = c.costs?.hourly ?? "";
+  defaultWaste.value = c.costs?.defaultWaste ?? "";
+  clientNote.value = c.note || "";
+}
+
+function openSettings(){
+  settingsModal.classList.add("open");
+  renderSettingsClientSelect();
+  settingsClientSelect.value = selectedClient.value;
+  loadClientIntoForm(settingsClientSelect.value);
+}
+
+function closeSettings(){
+  settingsModal.classList.remove("open");
+}
+
+openSettingsBtn.addEventListener("click", openSettings);
+closeSettingsBtn.addEventListener("click", closeSettings);
+
+settingsClientSelect.addEventListener("change", () => {
+  loadClientIntoForm(settingsClientSelect.value);
+});
+
+settingsModal.addEventListener("click", e => {
+  if(e.target === settingsModal) closeSettings();
+});
+
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape") closeSettings();
+});
+
+renderClientSelect();
+renderPieces();
+updatePriceDisplay();
 </script>
 </body>
 </html>
