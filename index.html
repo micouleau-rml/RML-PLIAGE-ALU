@@ -174,16 +174,9 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
     <div class="modal-head">
       <h2>Réglages clients et tarifs</h2>
       <button class="modal-close" id="closeSettingsBtn">Fermer</button>
-    <div class="row"> 
-      <div class="field col-12">
-  <label for="settingsClientSelect">Nom du client</label>
-  <select id="settingsClientSelect"></select>
-</div>
-
-<div class="field col-12">
-  <label for="clientName">Nouveau nom / renommer</label>
-  <input id="clientName" type="text" placeholder="À remplir uniquement pour créer ou renommer un client" />
-</div>
+    </div>
+    <div class="row">
+      <div class="field col-12"><label for="clientName">Nom du client</label><input id="clientName" type="text" placeholder="Ex. Dupont Couverture" /></div>
       <div class="field col-4"><label for="price710">Tarif Alu 7/10 (€/m²)</label><input id="price710" type="number" step="0.01" min="0" placeholder="0,00" /></div>
       <div class="field col-4"><label for="price1010">Tarif Alu 10/10 (€/m²)</label><input id="price1010" type="number" step="0.01" min="0" placeholder="0,00" /></div>
       <div class="field col-4"><label for="price1510">Tarif Alu 15/10 (€/m²)</label><input id="price1510" type="number" step="0.01" min="0" placeholder="0,00" /></div>
@@ -354,8 +347,7 @@ function recalcAll(){
 function addPiece(data=null){pieces.push(data||{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""});savePieces();renderPieces();}
 function duplicateLastPiece(){const last=pieces[pieces.length-1]; addPiece(last?{...last,id:crypto.randomUUID()}:null);}
 function saveOrUpdateClient(){
-  const selectedOption = settingsClientSelect.options[settingsClientSelect.selectedIndex];
-  const name = clientName.value.trim() || selectedOption.text;
+  const name=clientName.value.trim();
   if(!name){setStatus("Le nom du client est obligatoire.",false);return;}
   const currentId=selectedClient.value;
   const existing=clients.find(c=>c.id===currentId);
