@@ -353,7 +353,8 @@ function recalcAll(){
 function addPiece(data=null){pieces.push(data||{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""});savePieces();renderPieces();}
 function duplicateLastPiece(){const last=pieces[pieces.length-1]; addPiece(last?{...last,id:crypto.randomUUID()}:null);}
 function saveOrUpdateClient(){
-  const name=clientName.value.trim();
+  const selectedOption = settingsClientSelect.options[settingsClientSelect.selectedIndex];
+  const name = clientName.value.trim() || selectedOption.text;
   if(!name){setStatus("Le nom du client est obligatoire.",false);return;}
   const currentId=selectedClient.value;
   const existing=clients.find(c=>c.id===currentId);
