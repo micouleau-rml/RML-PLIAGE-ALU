@@ -62,6 +62,43 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
 .modal-head h2{margin:0;font-size:1.2rem}
 .modal-close{background:#f3f5f7;color:#233241}
 @media (max-width:700px){.modal-card{padding:14px;max-height:92vh}}
+
+/* ===== VERSION IPHONE / CHANTIER ===== */
+.mobile-total-bar{display:none}.mobile-lines{display:none}
+@media(max-width:760px){
+  body{padding-bottom:calc(88px + env(safe-area-inset-bottom));overflow-x:hidden}
+  .container{max-width:none;padding:10px}
+  .hero{padding:12px;margin-bottom:10px;border-radius:18px}
+  .brand .header-logo{height:54px}
+  h1{font-size:1.42rem}.subline{font-size:.78rem}.baseline{font-size:.74rem;line-height:1.25;max-width:330px;margin:4px auto 0}
+  .install{justify-content:center}.pill{display:none}
+  button{min-height:46px;border-radius:14px;touch-action:manipulation}
+  .grid{grid-template-columns:1fr;gap:10px}
+  .card{padding:12px;border-radius:18px}
+  .row{grid-template-columns:repeat(6,1fr);gap:9px}
+  .field input,.field select,.field textarea{font-size:16px;min-height:48px;border-radius:14px}
+  .card>.row>.col-6{grid-column:span 6}.card>.row>.col-3{grid-column:span 3}
+  .piece .col-2{grid-column:span 3}.piece .field:nth-last-child(1){grid-column:span 6}
+  .actions button{flex:1 1 auto}
+  .result-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .result-box{padding:10px}.result-value{font-size:1.12rem}
+  .table-wrap{display:none}
+  .mobile-lines{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+  .mobile-line-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:10px}
+  .mobile-line-head{display:flex;justify-content:space-between;font-weight:800;margin-bottom:8px}
+  .mobile-line-total{color:var(--accent)}
+  .mobile-line-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;font-size:.82rem}
+  .mobile-line-grid span:nth-child(odd){color:var(--muted);font-weight:700}
+  .modal-overlay{align-items:flex-end;padding:0}
+  .modal-card{width:100%;max-height:92vh;border-radius:22px 22px 0 0;padding:14px;padding-bottom:calc(18px + env(safe-area-inset-bottom))}
+  .modal-head{position:sticky;top:0;background:#fff;z-index:2}
+  .mobile-total-bar{position:fixed;left:10px;right:10px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:900;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#17202a;color:#fff;border-radius:18px;padding:12px 14px;box-shadow:0 14px 38px rgba(0,0,0,.28)}
+  .mobile-total-bar span{display:block;font-size:.74rem;color:#cbd5e1;font-weight:700}
+  .mobile-total-bar strong{font-size:1.22rem}
+  .mobile-total-bar button{background:#fff;color:#0f62fe;min-height:42px}
+}
+@media(max-width:380px){.piece .col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -135,6 +172,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
           <tbody id="resultTableBody"></tbody>
         </table>
       </div>
+      <div id="mobileResultCards" class="mobile-lines"></div>
       <div class="note"><strong>Formule matière :</strong> surface brute = (développé mm / 1000) × longueur m × quantité. Surface facturée = surface brute × (1 + chute %).</div>
     </div>
 
@@ -168,6 +206,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
   </div>
 </div>
 
+<div class="mobile-total-bar" id="mobileTotalBar"><div><span>Total à facturer</span><strong id="mobileTotalAmount">0,00 €</strong></div><button id="mobileAddPieceBtn" type="button">+ Pièce</button></div>
 
 <div class="modal-overlay" id="settingsModal">
   <div class="modal-card">
@@ -217,6 +256,8 @@ const selectedThickness=document.getElementById("selectedThickness");
 const globalPriceDisplay=document.getElementById("globalPriceDisplay");
 const piecesEl=document.getElementById("pieces");
 const resultTableBody=document.getElementById("resultTableBody");
+const mobileResultCards=document.getElementById("mobileResultCards");
+const mobileTotalAmount=document.getElementById("mobileTotalAmount");
 const statusEl=document.getElementById("status");
 const clientName=document.getElementById("clientName");
 const price710=document.getElementById("price710");
@@ -316,10 +357,10 @@ function recalcAll(){
   const client=getCurrentClient();
   const foldUnit=Number(client?.costs?.fold||0);
   const cutUnit=Number(client?.costs?.cut||0);
-  const hourly=Number(client?.costs?.hourly||0);
-  const minuteUnit=hourly/60;
+  const minuteUnit=Number(client?.costs?.hourly||0)/60;
   let totalArea=0,totalAmount=0;
   resultTableBody.innerHTML="";
+  if(mobileResultCards) mobileResultCards.innerHTML="";
   pieces.forEach((piece,index)=>{
     const developedMm=Number(piece.developed||0);
     const lengthM=Number(piece.length||0);
@@ -339,10 +380,17 @@ function recalcAll(){
     const tr=document.createElement("tr");
     tr.innerHTML=`<td>${index+1}</td><td>${fmtNumber(developedMm,0)}</td><td>${fmtNumber(lengthM,2)}</td><td>${fmtNumber(qty,0)}</td><td>${fmtNumber(folds,0)}</td><td>${fmtNumber(cuts,0)}</td><td>${fmtNumber(time,0)}</td><td>${fmtNumber(waste,2)}</td><td>${fmtNumber(surfaceBrute,3)}</td><td>${fmtNumber(surfaceFacturee,3)}</td><td>${fmtEuro(matiere)}</td><td>${fmtEuro(foldsCost)}</td><td>${fmtEuro(cutsCost)}</td><td>${fmtEuro(timeCost)}</td><td>${fmtEuro(totalLigne)}</td>`;
     resultTableBody.appendChild(tr);
+    if(mobileResultCards){
+      const card=document.createElement("div");
+      card.className="mobile-line-card";
+      card.innerHTML=`<div class="mobile-line-head"><div>Ligne ${index+1}</div><div class="mobile-line-total">${fmtEuro(totalLigne)}</div></div><div class="mobile-line-grid"><span>Développé</span><strong>${fmtNumber(developedMm,0)} mm</strong><span>Longueur</span><strong>${fmtNumber(lengthM,2)} m</strong><span>Quantité</span><strong>${fmtNumber(qty,0)}</strong><span>Plis / coupes</span><strong>${fmtNumber(folds,0)} / ${fmtNumber(cuts,0)}</strong><span>Temps</span><strong>${fmtNumber(time,0)} min</strong><span>Surface facturée</span><strong>${fmtNumber(surfaceFacturee,3)} m²</strong></div>`;
+      mobileResultCards.appendChild(card);
+    }
   });
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
   document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount);
   document.getElementById("summaryLines").textContent=String(pieces.length);
+  if(mobileTotalAmount) mobileTotalAmount.textContent=fmtEuro(totalAmount);
 }
 function addPiece(data=null){pieces.push(data||{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""});savePieces();renderPieces();}
 function duplicateLastPiece(){const last=pieces[pieces.length-1]; addPiece(last?{...last,id:crypto.randomUUID()}:null);}
@@ -390,6 +438,7 @@ function importBackupFromText(text){
   renderClientForm(); renderPieces(); updatePriceDisplay(); setStatus("Sauvegarde restaurée."); alert("Restauration terminée.");
 }
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
+const mobileAddPieceBtn=document.getElementById("mobileAddPieceBtn"); if(mobileAddPieceBtn){mobileAddPieceBtn.addEventListener("click",()=>addPiece());}
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
 document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];savePieces();renderPieces();setStatus("Pièces réinitialisées.");});
 document.getElementById("saveClientBtn").addEventListener("click",saveOrUpdateClient);
