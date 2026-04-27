@@ -447,8 +447,8 @@ function recalcAll(){
     const surfaceBrute=(developedMm/1000)*lengthM*qty;
     const surfaceFacturee=surfaceBrute*(1+waste/100);
     const matiere=surfaceFacturee*pricePerM2;
-    const foldsCost=folds*foldUnit;
-    const cutsCost=cuts*cutUnit;
+    const foldsCost=folds*qty*foldUnit;
+    const cutsCost=cuts*qty*cutUnit;
     const timeCost=time*minuteUnit;
     const totalLigne=matiere+foldsCost+cutsCost+timeCost;
     totalArea+=surfaceFacturee; totalAmount+=totalLigne;
