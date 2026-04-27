@@ -1,8 +1,8 @@
 {
   "name": "RML PLIAGE ALU",
   "short_name": "RML Pliage",
-  "description": "Application de calcul de pliage aluminium avec tarifs clients par épaisseur.",
-  "start_url": "./index.html",
+  "description": "Application iPhone de calcul pliage aluminium RML",
+  "start_url": "./index.html?v=final4",
   "scope": "./",
   "display": "standalone",
   "background_color": "#eef3f8",

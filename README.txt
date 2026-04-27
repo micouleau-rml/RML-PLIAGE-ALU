@@ -1,2 +1,1 @@
-Version iPhone / chantier RML PLIAGE ALU.
-Remplacer les fichiers du dépôt GitHub par ceux-ci.
+Version iPhone finale : header pleine largeur, logo centré, bouton Réglages visible.
