@@ -453,7 +453,7 @@ function recalcAll(){
     const totalLigne=matiere+foldsCost+cutsCost+timeCost;
     totalArea+=surfaceFacturee; totalAmount+=totalLigne;
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${index+1}</td><td>${fmtNumber(developedMm,0)}</td><td>${fmtNumber(lengthM,2)}</td><td>${fmtNumber(qty,0)}</td><td>${fmtNumber(folds,0)}</td><td>${fmtNumber(cuts,0)}</td><td>${fmtNumber(time,0)}</td><td>${fmtNumber(waste,2)}</td><td>${fmtNumber(surfaceBrute,3)}</td><td>${fmtNumber(surfaceFacturee,3)}</td><td>${fmtEuro(matiere)}</td><td>${fmtEuro(foldsCost)}</td><td>${fmtEuro(cutsCost)}</td><td>${fmtEuro(timeCost)}</td><td>${fmtEuro(totalLigne)}</td>`;
+    tr.innerHTML=`<td>${index+1}</td><td>${fmtNumber(developedMm,0)}</td><td>${fmtNumber(lengthM,2)}</td><td>${fmtNumber(qty,0)}</td><td>${fmtNumber(folds*qty,0)}</td><td>${fmtNumber(cuts*qty,0)}</td><td>${fmtNumber(time,0)}</td><td>${fmtNumber(waste,2)}</td><td>${fmtNumber(surfaceBrute,3)}</td><td>${fmtNumber(surfaceFacturee,3)}</td><td>${fmtEuro(matiere)}</td><td>${fmtEuro(foldsCost)}</td><td>${fmtEuro(cutsCost)}</td><td>${fmtEuro(timeCost)}</td><td>${fmtEuro(totalLigne)}</td>`;
     resultTableBody.appendChild(tr);
   });
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
