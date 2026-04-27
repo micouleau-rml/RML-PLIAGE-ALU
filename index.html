@@ -86,6 +86,70 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 }
 @media (max-width:380px){h1{font-size:1.18rem}.piece .col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}}
 
+@media(max-width:760px){
+  *{
+    max-width:100%;
+  }
+
+  html, body{
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden!important;
+  }
+
+  .container,
+  .hero,
+  .grid,
+  .card,
+  .piece,
+  .row{
+    width:100%!important;
+    max-width:100%!important;
+    margin-left:0!important;
+    margin-right:0!important;
+  }
+
+  .container{
+    padding-left:8px!important;
+    padding-right:8px!important;
+  }
+
+  .card,
+  .hero{
+    box-sizing:border-box;
+  }
+
+  .row{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+
+  .field,
+  .field input,
+  .field select,
+  .field textarea{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+
+  .piece .row{
+    grid-template-columns:1fr!important;
+  }
+
+  .piece-tools{
+    max-width:none!important;
+  }
+
+  .actions{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+
+  .actions button{
+    width:100%!important;
+  }
+}
 </style> 
 </head>
 <body>
