@@ -87,41 +87,36 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 @media (max-width:380px){h1{font-size:1.18rem}.piece .col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}}
 
 @media(max-width:760px){
-  *{
-    max-width:100%;
-  }
-
-  html, body{
-    width:100%;
-    max-width:100%;
+  html,
+  body{
+    width:100vw!important;
+    max-width:100vw!important;
     overflow-x:hidden!important;
   }
 
-  .container,
+  .container{
+    width:100vw!important;
+    max-width:100vw!important;
+    padding:8px!important;
+    margin:0!important;
+    overflow:hidden!important;
+  }
+
   .hero,
+  .card{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    margin-left:0!important;
+    margin-right:0!important;
+    overflow:hidden!important;
+  }
+
   .grid,
-  .card,
   .piece,
   .row{
     width:100%!important;
     max-width:100%!important;
-    margin-left:0!important;
-    margin-right:0!important;
-  }
-
-  .container{
-    padding-left:8px!important;
-    padding-right:8px!important;
-  }
-
-  .card,
-  .hero{
-    box-sizing:border-box;
-  }
-
-  .row{
-    display:grid!important;
-    grid-template-columns:1fr!important;
+    overflow:hidden!important;
   }
 
   .field,
@@ -133,21 +128,31 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     min-width:0!important;
   }
 
-  .piece .row{
-    grid-template-columns:1fr!important;
-  }
-
-  .piece-tools{
-    max-width:none!important;
-  }
-
   .actions{
     display:grid!important;
     grid-template-columns:1fr!important;
+    gap:8px!important;
+    width:100%!important;
   }
 
   .actions button{
     width:100%!important;
+    max-width:100%!important;
+    white-space:normal!important;
+    overflow:visible!important;
+    text-align:center!important;
+  }
+
+  .btn-primary{
+    color:#fff!important;
+  }
+
+  .btn-light{
+    color:#233241!important;
+  }
+
+  .btn-danger{
+    color:#c62828!important;
   }
 }
 </style> 
