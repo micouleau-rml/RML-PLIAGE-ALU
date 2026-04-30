@@ -398,6 +398,7 @@ function getCurrentPricePerM2(){const c=getCurrentClient();return Number(c?.pric
 function renderClientSelect(){
   const previous=selectedClient.value;
   selectedClient.innerHTML="";
+  if(settingsClientSelect) settingsClientSelect.innerHTML="";  
   clients.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.name;selectedClient.appendChild(o);});
   selectedClient.value=clients.some(c=>c.id===previous)?previous:(clients[0]?.id||"");
   renderClientForm(); updatePriceDisplay();
