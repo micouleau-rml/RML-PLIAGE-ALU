@@ -729,6 +729,7 @@ document.getElementById("newClientBtn").addEventListener("click",newClientForm);
 selectedClient.addEventListener("change",()=>{renderClientForm(); updatePriceDisplay();});
 selectedThickness.addEventListener("change",updatePriceDisplay);
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
+document.getElementById("pdfBtn").addEventListener("click",generatePDF);
 document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
