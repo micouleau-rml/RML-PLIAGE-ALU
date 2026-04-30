@@ -503,6 +503,31 @@ function newClientForm(){
 function downloadJson(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);}
 function exportClients(){downloadJson({app:"Calcul pliage - clients",version:7,exportedAt:new Date().toISOString(),clients},"sauvegarde-clients-pliage.json"); setStatus("Sauvegarde clients créée.");}
 function exportFullBackup(){downloadJson({app:"Calcul pliage - sauvegarde complète",version:7,exportedAt:new Date().toISOString(),clients,pieces,selectedClientId:selectedClient.value,selectedThickness:selectedThickness.value},"sauvegarde-complete-pliage.json"); setStatus("Sauvegarde complète créée.");}
+function exportProjectBackup(){
+  const client=getCurrentClient();
+  const project=(projectName?.value || "projet-sans-nom").trim();
+
+  const backup={
+    app:"RML Pliage - sauvegarde projet",
+    version:8,
+    exportedAt:new Date().toISOString(),
+    projectName:project,
+    client,
+    selectedClientId:selectedClient.value,
+    selectedThickness:selectedThickness.value,
+    pieces
+  };
+
+  const safeClient=(client?.name || "client").replace(/[^a-z0-9]/gi,"-").toLowerCase();
+  const safeProject=project.replace(/[^a-z0-9]/gi,"-").toLowerCase();
+
+  downloadJson(
+    backup,
+    `sauvegarde-${safeClient}-${safeProject}.json`
+  );
+
+  setStatus("Sauvegarde projet créée.");
+}
 function normalizeClients(input){const incoming=Array.isArray(input)?input:input?.clients; if(!Array.isArray(incoming)||!incoming.length) throw new Error("Aucun client trouvé dans la sauvegarde."); return incoming.map(normalizeClient);}
 function importBackupFromText(text){
   const parsed=JSON.parse(text);
