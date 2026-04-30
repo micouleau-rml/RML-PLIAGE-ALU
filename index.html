@@ -249,7 +249,9 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     </div>
     <div class="install">
       <span class="pill">Calcul détaillé par ligne</span>
-      <button class="btn-secondary" id="installHelpBtn">Installer sur iPhone</button><button class="btn-primary" id="openSettingsBtn">Réglages</button>
+      <button class="btn-secondary" id="installHelpBtn">Installer sur iPhone</button>
+<button class="btn-primary" id="openSettingsBtn">Réglages</button>
+<button class="btn-secondary" id="pdfBtn">Créer PDF commande</button>
     </div>
   </div>
 
@@ -623,6 +625,101 @@ function importBackupFromText(text){
   if(parsed.selectedThickness&&["7/10","10/10","15/10"].includes(parsed.selectedThickness)) selectedThickness.value=parsed.selectedThickness;
   renderClientForm(); renderPieces(); updatePriceDisplay(); setStatus("Sauvegarde restaurée."); alert("Restauration terminée.");
 }
+function generatePDF(){
+  const client=getCurrentClient();
+  const project=(projectName?.value || "Projet sans nom").trim();
+  const today=new Date().toLocaleDateString("fr-FR");
+
+  let rows="";
+  let total=0;
+
+  [...pieces].forEach((piece,i)=>{
+    const developedMm=Number(piece.developed||0);
+    const lengthM=Number(piece.length||0);
+    const qty=Number(piece.qty||0);
+    const folds=Number(piece.folds||0);
+    const cuts=Number(piece.cuts||0);
+    const time=Number(piece.time||0);
+
+    const waste=(piece.waste===undefined || piece.waste==="")
+      ? Number(client?.costs?.defaultWaste||0)
+      : Number(piece.waste||0);
+
+    const surfaceBrute=(developedMm/1000)*lengthM*qty;
+    const surfaceFacturee=surfaceBrute*(1+waste/100);
+
+    const matiere=surfaceFacturee*getCurrentPricePerM2();
+    const foldsCost=folds*qty*Number(client?.costs?.fold||0);
+    const cutsCost=cuts*qty*Number(client?.costs?.cut||0);
+    const timeCost=(time*qty)*(Number(client?.costs?.hourly||0)/60);
+
+    const lineTotal=matiere+foldsCost+cutsCost+timeCost;
+    total+=lineTotal;
+
+    rows+=`
+      <tr>
+        <td>${i+1}</td>
+        <td>${developedMm}</td>
+        <td>${lengthM.toFixed(2)}</td>
+        <td>${qty}</td>
+        <td>${folds}</td>
+        <td>${cuts}</td>
+        <td>${fmtEuro(lineTotal)}</td>
+      </tr>
+    `;
+  });
+
+  let zone=document.getElementById("pdfPrintZone");
+
+  if(!zone){
+    zone=document.createElement("div");
+    zone.id="pdfPrintZone";
+    document.body.appendChild(zone);
+  }
+
+  zone.innerHTML=`
+    <div class="pdf-sheet">
+      <div class="pdf-head">
+        <div>
+          <img src="header-logo.png" class="pdf-logo">
+        </div>
+        <div style="text-align:right">
+          <div class="pdf-title">BON DE COMMANDE PLIAGE</div>
+          <div>${today}</div>
+        </div>
+      </div>
+
+      <div class="pdf-meta">
+        <strong>Client :</strong> ${client?.name || "-"}<br>
+        <strong>Projet :</strong> ${project}<br>
+        <strong>Épaisseur :</strong> ${selectedThickness.value}
+      </div>
+
+      <table class="pdf-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Dév.</th>
+            <th>Long.</th>
+            <th>Qté</th>
+            <th>Plis</th>
+            <th>Coupes</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+
+      <div class="pdf-total">
+        TOTAL COMMANDE : ${fmtEuro(total)}
+      </div>
+    </div>
+  `;
+
+  window.print();
+}  
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
 document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];savePieces();renderPieces();setStatus("Pièces réinitialisées.");});
