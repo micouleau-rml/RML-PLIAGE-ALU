@@ -528,6 +528,7 @@ selectedThickness.addEventListener("change",updatePriceDisplay);
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
 document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
+document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
 document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");});
 document.getElementById("importJsonFile").addEventListener("change",async e=>{const file=e.target.files?.[0]; if(!file) return; try{const text=await file.text(); importBackupFromText(text);}catch(err){console.error(err); setStatus("Import impossible : fichier JSON non valide ou non lisible.",false); alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l’application.");}finally{e.target.value="";}});
 
