@@ -399,7 +399,19 @@ function renderClientSelect(){
   const previous=selectedClient.value;
   selectedClient.innerHTML="";
   if(settingsClientSelect) settingsClientSelect.innerHTML="";  
-  clients.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.name;selectedClient.appendChild(o);});
+  clients.forEach(c=>{
+  const o=document.createElement("option");
+  o.value=c.id;
+  o.textContent=c.name;
+  selectedClient.appendChild(o);
+
+  if(settingsClientSelect){
+    const s=document.createElement("option");
+    s.value=c.id;
+    s.textContent=c.name;
+    settingsClientSelect.appendChild(s);
+  }
+});
   selectedClient.value=clients.some(c=>c.id===previous)?previous:(clients[0]?.id||"");
   renderClientForm(); updatePriceDisplay();
 }
