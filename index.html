@@ -417,6 +417,7 @@ function renderClientSelect(){
 }
 function renderClientForm(){
   const c=getCurrentClient(); if(!c)return;
+  if(settingsClientSelect) settingsClientSelect.value=c.id;  
   clientName.value=c.name||"";
   price710.value=c.prices?.["7/10"]??"";
   price1010.value=c.prices?.["10/10"]??"";
@@ -583,6 +584,13 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{co
 const settingsModal=document.getElementById("settingsModal");
 const openSettingsBtn=document.getElementById("openSettingsBtn");
 const closeSettingsBtn=document.getElementById("closeSettingsBtn");
+  if(settingsClientSelect){
+  settingsClientSelect.addEventListener("change",()=>{
+    selectedClient.value=settingsClientSelect.value;
+    renderClientForm();
+    updatePriceDisplay();
+  });
+}
 const mobileSettingsBtn=document.getElementById("mobileSettingsBtn");
 function openSettings(){settingsModal.classList.add("open");}
 function closeSettings(){settingsModal.classList.remove("open");}
