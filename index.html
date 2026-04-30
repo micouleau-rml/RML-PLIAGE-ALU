@@ -426,7 +426,14 @@ function createPieceRow(piece,index){
   wrap.querySelector('[data-action="delete"]').addEventListener("click",()=>{pieces.splice(index,1); if(!pieces.length) pieces.push({id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}); savePieces(); renderPieces();});
   return wrap;
 }
-function renderPieces(){piecesEl.innerHTML=""; pieces.forEach((piece,index)=>piecesEl.appendChild(createPieceRow(piece,index))); recalcAll();}
+function renderPieces(){
+  piecesEl.innerHTML="";
+  [...pieces].reverse().forEach((piece,index)=>{
+    const realIndex = pieces.length - 1 - index;
+    piecesEl.appendChild(createPieceRow(piece,realIndex));
+  });
+  recalcAll();
+}
 function recalcAll(){
   const pricePerM2=getCurrentPricePerM2();
   const client=getCurrentClient();
@@ -436,7 +443,7 @@ function recalcAll(){
   const minuteUnit=hourly/60;
   let totalArea=0,totalAmount=0;
   resultTableBody.innerHTML="";
-  pieces.forEach((piece,index)=>{
+  [...pieces].reverse().forEach((piece,index)=>{
     const developedMm=Number(piece.developed||0);
     const lengthM=Number(piece.length||0);
     const qty=Number(piece.qty||0);
