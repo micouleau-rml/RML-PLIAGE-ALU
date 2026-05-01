@@ -790,6 +790,8 @@ function generatePdfDocument(type){
   const today=new Date().toLocaleDateString("fr-FR");
 
   const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
+  const sheetArea=((sheetW*sheetL)/1000000).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2});
+
   let rows="";
   let drawings="";
 
@@ -800,25 +802,15 @@ function generatePdfDocument(type){
 
     if(!dev || !long || !qty) return;
 
-    const aCols=Math.floor(sheetW/dev);
-    const aRows=Math.floor(sheetL/long);
-    const aPerSheet=aCols*aRows;
+    // Sens A : pièce horizontale, longueur sur longueur feuille
+    const piecesParColonne=Math.floor(sheetW/dev);
+    const piecesParLongueur=Math.floor(sheetL/long);
+    const perSheet=piecesParColonne*piecesParLongueur;
 
-    const bCols=Math.floor(sheetW/long);
-    const bRows=Math.floor(sheetL/dev);
-    const bPerSheet=bCols*bRows;
-
-    const useA=aPerSheet>=bPerSheet;
-    const perSheet=Math.max(aPerSheet,bPerSheet);
     const sheets=perSheet>0 ? Math.ceil(qty/perSheet) : 0;
 
-    const cols=useA?aRows:bRows;
-    const rowsCount=useA?aCols:bCols;
-    const partW=useA?long:dev;
-    const partH=useA?dev:long;
-
-    const chuteW=sheetW-(cols*partW);
-    const chuteL=sheetL-(rowsCount*partH);
+    const chuteLargeur=sheetW-(piecesParColonne*dev);
+    const chuteLongueur=sheetL-(piecesParLongueur*long);
 
     rows+=`
       <tr>
@@ -826,11 +818,11 @@ function generatePdfDocument(type){
         <td>${dev}</td>
         <td>${long}</td>
         <td>${qty}</td>
-        <td>${useA?"A":"B"}</td>
+        <td>A</td>
         <td>${perSheet}</td>
         <td>${sheets}</td>
-        <td>${Math.max(0,chuteW)} x 3000</td>
-        <td>${Math.max(0,chuteL)}</td>
+        <td>${Math.max(0,chuteLargeur)} x ${sheetL}</td>
+        <td>${sheetW} x ${Math.max(0,chuteLongueur)}</td>
       </tr>
     `;
 
@@ -839,48 +831,48 @@ function generatePdfDocument(type){
     const svgH=sheetW*scale;
 
     let rects="";
-    for(let r=0;r<rowsCount;r++){
-    for(let c=0;c<cols;c++){
-    rects += `
-    <rect x="${r*partW*scale}" 
-          y="${c*partH*scale}"
-          width="${partW*scale}" 
-          height="${partH*scale}"
-          fill="#eaf3ea" 
-          stroke="#111"/>
-    <text x="${r*partW*scale+8}" 
-          y="${c*partH*scale+24}" 
-          font-size="14">
-      ${Math.round(partH)} x ${Math.round(partW)}
-    </text>
-    `;
-  }
-}
 
-if(chuteW>0){
-  rects += `
-  <rect x="${cols*partH*scale}" 
-        y="0"
-        width="${chuteW*scale}" 
-        height="${sheetL*scale}"
-        fill="#fff3f3" 
-        stroke="red" 
-        stroke-dasharray="6,4"/>
-  <text x="${cols*partH*scale+8}" 
-        y="30" 
-        font-size="16" 
-        fill="red">
-    CHUTE RESTANTE : ${Math.round(chuteW)} mm x ${sheetL} mm
-    </text>
-  `;
-}
+    // Pièces vertes
+    for(let y=0;y<piecesParColonne;y++){
+      for(let x=0;x<piecesParLongueur;x++){
+        rects+=`
+          <rect x="${x*long*scale}" y="${y*dev*scale}" width="${long*scale}" height="${dev*scale}" fill="#eaf3ea" stroke="#111"/>
+          <text x="${x*long*scale+10}" y="${y*dev*scale+24}" font-size="14">
+            ${dev} x ${long}
+          </text>
+        `;
+      }
+    }
+
+    // Chute largeur blanche sur toute la longueur
+    if(chuteLargeur>0){
+      rects+=`
+        <rect x="0" y="${piecesParColonne*dev*scale}" width="${sheetL*scale}" height="${chuteLargeur*scale}" fill="#ffffff" stroke="#111" stroke-dasharray="6,4"/>
+        <text x="10" y="${piecesParColonne*dev*scale+24}" font-size="14">
+          Chute ${chuteLargeur} x ${sheetL}
+        </text>
+      `;
+    }
+
+    // Chute longueur blanche en bout de feuille
+    if(chuteLongueur>0){
+      rects+=`
+        <rect x="${piecesParLongueur*long*scale}" y="0" width="${chuteLongueur*scale}" height="${sheetW*scale}" fill="#ffffff" stroke="#111" stroke-dasharray="6,4"/>
+        <text x="${piecesParLongueur*long*scale+10}" y="24" font-size="14">
+          Chute ${sheetW} x ${chuteLongueur}
+        </text>
+      `;
+    }
 
     drawings+=`
       <div class="drawing-block">
-        <h3>Pièce ${i+1} — Sens ${useA?"A":"B"} optimal</h3>
+        <h3>Pièce ${i+1} — Calpinage feuille ${sheetW} x ${sheetL}</h3>
         <p>
-          Développé : <strong>${dev} mm</strong> — Longueur : <strong>${long} mm</strong> — Quantité : <strong>${qty}</strong><br>
-          Pièces par feuille : <strong>${perSheet}</strong> — Feuilles nécessaires : <strong>${sheets}</strong>
+          Développé : <strong>${dev} mm</strong> —
+          Longueur : <strong>${long} mm</strong> —
+          Quantité : <strong>${qty}</strong><br>
+          Pièces par feuille : <strong>${perSheet}</strong> —
+          Feuilles nécessaires : <strong>${sheets}</strong>
         </p>
 
         <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
@@ -920,7 +912,7 @@ if(chuteW>0){
 <body>
 <div class="sheet">
   <h1>FEUILLE DE CALPINAGE ATELIER</h1>
-  <h2>Débit matière — optimisation sur feuille 1500 x 3000 mm</h2>
+  <h2>Débit matière — optimisation sur feuille ${sheetW} x ${sheetL} mm</h2>
 
   <div class="top">
     <div class="box">
@@ -930,8 +922,8 @@ if(chuteW>0){
     </div>
     <div class="box">
       <strong>Date :</strong> ${today}<br>
-      <strong>Feuille :</strong> 1500 x 3000 mm<br>
-      <strong>Surface feuille :</strong> 4,50 m²
+      <strong>Feuille :</strong> ${sheetW} x ${sheetL} mm<br>
+      <strong>Surface feuille :</strong> ${sheetArea} m²
     </div>
   </div>
 
