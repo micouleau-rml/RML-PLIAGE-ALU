@@ -836,8 +836,10 @@ function generatePdfDocument(type){
     for(let r=0;r<rowsCount;r++){
       for(let c=0;c<cols;c++){
         rects+=`
-          <rect x="${c*partW*scale}" y="${r*partH*scale}" width="${partW*scale}" height="${partH*scale}" fill="#eaf3ea" stroke="#111"/>
-          <text x="${c*partW*scale+8}" y="${r*partH*scale+24}" font-size="14">${Math.round(partW)} x ${Math.round(partH)}</text>
+        <rect x="${c*partW*scale}" y="${r*partH*scale}" width="${partW*scale}" height="${partH*scale}" fill="#eaf3ea" stroke="#111"/>
+        <text transform="translate(${c*partW*scale+12},${r*partH*scale+30}) rotate(0)" font-size="14">
+          ${Math.round(partH)} x ${Math.round(partW)}
+       </text>
         `;
       }
     }
