@@ -781,8 +781,9 @@ function generatePdfDocument(type){
   const project=(projectName?.value || "Projet sans nom").trim();
   const today=new Date().toLocaleDateString("fr-FR");
 
-  const sheetW=1500;
-  const sheetL=3000;
+  const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000")
+  .split("x")
+  .map(Number);
 
   let rows="";
   let drawings="";
@@ -823,7 +824,7 @@ function generatePdfDocument(type){
         <td>${useA?"A":"B"}</td>
         <td>${perSheet}</td>
         <td>${sheets}</td>
-        <td>${Math.max(0,chuteW)}</td>
+        <td>${Math.max(0,chuteW)} x 3000</td>
         <td>${Math.max(0,chuteL)}</td>
       </tr>
     `;
@@ -834,15 +835,40 @@ function generatePdfDocument(type){
 
     let rects="";
     for(let r=0;r<rowsCount;r++){
-      for(let c=0;c<cols;c++){
-        rects+=`
-        <rect x="${c*partW*scale}" y="${r*partH*scale}" width="${partW*scale}" height="${partH*scale}" fill="#eaf3ea" stroke="#111"/>
-        <text transform="translate(${c*partW*scale+12},${r*partH*scale+30}) rotate(0)" font-size="14">
-          ${Math.round(partH)} x ${Math.round(partW)}
-       </text>
-        `;
-      }
-    }
+    for(let c=0;c<cols;c++){
+    rects += `
+    <rect x="${r*partW*scale}" 
+          y="${c*partH*scale}"
+          width="${partW*scale}" 
+          height="${partH*scale}"
+          fill="#eaf3ea" 
+          stroke="#111"/>
+    <text x="${r*partW*scale+8}" 
+          y="${c*partH*scale+24}" 
+          font-size="14">
+      ${Math.round(partH)} x ${Math.round(partW)}
+    </text>
+    `;
+  }
+}
+
+if(chuteW>0){
+  rects += `
+  <rect x="${cols*partH*scale}" 
+        y="0"
+        width="${chuteW*scale}" 
+        height="${sheetL*scale}"
+        fill="#fff3f3" 
+        stroke="red" 
+        stroke-dasharray="6,4"/>
+  <text x="${cols*partH*scale+8}" 
+        y="30" 
+        font-size="16" 
+        fill="red">
+    CHUTE RESTANTE : ${Math.round(chuteW)} mm x 3000 mm
+    </text>
+  `;
+}
 
     drawings+=`
       <div class="drawing-block">
