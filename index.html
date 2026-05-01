@@ -764,6 +764,26 @@ settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSet
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
 renderClientSelect(); renderPieces(); updatePriceDisplay();
 
+const devisBtn=document.getElementById("devisPdfBtn");
+const clientBtn=document.getElementById("clientPdfBtn");
+const atelierBtn=document.getElementById("atelierPdfBtn");
+const oldPdfBtn=document.getElementById("pdfBtn");
+
+if(devisBtn){
+  devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
+}
+
+if(clientBtn){
+  clientBtn.addEventListener("click",()=>generatePdfDocument("client"));
+}
+
+if(atelierBtn){
+  atelierBtn.addEventListener("click",()=>generatePdfDocument("atelier"));
+}
+
+if(oldPdfBtn){
+  oldPdfBtn.addEventListener("click",()=>generatePdfDocument("client"));
+}
 </script>
 </body>
 </html>
