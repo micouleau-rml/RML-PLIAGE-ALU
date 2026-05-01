@@ -656,15 +656,9 @@ function generatePdfDocument(type){
   const project=(projectName?.value || "Projet sans nom").trim();
   const today=new Date().toLocaleDateString("fr-FR");
 
-  let devisNumber=localStorage.getItem("rml_devis_number") || "1";
-  if(type==="devis"){
-    devisNumber=String(Number(devisNumber)+1).padStart(4,"0");
-    localStorage.setItem("rml_devis_number",String(Number(devisNumber)));
-  }
-
   const showPrices = type==="devis" || type==="client";
   const title =
-    type==="devis" ? `DEVIS N° ${devisNumber}` :
+    type==="devis" ? "DEVIS PLIAGE" :
     type==="client" ? "BON CLIENT AVEC PRIX" :
     "BON DE FABRICATION ATELIER";
 
@@ -678,7 +672,9 @@ function generatePdfDocument(type){
     const plis=Number(piece.folds||0);
     const coupes=Number(piece.cuts||0);
     const temps=Number(piece.time||0);
-    const chute=(piece.waste===""||piece.waste===undefined)?Number(client?.costs?.defaultWaste||0):Number(piece.waste||0);
+    const chute=(piece.waste===""||piece.waste===undefined)
+      ? Number(client?.costs?.defaultWaste||0)
+      : Number(piece.waste||0);
 
     const surface=((dev/1000)*long*qty)*(1+chute/100);
     const matiere=surface*getCurrentPricePerM2();
@@ -704,52 +700,80 @@ function generatePdfDocument(type){
     `;
   });
 
-  let zone=document.getElementById("pdfPrintZone");
-  if(!zone){
-    zone=document.createElement("div");
-    zone.id="pdfPrintZone";
-    document.body.appendChild(zone);
-  }
-
-  zone.innerHTML=`
-    <div class="pdf-sheet">
-      <div class="pdf-head">
-        <img src="header-logo.png" class="pdf-logo">
-        <div style="text-align:right">
-          <div class="pdf-title">${title}</div>
-          <div>Date : ${today}</div>
-        </div>
+  const html=`
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  @page{size:A4 portrait;margin:10mm;}
+  body{font-family:Arial,sans-serif;color:#111;margin:0;background:#fff;}
+  .sheet{width:190mm;margin:0 auto;padding:8mm;box-sizing:border-box;}
+  .head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:16px;}
+  .logo{height:55px;max-width:180px;object-fit:contain;}
+  .title{font-size:24px;font-weight:800;text-align:right;}
+  .meta{font-size:14px;line-height:1.6;margin-bottom:14px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th,td{border:1px solid #333;padding:6px;text-align:center;}
+  th{background:#f2f2f2;}
+  .total{text-align:right;font-size:20px;font-weight:800;margin-top:18px;}
+  .footer{margin-top:30px;font-size:11px;color:#555;border-top:1px solid #ccc;padding-top:8px;}
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="head">
+      <img src="header-logo.png" class="logo">
+      <div>
+        <div class="title">${title}</div>
+        <div>Date : ${today}</div>
       </div>
-
-      <div class="pdf-meta">
-        <strong>Client :</strong> ${client?.name || "-"}<br>
-        <strong>Projet / chantier :</strong> ${project}<br>
-        <strong>Épaisseur :</strong> ${selectedThickness.value}
-      </div>
-
-      <table class="pdf-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Développé mm</th>
-            <th>Longueur m</th>
-            <th>Qté</th>
-            <th>Plis total</th>
-            <th>Coupes total</th>
-            <th>Temps total</th>
-            <th>Surface facturée</th>
-            ${showPrices ? "<th>Total ligne</th>" : ""}
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-
-      ${showPrices ? `<div class="pdf-total">TOTAL : ${fmtEuro(total)}</div>` : ""}
     </div>
-  `;
 
-  window.print();
-} 
+    <div class="meta">
+      <strong>Client :</strong> ${client?.name || "-"}<br>
+      <strong>Projet / chantier :</strong> ${project}<br>
+      <strong>Épaisseur :</strong> ${selectedThickness.value}
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Dév. mm</th>
+          <th>Long. m</th>
+          <th>Qté</th>
+          <th>Plis total</th>
+          <th>Coupes total</th>
+          <th>Temps total</th>
+          <th>Surface</th>
+          ${showPrices ? "<th>Total ligne</th>" : ""}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    ${showPrices ? `<div class="total">TOTAL : ${fmtEuro(total)}</div>` : ""}
+
+    <div class="footer">
+      RML PLIAGE ALU - Document généré automatiquement.
+    </div>
+  </div>
+
+<script>
+  window.onload=function(){
+    setTimeout(function(){ window.print(); },300);
+  };
+<\/script>
+</body>
+</html>`;
+
+  const win=window.open("", "_blank");
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
 document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];savePieces();renderPieces();setStatus("Pièces réinitialisées.");});
