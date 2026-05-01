@@ -303,6 +303,14 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           </select>
         </div>
         <div class="field col-3">
+  <label for="sheetFormat">Format feuille</label>
+  <select id="sheetFormat">
+    <option value="1500x3000">1500 x 3000 mm</option>
+    <option value="1250x3000">1250 x 3000 mm</option>
+    <option value="1000x2000">1000 x 2000 mm</option>
+  </select>
+</div>        
+        <div class="field col-3">
           <label for="globalPriceDisplay">Tarif matière €/m²</label>
           <input id="globalPriceDisplay" type="text" readonly />
         </div>
@@ -781,10 +789,7 @@ function generatePdfDocument(type){
   const project=(projectName?.value || "Projet sans nom").trim();
   const today=new Date().toLocaleDateString("fr-FR");
 
-  const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000")
-  .split("x")
-  .map(Number);
-
+  const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
   let rows="";
   let drawings="";
 
@@ -865,7 +870,7 @@ if(chuteW>0){
         y="30" 
         font-size="16" 
         fill="red">
-    CHUTE RESTANTE : ${Math.round(chuteW)} mm x 3000 mm
+    CHUTE RESTANTE : ${Math.round(chuteW)} mm x ${sheetL} mm
     </text>
   `;
 }
@@ -1016,6 +1021,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
 renderClientSelect(); renderPieces(); updatePriceDisplay();
 
 const devisBtn=document.getElementById("devisPdfBtn");
+const sheetFormat=document.getElementById("sheetFormat");
 const clientBtn=document.getElementById("clientPdfBtn");
 const atelierBtn=document.getElementById("atelierPdfBtn");
 const oldPdfBtn=document.getElementById("pdfBtn");
