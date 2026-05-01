@@ -225,13 +225,37 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   font-size:22px;
   font-weight:800;
 }
+#pdfPrintZone{
+  display:none;
+}
+
 @media print{
-  body *{visibility:hidden!important;}
-  #pdfPrintZone, #pdfPrintZone *{visibility:visible!important;}
+  body > *{
+    display:none!important;
+  }
+
   #pdfPrintZone{
-    position:absolute;
-    inset:0;
-    background:#fff;
+    display:block!important;
+    position:static!important;
+    width:100%!important;
+    background:#fff!important;
+  }
+
+  #pdfPrintZone *{
+    visibility:visible!important;
+  }
+
+  .pdf-sheet{
+    width:190mm!important;
+    min-height:277mm!important;
+    margin:0 auto!important;
+    padding:10mm!important;
+    box-sizing:border-box!important;
+  }
+
+  @page{
+    size:A4 portrait;
+    margin:8mm;
   }
 }
   </style> 
