@@ -251,7 +251,9 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <span class="pill">Calcul détaillé par ligne</span>
       <button class="btn-secondary" id="installHelpBtn">Installer sur iPhone</button>
 <button class="btn-primary" id="openSettingsBtn">Réglages</button>
-<button class="btn-secondary" id="pdfBtn">Créer PDF commande</button>
+<button class="btn-secondary" id="devisPdfBtn">Devis PDF numéroté</button>
+<button class="btn-secondary" id="clientPdfBtn">Bon client avec prix</button>
+<button class="btn-light" id="atelierPdfBtn">Bon atelier sans prix</button>
     </div>
   </div>
 
@@ -625,52 +627,60 @@ function importBackupFromText(text){
   if(parsed.selectedThickness&&["7/10","10/10","15/10"].includes(parsed.selectedThickness)) selectedThickness.value=parsed.selectedThickness;
   renderClientForm(); renderPieces(); updatePriceDisplay(); setStatus("Sauvegarde restaurée."); alert("Restauration terminée.");
 }
-function generatePDF(){
+function generatePdfDocument(type){
   const client=getCurrentClient();
   const project=(projectName?.value || "Projet sans nom").trim();
   const today=new Date().toLocaleDateString("fr-FR");
 
+  let devisNumber=localStorage.getItem("rml_devis_number") || "1";
+  if(type==="devis"){
+    devisNumber=String(Number(devisNumber)+1).padStart(4,"0");
+    localStorage.setItem("rml_devis_number",String(Number(devisNumber)));
+  }
+
+  const showPrices = type==="devis" || type==="client";
+  const title =
+    type==="devis" ? `DEVIS N° ${devisNumber}` :
+    type==="client" ? "BON CLIENT AVEC PRIX" :
+    "BON DE FABRICATION ATELIER";
+
   let rows="";
   let total=0;
 
-  [...pieces].forEach((piece,i)=>{
-    const developedMm=Number(piece.developed||0);
-    const lengthM=Number(piece.length||0);
+  pieces.forEach((piece,i)=>{
+    const dev=Number(piece.developed||0);
+    const long=Number(piece.length||0);
     const qty=Number(piece.qty||0);
-    const folds=Number(piece.folds||0);
-    const cuts=Number(piece.cuts||0);
-    const time=Number(piece.time||0);
+    const plis=Number(piece.folds||0);
+    const coupes=Number(piece.cuts||0);
+    const temps=Number(piece.time||0);
+    const chute=(piece.waste===""||piece.waste===undefined)?Number(client?.costs?.defaultWaste||0):Number(piece.waste||0);
 
-    const waste=(piece.waste===undefined || piece.waste==="")
-      ? Number(client?.costs?.defaultWaste||0)
-      : Number(piece.waste||0);
+    const surface=((dev/1000)*long*qty)*(1+chute/100);
+    const matiere=surface*getCurrentPricePerM2();
+    const prixPlis=plis*qty*Number(client?.costs?.fold||0);
+    const prixCoupes=coupes*qty*Number(client?.costs?.cut||0);
+    const prixTemps=(temps*qty)*(Number(client?.costs?.hourly||0)/60);
+    const ligne=matiere+prixPlis+prixCoupes+prixTemps;
 
-    const surfaceBrute=(developedMm/1000)*lengthM*qty;
-    const surfaceFacturee=surfaceBrute*(1+waste/100);
-
-    const matiere=surfaceFacturee*getCurrentPricePerM2();
-    const foldsCost=folds*qty*Number(client?.costs?.fold||0);
-    const cutsCost=cuts*qty*Number(client?.costs?.cut||0);
-    const timeCost=(time*qty)*(Number(client?.costs?.hourly||0)/60);
-
-    const lineTotal=matiere+foldsCost+cutsCost+timeCost;
-    total+=lineTotal;
+    total+=ligne;
 
     rows+=`
       <tr>
         <td>${i+1}</td>
-        <td>${developedMm}</td>
-        <td>${lengthM.toFixed(2)}</td>
+        <td>${dev}</td>
+        <td>${long.toFixed(2)}</td>
         <td>${qty}</td>
-        <td>${folds}</td>
-        <td>${cuts}</td>
-        <td>${fmtEuro(lineTotal)}</td>
+        <td>${plis*qty}</td>
+        <td>${coupes*qty}</td>
+        <td>${temps*qty} min</td>
+        <td>${surface.toFixed(3)} m²</td>
+        ${showPrices ? `<td>${fmtEuro(ligne)}</td>` : ""}
       </tr>
     `;
   });
 
   let zone=document.getElementById("pdfPrintZone");
-
   if(!zone){
     zone=document.createElement("div");
     zone.id="pdfPrintZone";
@@ -680,18 +690,16 @@ function generatePDF(){
   zone.innerHTML=`
     <div class="pdf-sheet">
       <div class="pdf-head">
-        <div>
-          <img src="header-logo.png" class="pdf-logo">
-        </div>
+        <img src="header-logo.png" class="pdf-logo">
         <div style="text-align:right">
-          <div class="pdf-title">BON DE COMMANDE PLIAGE</div>
-          <div>${today}</div>
+          <div class="pdf-title">${title}</div>
+          <div>Date : ${today}</div>
         </div>
       </div>
 
       <div class="pdf-meta">
         <strong>Client :</strong> ${client?.name || "-"}<br>
-        <strong>Projet :</strong> ${project}<br>
+        <strong>Projet / chantier :</strong> ${project}<br>
         <strong>Épaisseur :</strong> ${selectedThickness.value}
       </div>
 
@@ -699,26 +707,25 @@ function generatePDF(){
         <thead>
           <tr>
             <th>#</th>
-            <th>Dév.</th>
-            <th>Long.</th>
+            <th>Développé mm</th>
+            <th>Longueur m</th>
             <th>Qté</th>
-            <th>Plis</th>
-            <th>Coupes</th>
-            <th>Total</th>
+            <th>Plis total</th>
+            <th>Coupes total</th>
+            <th>Temps total</th>
+            <th>Surface facturée</th>
+            ${showPrices ? "<th>Total ligne</th>" : ""}
           </tr>
         </thead>
-        <tbody>
-          ${rows}
-        </tbody>
+        <tbody>${rows}</tbody>
       </table>
 
-      <div class="pdf-total">
-        TOTAL COMMANDE : ${fmtEuro(total)}
-      </div>
+      ${showPrices ? `<div class="pdf-total">TOTAL : ${fmtEuro(total)}</div>` : ""}
     </div>
   `;
 
   window.print();
+}
 }  
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
@@ -729,7 +736,9 @@ document.getElementById("newClientBtn").addEventListener("click",newClientForm);
 selectedClient.addEventListener("change",()=>{renderClientForm(); updatePriceDisplay();});
 selectedThickness.addEventListener("change",updatePriceDisplay);
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
-document.getElementById("pdfBtn").addEventListener("click",generatePDF);
+document.getElementById("devisPdfBtn").addEventListener("click",()=>generatePdfDocument("devis"));
+document.getElementById("clientPdfBtn").addEventListener("click",()=>generatePdfDocument("client"));
+document.getElementById("atelierPdfBtn").addEventListener("click",()=>generatePdfDocument("atelier"));
 document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
