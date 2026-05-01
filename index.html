@@ -806,10 +806,10 @@ function generatePdfDocument(type){
     const perSheet=Math.max(aPerSheet,bPerSheet);
     const sheets=perSheet>0 ? Math.ceil(qty/perSheet) : 0;
 
-    const cols=useA?aCols:bCols;
-    const rowsCount=useA?aRows:bRows;
-    const partW=useA?dev:long;
-    const partH=useA?long:dev;
+    const cols=useA?aRows:bRows;
+    const rowsCount=useA?aCols:bCols;
+    const partW=useA?long:dev;
+    const partH=useA?dev:long;
 
     const chuteW=sheetW-(cols*partW);
     const chuteL=sheetL-(rowsCount*partH);
