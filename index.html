@@ -278,7 +278,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <button class="btn-secondary" id="devisPdfBtn">Devis PDF numéroté</button>
 <button class="btn-secondary" id="clientPdfBtn">Bon client avec prix</button>
 <button class="btn-light" id="atelierPdfBtn">Bon atelier sans prix</button>
-    </div>
+<button class="btn-light" id="calpinageBtn">Calpinage 1500x3000</button>
+   </div>
   </div>
 
   <div class="grid">
@@ -774,19 +775,193 @@ function generatePdfDocument(type){
   win.document.write(html);
   win.document.close();
 }
+
+  function generateCalpinageDocument(){
+  const client=getCurrentClient();
+  const project=(projectName?.value || "Projet sans nom").trim();
+  const today=new Date().toLocaleDateString("fr-FR");
+
+  const sheetW=1500;
+  const sheetL=3000;
+
+  let rows="";
+  let drawings="";
+
+  pieces.forEach((piece,i)=>{
+    const dev=Number(piece.developed||0);
+    const long=Number(piece.length||0)*1000;
+    const qty=Number(piece.qty||0);
+
+    if(!dev || !long || !qty) return;
+
+    const aCols=Math.floor(sheetW/dev);
+    const aRows=Math.floor(sheetL/long);
+    const aPerSheet=aCols*aRows;
+
+    const bCols=Math.floor(sheetW/long);
+    const bRows=Math.floor(sheetL/dev);
+    const bPerSheet=bCols*bRows;
+
+    const useA=aPerSheet>=bPerSheet;
+    const perSheet=Math.max(aPerSheet,bPerSheet);
+    const sheets=perSheet>0 ? Math.ceil(qty/perSheet) : 0;
+
+    const cols=useA?aCols:bCols;
+    const rowsCount=useA?aRows:bRows;
+    const partW=useA?dev:long;
+    const partH=useA?long:dev;
+
+    const chuteW=sheetW-(cols*partW);
+    const chuteL=sheetL-(rowsCount*partH);
+
+    rows+=`
+      <tr>
+        <td>${i+1}</td>
+        <td>${dev}</td>
+        <td>${long}</td>
+        <td>${qty}</td>
+        <td>${useA?"A":"B"}</td>
+        <td>${perSheet}</td>
+        <td>${sheets}</td>
+        <td>${Math.max(0,chuteW)}</td>
+        <td>${Math.max(0,chuteL)}</td>
+      </tr>
+    `;
+
+    const scale=0.18;
+    const svgW=sheetL*scale;
+    const svgH=sheetW*scale;
+
+    let rects="";
+    for(let r=0;r<rowsCount;r++){
+      for(let c=0;c<cols;c++){
+        rects+=`
+          <rect x="${c*partW*scale}" y="${r*partH*scale}" width="${partW*scale}" height="${partH*scale}" fill="#eaf3ea" stroke="#111"/>
+          <text x="${c*partW*scale+8}" y="${r*partH*scale+24}" font-size="14">${Math.round(partW)} x ${Math.round(partH)}</text>
+        `;
+      }
+    }
+
+    drawings+=`
+      <div class="drawing-block">
+        <h3>Pièce ${i+1} — Sens ${useA?"A":"B"} optimal</h3>
+        <p>
+          Développé : <strong>${dev} mm</strong> — Longueur : <strong>${long} mm</strong> — Quantité : <strong>${qty}</strong><br>
+          Pièces par feuille : <strong>${perSheet}</strong> — Feuilles nécessaires : <strong>${sheets}</strong>
+        </p>
+
+        <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
+          <rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#fff" stroke="#111" stroke-width="2"/>
+          ${rects}
+        </svg>
+      </div>
+    `;
+  });
+
+  const html=`
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Feuille de calpinage atelier</title>
+<style>
+  @page{size:A4 portrait;margin:8mm;}
+  body{font-family:Arial,sans-serif;color:#111;margin:0;background:#fff;}
+  .sheet{width:190mm;margin:0 auto;padding:8mm;box-sizing:border-box;}
+  h1{text-align:center;font-size:22px;margin:0 0 5px;}
+  h2{text-align:center;font-size:15px;font-weight:400;margin:0 0 18px;}
+  .top{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+  .box{border:1px solid #333;padding:10px;font-size:13px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px;}
+  th,td{border:1px solid #333;padding:6px;text-align:center;}
+  th{background:#f2f2f2;}
+  .drawing-block{border:1px solid #333;margin-top:16px;padding:10px;page-break-inside:avoid;}
+  .drawing-block h3{margin:0 0 6px;font-size:15px;}
+  svg{max-width:100%;height:auto;margin-top:8px;}
+  .zones{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;}
+  .lines{height:90px;border-top:1px dotted #777;margin-top:12px;}
+  .actions{text-align:center;margin-top:20px;}
+  button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="sheet">
+  <h1>FEUILLE DE CALPINAGE ATELIER</h1>
+  <h2>Débit matière — optimisation sur feuille 1500 x 3000 mm</h2>
+
+  <div class="top">
+    <div class="box">
+      <strong>Client :</strong> ${client?.name || "-"}<br>
+      <strong>Projet :</strong> ${project}<br>
+      <strong>Épaisseur :</strong> ${selectedThickness.value}
+    </div>
+    <div class="box">
+      <strong>Date :</strong> ${today}<br>
+      <strong>Feuille :</strong> 1500 x 3000 mm<br>
+      <strong>Surface feuille :</strong> 4,50 m²
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Pièce</th>
+        <th>Développé mm</th>
+        <th>Longueur mm</th>
+        <th>Qté</th>
+        <th>Sens</th>
+        <th>Pièces / feuille</th>
+        <th>Feuilles</th>
+        <th>Chute largeur</th>
+        <th>Chute longueur</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  ${drawings}
+
+  <div class="zones">
+    <div class="box">
+      <strong>Observations atelier</strong>
+      <div class="lines"></div>
+    </div>
+    <div class="box">
+      <strong>Contrôle / préparateur</strong><br><br>
+      Nom : _______________________<br><br>
+      Signature : __________________
+    </div>
+  </div>
+
+  <div class="actions">
+    <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const win=window.open("", "_blank");
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
 document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];savePieces();renderPieces();setStatus("Pièces réinitialisées.");});
 document.getElementById("saveClientBtn").addEventListener("click",saveOrUpdateClient);
 document.getElementById("deleteClientBtn").addEventListener("click",deleteCurrentClient);
 document.getElementById("newClientBtn").addEventListener("click",newClientForm);
+
 selectedClient.addEventListener("change",()=>{renderClientForm(); updatePriceDisplay();});
 selectedThickness.addEventListener("change",updatePriceDisplay);
+
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
 document.getElementById("devisPdfBtn").addEventListener("click",()=>generatePdfDocument("devis"));
 document.getElementById("clientPdfBtn").addEventListener("click",()=>generatePdfDocument("client"));
 document.getElementById("atelierPdfBtn").addEventListener("click",()=>generatePdfDocument("atelier"));
-document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
+document.getElementById("calpinageBtn").addEventListener("click",generateCalpinageDocument);  
+
+  document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
 document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");});
@@ -817,7 +992,11 @@ const clientBtn=document.getElementById("clientPdfBtn");
 const atelierBtn=document.getElementById("atelierPdfBtn");
 const oldPdfBtn=document.getElementById("pdfBtn");
 const quotePdfBtn=document.getElementById("quotePdfBtn");
+const calpinageBtn=document.getElementById("calpinageBtn");
 
+if(calpinageBtn){
+  calpinageBtn.addEventListener("click",generateCalpinageDocument);
+}
 if(devisBtn){
   devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
