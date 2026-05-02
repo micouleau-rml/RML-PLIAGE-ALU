@@ -899,15 +899,18 @@ function generatePdfDocument(type){
     let rects="";
 
     sheet.parts.forEach(p=>{
-      rects+=`
+      const displayH=Math.max(p.h*scale,32);      
+      
+      rects +=`
         <rect x="${p.x*scale}" y="${p.y*scale}"
-              width="${p.w*scale}" height="${p.h*scale}"
+              width="${p.w*scale}" height="${displayH}"
               fill="#dff3df" stroke="#111"/>
 
-        ${(p.h*scale>18 && p.w*scale>70) ? `
-        <text x="${p.x*scale+8}" y="${p.y*scale+22}" font-size="13" fill="#111">
+        ${(displayH>24 && p.w*scale>70) ? `
+        <text x="${p.x*scale+8}" y="${p.y*scale + Math.min(displayH-8,22)}" font-size="13" fill="#111">
           ${p.label}
-        </text>` : ""}
+        </text>` 
+        : ""}
       `;
     });
 
