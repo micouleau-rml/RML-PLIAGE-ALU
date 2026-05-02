@@ -904,10 +904,10 @@ function generatePdfDocument(type){
               width="${p.w*scale}" height="${p.h*scale}"
               fill="#dff3df" stroke="#111"/>
 
-        <text x="${p.x*scale+8}" y="${p.y*scale+22}"
-              font-size="13" fill="#111">
+        ${(p.h*scale>18 && p.w*scale>70) ? `
+        <text x="${p.x*scale+8}" y="${p.y*scale+22}" font-size="13" fill="#111">
           ${p.label}
-        </text>
+        </text>` : ""}
       `;
     });
 
@@ -1027,10 +1027,9 @@ ${summaryRows}
 
 ${drawings}
 
-<div class="actions">
+ <div class="actions">
   <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
-</div>
-
+  <button onclick="window.close()">Retour à l’application</button>
 </div>
 </body>
 </html>`;
@@ -1056,7 +1055,7 @@ document.getElementById("clientPdfBtn").addEventListener("click",()=>generatePdf
 document.getElementById("atelierPdfBtn").addEventListener("click",()=>generatePdfDocument("atelier"));
 document.getElementById("calpinageBtn").addEventListener("click",generateCalpinageDocument);  
 
-  document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
+document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
 document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");});
