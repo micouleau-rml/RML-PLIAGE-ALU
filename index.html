@@ -927,10 +927,14 @@ function generatePdfDocument(type){
                 width="${remainingL*scale}" height="${row.height*scale}"
                 fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
 
-          <text x="${row.usedLength*scale+8}" y="${row.y*scale+22}"
-                font-size="13" fill="#111">
-            Chute ${remainingL} x ${row.height}
-          </text>
+  ${(remainingL*scale>45 && row.height*scale>7) ? `
+  <text x="${row.usedLength*scale+6}"
+        y="${row.y*scale + Math.max(9, Math.min(row.height*scale-3,16))}"
+        font-size="${Math.max(7, Math.min(11, row.height*scale-3))}"
+        fill="#111">
+    Chute ${remainingL} x ${row.height}
+  </text>
+` : ""}
         `;
       }
     });
