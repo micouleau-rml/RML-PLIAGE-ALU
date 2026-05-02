@@ -997,17 +997,32 @@ th{background:#f2f2f2;}
 }
 
 @media print{
-  .drawing-block{
-    page-break-inside:avoid;
-    break-inside:avoid;
-  }
-
-  .sheet{
-    page-break-after:always;
+  @page{
+    size:A4 portrait;
+    margin:8mm;
   }
 
   .actions{
-    display:none;
+    display:none!important;
+  }
+
+.drawing-block{
+  border:1px solid #333;
+  padding:8px;
+  margin-top:12px;
+  page-break-inside:avoid;
+  break-inside:avoid;
+  overflow:visible;
+}
+
+  svg{
+    max-width:100%!important;
+    max-height:150mm!important;
+    height:auto!important;
+  }
+
+  body{
+    overflow:visible!important;
   }
 }
 .drawing-block h3{margin:0 0 8px;font-size:15px;}
