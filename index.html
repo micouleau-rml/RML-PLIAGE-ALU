@@ -789,11 +789,16 @@ function generatePdfDocument(type){
   const project=(projectName?.value || "Projet sans nom").trim();
   const today=new Date().toLocaleDateString("fr-FR");
 
+  // Format feuille sélectionné
   const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
-  const sheetArea=((sheetW*sheetL)/1000000).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const sheetArea=((sheetW*sheetL)/1000000);
 
   let rows="";
   let drawings="";
+
+  let totalSheetsProject=0;
+  let totalPiecesProject=0;
+  let totalSurfaceUsed=0;
 
   pieces.forEach((piece,i)=>{
     const dev=Number(piece.developed||0);
@@ -802,15 +807,44 @@ function generatePdfDocument(type){
 
     if(!dev || !long || !qty) return;
 
-    // Sens A : pièce horizontale, longueur sur longueur feuille
-    const piecesParColonne=Math.floor(sheetW/dev);
-    const piecesParLongueur=Math.floor(sheetL/long);
-    const perSheet=piecesParColonne*piecesParLongueur;
+    // Orientation atelier : pièces couchées horizontalement
+    const cols=Math.floor(sheetL/long);   // sur longueur feuille
+    const rowsCount=Math.floor(sheetW/dev); // sur largeur feuille
 
-    const sheets=perSheet>0 ? Math.ceil(qty/perSheet) : 0;
+    const perSheet=cols*rowsCount;
 
-    const chuteLargeur=sheetW-(piecesParColonne*dev);
-    const chuteLongueur=sheetL-(piecesParLongueur*long);
+    if(perSheet<=0) return;
+
+    // Quantité réelle
+    const fullSheets=Math.floor(qty/perSheet);
+    const remainingPieces=qty%perSheet;
+    const sheets=Math.ceil(qty/perSheet);
+
+    totalSheetsProject+=sheets;
+    totalPiecesProject+=qty;
+
+    // Surface matière consommée
+    totalSurfaceUsed += sheets*sheetArea;
+
+    // Chutes dernière feuille réelle
+    let usedRows=Math.floor(remainingPieces/cols);
+    let partialRowPieces=remainingPieces%cols;
+
+    if(remainingPieces===0){
+      usedRows=rowsCount;
+      partialRowPieces=0;
+    }
+
+    let chuteLargeur=0;
+    let chuteLongueur=0;
+
+    if(remainingPieces===0){
+      chuteLargeur=sheetW-(rowsCount*dev);
+      chuteLongueur=sheetL-(cols*long);
+    }else{
+      chuteLargeur=sheetW-((usedRows + (partialRowPieces>0?1:0))*dev);
+      chuteLongueur=partialRowPieces>0 ? sheetL-(partialRowPieces*long) : 0;
+    }
 
     rows+=`
       <tr>
@@ -818,61 +852,102 @@ function generatePdfDocument(type){
         <td>${dev}</td>
         <td>${long}</td>
         <td>${qty}</td>
-        <td>A</td>
         <td>${perSheet}</td>
+        <td>${fullSheets}</td>
+        <td>${remainingPieces}</td>
         <td>${sheets}</td>
         <td>${Math.max(0,chuteLargeur)} x ${sheetL}</td>
-        <td>${sheetW} x ${Math.max(0,chuteLongueur)}</td>
+        <td>${partialRowPieces>0 ? dev : sheetW} x ${Math.max(0,chuteLongueur)}</td>
       </tr>
     `;
 
+    // =======================
+    // DESSIN DERNIÈRE FEUILLE
+    // =======================
     const scale=0.18;
     const svgW=sheetL*scale;
     const svgH=sheetW*scale;
 
     let rects="";
 
-    // Pièces vertes
-    for(let y=0;y<piecesParColonne;y++){
-      for(let x=0;x<piecesParLongueur;x++){
+    let piecesToDraw = remainingPieces===0 ? perSheet : remainingPieces;
+
+    for(let r=0;r<rowsCount;r++){
+      for(let c=0;c<cols;c++){
+
+        if(piecesToDraw<=0) continue;
+
         rects+=`
-          <rect x="${x*long*scale}" y="${y*dev*scale}" width="${long*scale}" height="${dev*scale}" fill="#eaf3ea" stroke="#111"/>
-          <text x="${x*long*scale+10}" y="${y*dev*scale+24}" font-size="14">
+          <rect x="${c*long*scale}"
+                y="${r*dev*scale}"
+                width="${long*scale}"
+                height="${dev*scale}"
+                fill="#eaf3ea"
+                stroke="#111"/>
+
+          <text x="${c*long*scale+8}"
+                y="${r*dev*scale+22}"
+                font-size="13">
             ${dev} x ${long}
           </text>
         `;
+
+        piecesToDraw--;
       }
     }
 
-    // Chute largeur blanche sur toute la longueur
+    // Chute largeur (bas)
     if(chuteLargeur>0){
       rects+=`
-        <rect x="0" y="${piecesParColonne*dev*scale}" width="${sheetL*scale}" height="${chuteLargeur*scale}" fill="#ffffff" stroke="#111" stroke-dasharray="6,4"/>
-        <text x="10" y="${piecesParColonne*dev*scale+24}" font-size="14">
+        <rect x="0"
+              y="${(sheetW-chuteLargeur)*scale}"
+              width="${sheetL*scale}"
+              height="${chuteLargeur*scale}"
+              fill="#ffffff"
+              stroke="#111"
+              stroke-dasharray="6,4"/>
+
+        <text x="10"
+              y="${(sheetW-chuteLargeur)*scale+22}"
+              font-size="14">
           Chute ${chuteLargeur} x ${sheetL}
         </text>
       `;
     }
 
-    // Chute longueur blanche en bout de feuille
-    if(chuteLongueur>0){
+    // Chute longueur sur ligne partielle
+    if(chuteLongueur>0 && partialRowPieces>0){
+      const rowY=usedRows*dev*scale;
+
       rects+=`
-        <rect x="${piecesParLongueur*long*scale}" y="0" width="${chuteLongueur*scale}" height="${sheetW*scale}" fill="#ffffff" stroke="#111" stroke-dasharray="6,4"/>
-        <text x="${piecesParLongueur*long*scale+10}" y="24" font-size="14">
-          Chute ${sheetW} x ${chuteLongueur}
+        <rect x="${partialRowPieces*long*scale}"
+              y="${rowY}"
+              width="${chuteLongueur*scale}"
+              height="${dev*scale}"
+              fill="#ffffff"
+              stroke="#111"
+              stroke-dasharray="6,4"/>
+
+        <text x="${partialRowPieces*long*scale+8}"
+              y="${rowY+22}"
+              font-size="13">
+          Chute ${dev} x ${chuteLongueur}
         </text>
       `;
     }
 
     drawings+=`
       <div class="drawing-block">
-        <h3>Pièce ${i+1} — Calpinage feuille ${sheetW} x ${sheetL}</h3>
+        <h3>Pièce ${i+1} — Dernière feuille réelle</h3>
+
         <p>
           Développé : <strong>${dev} mm</strong> —
           Longueur : <strong>${long} mm</strong> —
-          Quantité : <strong>${qty}</strong><br>
-          Pièces par feuille : <strong>${perSheet}</strong> —
-          Feuilles nécessaires : <strong>${sheets}</strong>
+          Quantité projet : <strong>${qty}</strong><br>
+
+          Pièces / feuille : <strong>${perSheet}</strong> —
+          Feuilles complètes : <strong>${fullSheets}</strong> —
+          Dernière feuille : <strong>${remainingPieces || perSheet} pièce(s)</strong>
         </p>
 
         <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
@@ -890,77 +965,76 @@ function generatePdfDocument(type){
 <meta charset="UTF-8">
 <title>Feuille de calpinage atelier</title>
 <style>
-  @page{size:A4 portrait;margin:8mm;}
-  body{font-family:Arial,sans-serif;color:#111;margin:0;background:#fff;}
-  .sheet{width:190mm;margin:0 auto;padding:8mm;box-sizing:border-box;}
-  h1{text-align:center;font-size:22px;margin:0 0 5px;}
-  h2{text-align:center;font-size:15px;font-weight:400;margin:0 0 18px;}
-  .top{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
-  .box{border:1px solid #333;padding:10px;font-size:13px;}
-  table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px;}
-  th,td{border:1px solid #333;padding:6px;text-align:center;}
-  th{background:#f2f2f2;}
-  .drawing-block{border:1px solid #333;margin-top:16px;padding:10px;page-break-inside:avoid;}
-  .drawing-block h3{margin:0 0 6px;font-size:15px;}
-  svg{max-width:100%;height:auto;margin-top:8px;}
-  .zones{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;}
-  .lines{height:90px;border-top:1px dotted #777;margin-top:12px;}
-  .actions{text-align:center;margin-top:20px;}
-  button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;cursor:pointer;}
+@page{size:A4 portrait;margin:8mm;}
+body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;}
+.sheet{width:190mm;margin:auto;padding:8mm;box-sizing:border-box;}
+h1{text-align:center;font-size:24px;margin:0;}
+h2{text-align:center;font-size:15px;font-weight:400;margin:4px 0 18px;}
+.top{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.box{border:1px solid #333;padding:10px;font-size:13px;}
+.summary{margin-top:14px;border:2px solid #111;padding:10px;font-size:14px;background:#f7f7f7;}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:14px;}
+th,td{border:1px solid #333;padding:6px;text-align:center;}
+th{background:#f2f2f2;}
+.drawing-block{border:1px solid #333;padding:10px;margin-top:18px;page-break-inside:avoid;}
+svg{max-width:100%;height:auto;margin-top:10px;}
+.actions{text-align:center;margin-top:20px;}
+button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:#fff;}
 </style>
 </head>
 <body>
 <div class="sheet">
-  <h1>FEUILLE DE CALPINAGE ATELIER</h1>
-  <h2>Débit matière — optimisation sur feuille ${sheetW} x ${sheetL} mm</h2>
 
-  <div class="top">
-    <div class="box">
-      <strong>Client :</strong> ${client?.name || "-"}<br>
-      <strong>Projet :</strong> ${project}<br>
-      <strong>Épaisseur :</strong> ${selectedThickness.value}
-    </div>
-    <div class="box">
-      <strong>Date :</strong> ${today}<br>
-      <strong>Feuille :</strong> ${sheetW} x ${sheetL} mm<br>
-      <strong>Surface feuille :</strong> ${sheetArea} m²
-    </div>
+<h1>FEUILLE DE CALPINAGE ATELIER</h1>
+<h2>Optimisation projet complet — feuille ${sheetW} x ${sheetL} mm</h2>
+
+<div class="top">
+  <div class="box">
+    <strong>Client :</strong> ${client?.name || "-"}<br>
+    <strong>Projet :</strong> ${project}<br>
+    <strong>Épaisseur :</strong> ${selectedThickness.value}
   </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Pièce</th>
-        <th>Développé mm</th>
-        <th>Longueur mm</th>
-        <th>Qté</th>
-        <th>Sens</th>
-        <th>Pièces / feuille</th>
-        <th>Feuilles</th>
-        <th>Chute largeur</th>
-        <th>Chute longueur</th>
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
-
-  ${drawings}
-
-  <div class="zones">
-    <div class="box">
-      <strong>Observations atelier</strong>
-      <div class="lines"></div>
-    </div>
-    <div class="box">
-      <strong>Contrôle / préparateur</strong><br><br>
-      Nom : _______________________<br><br>
-      Signature : __________________
-    </div>
+  <div class="box">
+    <strong>Date :</strong> ${today}<br>
+    <strong>Feuille :</strong> ${sheetW} x ${sheetL}<br>
+    <strong>Surface feuille :</strong> ${sheetArea.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
   </div>
+</div>
 
-  <div class="actions">
-    <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
-  </div>
+<div class="summary">
+  <strong>Total projet :</strong><br>
+  Pièces totales : ${totalPiecesProject}<br>
+  Feuilles totales nécessaires : ${totalSheetsProject}<br>
+  Surface matière estimée : ${totalSurfaceUsed.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+</div>
+
+<table>
+<thead>
+<tr>
+<th>Pièce</th>
+<th>Développé</th>
+<th>Longueur</th>
+<th>Qté</th>
+<th>Pièces/feuille</th>
+<th>Feuilles pleines</th>
+<th>Reste</th>
+<th>Total feuilles</th>
+<th>Chute largeur</th>
+<th>Chute longueur</th>
+</tr>
+</thead>
+<tbody>
+${rows}
+</tbody>
+</table>
+
+${drawings}
+
+<div class="actions">
+<button onclick="window.print()">Imprimer / Enregistrer PDF</button>
+</div>
+
 </div>
 </body>
 </html>`;
