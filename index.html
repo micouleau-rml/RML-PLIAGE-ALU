@@ -1013,15 +1013,18 @@ th{background:#f2f2f2;}
   }
 
   .drawing-block{
-    page-break-before:always!important;
-    break-after:auto!important;
-    page-break-after:auto!important;
-    break-inside:avoid!important;
-    page-break-inside:avoid!important;
-    height:auto!important;
-    min-height:auto!important;
-    overflow:visible!important;
-  }
+  page-break-before:always!important;
+  break-after:auto!important;
+  page-break-after:auto!important;
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+  height:260mm!important;
+  overflow:hidden!important;
+
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
 
   .drawing-block:first-of-type{
     break-before:auto!important;
