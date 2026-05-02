@@ -789,169 +789,171 @@ function generatePdfDocument(type){
   const project=(projectName?.value || "Projet sans nom").trim();
   const today=new Date().toLocaleDateString("fr-FR");
 
-  // Format feuille sélectionné
   const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
-  const sheetArea=((sheetW*sheetL)/1000000);
+  const scale=0.18;
 
-  let rows="";
-  let drawings="";
+  let allParts=[];
 
-  let totalSheetsProject=0;
-  let totalPiecesProject=0;
-  let totalSurfaceUsed=0;
-
-  pieces.forEach((piece,i)=>{
+  pieces.forEach((piece,index)=>{
     const dev=Number(piece.developed||0);
     const long=Number(piece.length||0)*1000;
     const qty=Number(piece.qty||0);
 
     if(!dev || !long || !qty) return;
 
-    // Orientation atelier : pièces couchées horizontalement
-    const cols=Math.floor(sheetL/long);   // sur longueur feuille
-    const rowsCount=Math.floor(sheetW/dev); // sur largeur feuille
+    for(let i=0;i<qty;i++){
+      allParts.push({
+        pieceNo:index+1,
+        dev,
+        long,
+        w:long,
+        h:dev,
+        label:`P${index+1} - ${dev} x ${long}`
+      });
+    }
+  });
 
-    const perSheet=cols*rowsCount;
+  // On trie les pièces les plus larges en premier
+  allParts.sort((a,b)=>(b.h*b.w)-(a.h*a.w));
 
-    if(perSheet<=0) return;
+  const sheets=[];
 
-    // Quantité réelle
-    const fullSheets=Math.floor(qty/perSheet);
-    const remainingPieces=qty%perSheet;
-    const sheets=Math.ceil(qty/perSheet);
+  allParts.forEach(part=>{
+    let placed=false;
 
-    totalSheetsProject+=sheets;
-    totalPiecesProject+=qty;
-
-    // Surface matière consommée
-    totalSurfaceUsed += sheets*sheetArea;
-
-    // Chutes dernière feuille réelle
-    let usedRows=Math.floor(remainingPieces/cols);
-    let partialRowPieces=remainingPieces%cols;
-
-    if(remainingPieces===0){
-      usedRows=rowsCount;
-      partialRowPieces=0;
+    for(const sheet of sheets){
+      if(placePartInSheet(sheet,part)){
+        placed=true;
+        break;
+      }
     }
 
-    let chuteLargeur=0;
-    let chuteLongueur=0;
+    if(!placed){
+      const newSheet={
+        rows:[],
+        parts:[]
+      };
+      placePartInSheet(newSheet,part);
+      sheets.push(newSheet);
+    }
+  });
 
-    if(remainingPieces===0){
-      chuteLargeur=sheetW-(rowsCount*dev);
-      chuteLongueur=sheetL-(cols*long);
-    }else{
-      chuteLargeur=sheetW-((usedRows + (partialRowPieces>0?1:0))*dev);
-      chuteLongueur=partialRowPieces>0 ? sheetL-(partialRowPieces*long) : 0;
+  function placePartInSheet(sheet,part){
+    // Essayer de placer dans une ligne existante
+    for(const row of sheet.rows){
+      if(part.h<=row.height && row.usedLength+part.w<=sheetL){
+        const x=row.usedLength;
+        const y=row.y;
+
+        row.usedLength+=part.w;
+        sheet.parts.push({...part,x,y});
+        return true;
+      }
     }
 
-    rows+=`
+    // Créer une nouvelle ligne
+    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+
+    if(usedHeight+part.h<=sheetW && part.w<=sheetL){
+      const row={
+        y:usedHeight,
+        height:part.h,
+        usedLength:part.w
+      };
+
+      sheet.rows.push(row);
+      sheet.parts.push({...part,x:0,y:usedHeight});
+      return true;
+    }
+
+    return false;
+  }
+
+  let summaryRows="";
+  let drawings="";
+  let totalParts=allParts.length;
+  let totalSheetArea=sheets.length*(sheetW*sheetL/1000000);
+
+  sheets.forEach((sheet,sheetIndex)=>{
+    const counts={};
+
+    sheet.parts.forEach(p=>{
+      counts[p.pieceNo]=(counts[p.pieceNo]||0)+1;
+    });
+
+    const detail=Object.entries(counts)
+      .map(([pieceNo,count])=>`P${pieceNo} : ${count} u`)
+      .join(" / ");
+
+    summaryRows+=`
       <tr>
-        <td>${i+1}</td>
-        <td>${dev}</td>
-        <td>${long}</td>
-        <td>${qty}</td>
-        <td>${perSheet}</td>
-        <td>${fullSheets}</td>
-        <td>${remainingPieces}</td>
-        <td>${sheets}</td>
-        <td>${Math.max(0,chuteLargeur)} x ${sheetL}</td>
-        <td>${partialRowPieces>0 ? dev : sheetW} x ${Math.max(0,chuteLongueur)}</td>
+        <td>${sheetIndex+1}</td>
+        <td>${detail}</td>
+        <td>${sheet.parts.length}</td>
       </tr>
     `;
 
-    // =======================
-    // DESSIN DERNIÈRE FEUILLE
-    // =======================
-    const scale=0.18;
     const svgW=sheetL*scale;
     const svgH=sheetW*scale;
 
     let rects="";
 
-    let piecesToDraw = remainingPieces===0 ? perSheet : remainingPieces;
-
-    for(let r=0;r<rowsCount;r++){
-      for(let c=0;c<cols;c++){
-
-        if(piecesToDraw<=0) continue;
-
-        rects+=`
-          <rect x="${c*long*scale}"
-                y="${r*dev*scale}"
-                width="${long*scale}"
-                height="${dev*scale}"
-                fill="#eaf3ea"
-                stroke="#111"/>
-
-          <text x="${c*long*scale+8}"
-                y="${r*dev*scale+22}"
-                font-size="13">
-            ${dev} x ${long}
-          </text>
-        `;
-
-        piecesToDraw--;
-      }
-    }
-
-    // Chute largeur (bas)
-    if(chuteLargeur>0){
+    sheet.parts.forEach(p=>{
       rects+=`
-        <rect x="0"
-              y="${(sheetW-chuteLargeur)*scale}"
-              width="${sheetL*scale}"
-              height="${chuteLargeur*scale}"
-              fill="#ffffff"
-              stroke="#111"
-              stroke-dasharray="6,4"/>
+        <rect x="${p.x*scale}" y="${p.y*scale}"
+              width="${p.w*scale}" height="${p.h*scale}"
+              fill="#dff3df" stroke="#111"/>
 
-        <text x="10"
-              y="${(sheetW-chuteLargeur)*scale+22}"
-              font-size="14">
-          Chute ${chuteLargeur} x ${sheetL}
+        <text x="${p.x*scale+8}" y="${p.y*scale+22}"
+              font-size="13" fill="#111">
+          ${p.label}
         </text>
       `;
-    }
+    });
 
-    // Chute longueur sur ligne partielle
-    if(chuteLongueur>0 && partialRowPieces>0){
-      const rowY=usedRows*dev*scale;
+    // Chutes blanches par ligne
+    sheet.rows.forEach(row=>{
+      const remainingL=sheetL-row.usedLength;
 
+      if(remainingL>0){
+        rects+=`
+          <rect x="${row.usedLength*scale}" y="${row.y*scale}"
+                width="${remainingL*scale}" height="${row.height*scale}"
+                fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
+
+          <text x="${row.usedLength*scale+8}" y="${row.y*scale+22}"
+                font-size="13" fill="#111">
+            Chute ${remainingL} x ${row.height}
+          </text>
+        `;
+      }
+    });
+
+    // Chute basse sur largeur restante
+    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+    const remainingW=sheetW-usedHeight;
+
+    if(remainingW>0){
       rects+=`
-        <rect x="${partialRowPieces*long*scale}"
-              y="${rowY}"
-              width="${chuteLongueur*scale}"
-              height="${dev*scale}"
-              fill="#ffffff"
-              stroke="#111"
-              stroke-dasharray="6,4"/>
+        <rect x="0" y="${usedHeight*scale}"
+              width="${sheetL*scale}" height="${remainingW*scale}"
+              fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
 
-        <text x="${partialRowPieces*long*scale+8}"
-              y="${rowY+22}"
-              font-size="13">
-          Chute ${dev} x ${chuteLongueur}
+        <text x="10" y="${usedHeight*scale+24}"
+              font-size="14" fill="#111">
+          Chute ${remainingW} x ${sheetL}
         </text>
       `;
     }
 
     drawings+=`
       <div class="drawing-block">
-        <h3>Pièce ${i+1} — Dernière feuille réelle</h3>
-
-        <p>
-          Développé : <strong>${dev} mm</strong> —
-          Longueur : <strong>${long} mm</strong> —
-          Quantité projet : <strong>${qty}</strong><br>
-
-          Pièces / feuille : <strong>${perSheet}</strong> —
-          Feuilles complètes : <strong>${fullSheets}</strong> —
-          Dernière feuille : <strong>${remainingPieces || perSheet} pièce(s)</strong>
-        </p>
+        <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
+        <p><strong>Contenu :</strong> ${detail}</p>
 
         <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
-          <rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#fff" stroke="#111" stroke-width="2"/>
+          <rect x="0" y="0" width="${svgW}" height="${svgH}"
+                fill="#fff" stroke="#111" stroke-width="2"/>
           ${rects}
         </svg>
       </div>
@@ -963,7 +965,7 @@ function generatePdfDocument(type){
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Feuille de calpinage atelier</title>
+<title>Calpinage atelier</title>
 <style>
 @page{size:A4 portrait;margin:8mm;}
 body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;}
@@ -977,16 +979,17 @@ table{width:100%;border-collapse:collapse;font-size:11px;margin-top:14px;}
 th,td{border:1px solid #333;padding:6px;text-align:center;}
 th{background:#f2f2f2;}
 .drawing-block{border:1px solid #333;padding:10px;margin-top:18px;page-break-inside:avoid;}
-svg{max-width:100%;height:auto;margin-top:10px;}
+.drawing-block h3{margin:0 0 8px;font-size:15px;}
+svg{max-width:100%;height:auto;margin-top:8px;}
 .actions{text-align:center;margin-top:20px;}
-button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:#fff;}
+button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;}
 </style>
 </head>
 <body>
 <div class="sheet">
 
 <h1>FEUILLE DE CALPINAGE ATELIER</h1>
-<h2>Optimisation projet complet — feuille ${sheetW} x ${sheetL} mm</h2>
+<h2>Optimisation globale du projet — feuille ${sheetW} x ${sheetL} mm</h2>
 
 <div class="top">
   <div class="box">
@@ -997,42 +1000,35 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
 
   <div class="box">
     <strong>Date :</strong> ${today}<br>
-    <strong>Feuille :</strong> ${sheetW} x ${sheetL}<br>
-    <strong>Surface feuille :</strong> ${sheetArea.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+    <strong>Format feuille :</strong> ${sheetW} x ${sheetL} mm<br>
+    <strong>Surface feuille :</strong> ${((sheetW*sheetL)/1000000).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
   </div>
 </div>
 
 <div class="summary">
   <strong>Total projet :</strong><br>
-  Pièces totales : ${totalPiecesProject}<br>
-  Feuilles totales nécessaires : ${totalSheetsProject}<br>
-  Surface matière estimée : ${totalSurfaceUsed.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+  Pièces totales à fabriquer : ${totalParts}<br>
+  Feuilles nécessaires : ${sheets.length}<br>
+  Surface matière consommée : ${totalSheetArea.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
 </div>
 
 <table>
 <thead>
 <tr>
-<th>Pièce</th>
-<th>Développé</th>
-<th>Longueur</th>
-<th>Qté</th>
-<th>Pièces/feuille</th>
-<th>Feuilles pleines</th>
-<th>Reste</th>
-<th>Total feuilles</th>
-<th>Chute largeur</th>
-<th>Chute longueur</th>
+  <th>Feuille</th>
+  <th>Pièces placées</th>
+  <th>Total pièces</th>
 </tr>
 </thead>
 <tbody>
-${rows}
+${summaryRows}
 </tbody>
 </table>
 
 ${drawings}
 
 <div class="actions">
-<button onclick="window.print()">Imprimer / Enregistrer PDF</button>
+  <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
 </div>
 
 </div>
