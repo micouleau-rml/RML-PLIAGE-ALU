@@ -899,7 +899,7 @@ function generatePdfDocument(type){
     let rects="";
 
     sheet.parts.forEach(p=>{
-      const displayH=Math.max(p.h*scale,32);      
+      const displayH=p.h*scale;      
       
       rects +=`
         <rect x="${p.x*scale}" y="${p.y*scale}"
