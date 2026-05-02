@@ -906,11 +906,14 @@ function generatePdfDocument(type){
               width="${p.w*scale}" height="${displayH}"
               fill="#dff3df" stroke="#111"/>
 
-        ${(displayH>18 && p.w*scale>70) ? `
-        <text x="${p.x*scale+8}" y="${p.y*scale + Math.min(displayH-8,22)}" font-size="13" fill="#111">
-          ${p.label}
-        </text>` 
-        : ""}
+  ${(p.w*scale>55 && p.h*scale>8) ? `
+    <text x="${p.x*scale+6}" 
+          y="${p.y*scale + Math.max(10, Math.min(p.h*scale-3,18))}" 
+          font-size="${Math.max(7, Math.min(12, p.h*scale-3))}" 
+          fill="#111">
+    ${p.label}
+  </text>
+` : ""}
       `;
     });
 
