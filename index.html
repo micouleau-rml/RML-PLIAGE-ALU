@@ -715,7 +715,10 @@ function generatePdfDocument(type){
 
   const minimumOrder=45;
     if(showPrices && total>0 && total<minimumOrder){
-      total=minimumOrder;
+    total=minimumOrder;
+}
+
+const html=`
   const html=`
 <!DOCTYPE html>
 <html lang="fr">
