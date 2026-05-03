@@ -1151,16 +1151,29 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
 
     if((data.name || data.projectName) && (data.pieces || data.lines || data.items)){
       const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
-    projects.push({
-      id:data.id || crypto.randomUUID(),
-      name:data.name || data.projectName || "Projet importé",
-      clientId:data.clientId || data.selectedClientId || data.client?.id || selectedClient.value,
-      thickness:data.thickness || data.selectedThickness || selectedThickness.value,
-      sheetFormat:data.sheetFormat || data.selectedSheetFormat || sheetFormat.value,
-      pieces:data.pieces || data.lines || data.items || [],
-      date:data.date || data.exportedAt || new Date().toISOString()
-   });
+    const importedProject={
+  id:data.id || crypto.randomUUID(),
+  name:data.name || data.projectName || "Projet importé",
+  clientId:data.clientId || data.selectedClientId || data.client?.id || selectedClient.value,
+  thickness:data.thickness || data.selectedThickness || selectedThickness.value,
+  sheetFormat:data.sheetFormat || data.selectedSheetFormat || sheetFormat.value,
+  pieces:data.pieces || data.lines || data.items || [],
+  date:data.date || data.exportedAt || new Date().toISOString()
+};
+
+projects.push(importedProject);
       localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+      projectNameInput.value=importedProject.name;
+      selectedClient.value=importedProject.clientId;
+      selectedThickness.value=importedProject.thickness;
+      heetFormat.value=importedProject.sheetFormat;
+      pieces=importedProject.pieces;
+
+      renderClientSelect();
+      renderClientForm();
+      renderPieces();
+      updatePriceDisplay();
+      savePieces();
       alert("Projet ajouté à Mes projets : " + (data.name || data.projectName));
       return;
     }
