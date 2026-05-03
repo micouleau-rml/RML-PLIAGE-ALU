@@ -1140,8 +1140,12 @@ const closeSettingsBtn=document.getElementById("closeSettingsBtn");
 const mobileSettingsBtn=document.getElementById("mobileSettingsBtn");
 function openSettings(){settingsModal.classList.add("open");}
 function closeSettings(){settingsModal.classList.remove("open");}
-openSettingsBtn.addEventListener("click",openSettings);
-if(mobileSettingsBtn){mobileSettingsBtn.addEventListener("click",openSettings);}
+if(openSettingsBtn){
+  openSettingsBtn.addEventListener("click",openSettings);
+}
+if(mobileSettingsBtn){
+  mobileSettingsBtn.addEventListener("click",openSettings);
+}
 closeSettingsBtn.addEventListener("click",closeSettings);
 settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
