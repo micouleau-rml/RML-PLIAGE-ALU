@@ -1163,7 +1163,11 @@ function saveCurrentProject(){
 
 function newProject(){
   projectNameInput.value="";
-
+  selectedClient.selectedIndex=0;
+  selectedThickness.selectedIndex=0;
+  sheetFormat.selectedIndex=0;
+  globalPriceDisplay.value="";
+  
   pieces=[{
     id:crypto.randomUUID(),
     developed:"",
