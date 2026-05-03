@@ -587,6 +587,10 @@ function recalcAll(){
     resultTableBody.appendChild(tr);
   });
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
+  const minimumOrder=45;
+if(totalAmount>0 && totalAmount<minimumOrder){
+  totalAmount=minimumOrder;
+}  
   document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount);
   document.getElementById("summaryLines").textContent=String(pieces.length);
 }
@@ -691,7 +695,8 @@ function generatePdfDocument(type){
     const prixCoupes=coupes*qty*Number(client?.costs?.cut||0);
     const prixTemps=temps*(Number(client?.costs?.hourly||0)/60);
     const ligne=matiere+prixPlis+prixCoupes+prixTemps;
-
+    
+}
     total+=ligne;
 
     rows+=`
@@ -709,6 +714,9 @@ function generatePdfDocument(type){
     `;
   });
 
+  const minimumOrder=45;
+    if(showPrices && total>0 && total<minimumOrder){
+      total=minimumOrder;
   const html=`
 <!DOCTYPE html>
 <html lang="fr">
