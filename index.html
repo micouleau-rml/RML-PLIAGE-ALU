@@ -1157,7 +1157,7 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
   clientId:data.clientId || data.selectedClientId || data.client?.id || selectedClient.value,
   thickness:data.thickness || data.selectedThickness || selectedThickness.value,
   sheetFormat:data.sheetFormat || data.selectedSheetFormat || sheetFormat.value,
-  pieces:data.pieces || data.lines || data.items || [],
+  pieces:data.pieces || data.lines || data.items || data.project?.pieces || data.data?.pieces || data.payload?.pieces || [],
   date:data.date || data.exportedAt || new Date().toISOString()
 };
 
@@ -1179,7 +1179,18 @@ renderClientSelect();
 selectedClient.value=importedProject.clientId;
 selectedThickness.value=importedProject.thickness;
 sheetFormat.value=importedProject.sheetFormat;
-pieces=importedProject.pieces;
+pieces=Array.isArray(importedProject.pieces) && importedProject.pieces.length
+  ? importedProject.pieces
+  : [{
+      id:crypto.randomUUID(),
+      developed:"",
+      length:"",
+      qty:1,
+      folds:0,
+      cuts:0,
+      time:0,
+      waste:""
+    }];
 
 renderClientForm();
 renderPieces();
