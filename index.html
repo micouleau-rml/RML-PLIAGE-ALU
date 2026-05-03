@@ -1162,23 +1162,32 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
 };
 
 projects.push(importedProject);
-      localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
-      projectNameInput.value=importedProject.name;
+localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
 
-      renderClientSelect();
+if(data.client){
+  const exists=clients.some(c=>c.id===data.client.id);
+  if(!exists){
+    clients.push(data.client);
+    saveClients();
+  }
+}
 
-      selectedClient.value=importedProject.clientId;
-      selectedThickness.value=importedProject.thickness;
-      sheetFormat.value=importedProject.sheetFormat;
-      pieces=importedProject.pieces;
+projectNameInput.value=importedProject.name;
 
-      renderClientForm();
-      renderPieces();
-      updatePriceDisplay();
-      savePieces();
+renderClientSelect();
 
-      alert("Projet ajouté à Mes projets : " + (data.name || data.projectName));
-      return;
+selectedClient.value=importedProject.clientId;
+selectedThickness.value=importedProject.thickness;
+sheetFormat.value=importedProject.sheetFormat;
+pieces=importedProject.pieces;
+
+renderClientForm();
+renderPieces();
+updatePriceDisplay();
+savePieces();
+
+alert("Projet restauré et ouvert : " + importedProject.name);
+return;
     }
 
     if(data.clients && data.pieces){
