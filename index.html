@@ -1165,8 +1165,9 @@ if(calpinageBtn){
 if(sheetFormat){
   sheetFormat.addEventListener("change",updateCalpinageBtnLabel);
 }
-updateCalpinageBtnLabel();  
-
+if(calpinageBtn && sheetFormat){
+  updateCalpinageBtnLabel();
+}
   if(devisBtn){
   devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
