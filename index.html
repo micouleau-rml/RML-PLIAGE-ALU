@@ -587,6 +587,11 @@ function recalcAll(){
     resultTableBody.appendChild(tr);
   });
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
+  
+  const minimumOrder=45;
+  if(totalAmount>0 && totalAmount<minimumOrder){
+    totalAmount=minimumOrder;
+}
   document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount);
   document.getElementById("summaryLines").textContent=String(pieces.length);
 }
