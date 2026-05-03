@@ -1164,16 +1164,19 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
 projects.push(importedProject);
       localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
       projectNameInput.value=importedProject.name;
-      selectedClient.value=importedProject.clientId;
-      selectedThickness.value=importedProject.thickness;
-      heetFormat.value=importedProject.sheetFormat;
-      pieces=importedProject.pieces;
 
       renderClientSelect();
+
+      selectedClient.value=importedProject.clientId;
+      selectedThickness.value=importedProject.thickness;
+      sheetFormat.value=importedProject.sheetFormat;
+      pieces=importedProject.pieces;
+
       renderClientForm();
       renderPieces();
       updatePriceDisplay();
       savePieces();
+
       alert("Projet ajouté à Mes projets : " + (data.name || data.projectName));
       return;
     }
