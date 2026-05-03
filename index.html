@@ -587,10 +587,6 @@ function recalcAll(){
     resultTableBody.appendChild(tr);
   });
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
-  const minimumOrder=45;
-if(totalAmount>0 && totalAmount<minimumOrder){
-  totalAmount=minimumOrder;
-}  
   document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount);
   document.getElementById("summaryLines").textContent=String(pieces.length);
 }
@@ -695,7 +691,7 @@ function generatePdfDocument(type){
     const prixCoupes=coupes*qty*Number(client?.costs?.cut||0);
     const prixTemps=temps*(Number(client?.costs?.hourly||0)/60);
     const ligne=matiere+prixPlis+prixCoupes+prixTemps;
-    
+
     total+=ligne;
 
     rows+=`
@@ -706,19 +702,14 @@ function generatePdfDocument(type){
         <td>${qty}</td>
         <td>${plis*qty}</td>
         <td>${coupes*qty}</td>
-        <td>${temps} min</td>
+        <td>${temps*qty} min</td>
         <td>${surface.toFixed(3)} m²</td>
         ${showPrices ? `<td>${fmtEuro(ligne)}</td>` : ""}
       </tr>
     `;
   });
 
-  const minimumOrder=45;
-    if(showPrices && total>0 && total<minimumOrder){
-    total=minimumOrder;
-}
-
-const html=`
+  const html=`
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1141,12 +1132,8 @@ const closeSettingsBtn=document.getElementById("closeSettingsBtn");
 const mobileSettingsBtn=document.getElementById("mobileSettingsBtn");
 function openSettings(){settingsModal.classList.add("open");}
 function closeSettings(){settingsModal.classList.remove("open");}
-if(openSettingsBtn){
-  openSettingsBtn.addEventListener("click",openSettings);
-}
-if(mobileSettingsBtn){
-  mobileSettingsBtn.addEventListener("click",openSettings);
-}
+openSettingsBtn.addEventListener("click",openSettings);
+if(mobileSettingsBtn){mobileSettingsBtn.addEventListener("click",openSettings);}
 closeSettingsBtn.addEventListener("click",closeSettings);
 settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
@@ -1159,21 +1146,11 @@ const atelierBtn=document.getElementById("atelierPdfBtn");
 const oldPdfBtn=document.getElementById("pdfBtn");
 const quotePdfBtn=document.getElementById("quotePdfBtn");
 const calpinageBtn=document.getElementById("calpinageBtn");
-function updateCalpinageBtnLabel(){
-  if(calpinageBtn && sheetFormat){
-    calpinageBtn.textContent="Calpinage " + sheetFormat.value.replace("x"," x ");
-  }
-}
+
 if(calpinageBtn){
   calpinageBtn.addEventListener("click",generateCalpinageDocument);
 }
-if(sheetFormat){
-  sheetFormat.addEventListener("change",updateCalpinageBtnLabel);
-}
-if(calpinageBtn && sheetFormat){
-  updateCalpinageBtnLabel();
-}
-  if(devisBtn){
+if(devisBtn){
   devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
 
@@ -1193,7 +1170,6 @@ if(quotePdfBtn){
   quotePdfBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
 
-}
 </script>
 </body>
 </html>
