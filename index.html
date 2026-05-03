@@ -589,8 +589,14 @@ function recalcAll(){
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
   
   const minimumOrder=45;
-  if(totalAmount>0 && totalAmount<minimumOrder){
-    totalAmount=minimumOrder;
+const hasValidPiece=pieces.some(p =>
+  Number(p.developed||0)>0 &&
+  Number(p.length||0)>0 &&
+  Number(p.qty||0)>0
+);
+
+if(hasValidPiece && totalAmount<minimumOrder){
+  totalAmount=minimumOrder;
 }
   document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount);
   document.getElementById("summaryLines").textContent=String(pieces.length);
