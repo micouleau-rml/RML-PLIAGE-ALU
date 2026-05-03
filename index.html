@@ -365,6 +365,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <div class="actions">
         <button class="btn-secondary" id="printBtn">Imprimer / PDF</button>
         <button class="btn-danger" id="quotePdfBtn">Visualiser PDF</button>  
+        <button class="btn-primary" id="saveProjectBtn">Enregistrer projet</button>
+        <button class="btn-light" id="newProjectBtn">Nouveau devis</button>        
         <button class="btn-light" id="exportJsonBtn">Sauvegarde clients</button>
         <button class="btn-light" id="exportFullBackupBtn">Sauvegarde complète</button>
         <button class="btn-light" id="exportProjectBackupBtn">Sauvegarde projet</button>
@@ -1134,6 +1136,57 @@ document.getElementById("exportProjectBackupBtn").addEventListener("click",expor
 document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");});
 document.getElementById("importJsonFile").addEventListener("change",async e=>{const file=e.target.files?.[0]; if(!file) return; try{const text=await file.text(); importBackupFromText(text);}catch(err){console.error(err); setStatus("Import impossible : fichier JSON non valide ou non lisible.",false); alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l’application.");}finally{e.target.value="";}});
 
+const saveProjectBtn=document.getElementById("saveProjectBtn");
+const newProjectBtn=document.getElementById("newProjectBtn");
+const PROJECTS_KEY="rml_pliage_projects_v1";
+
+function saveCurrentProject(){
+  const projectName=(projectNameInput.value || "Projet sans nom").trim();
+
+  const projectData={
+    id:crypto.randomUUID(),
+    name:projectName,
+    clientId:selectedClient.value,
+    thickness:selectedThickness.value,
+    sheetFormat:sheetFormat.value,
+    pieces:JSON.parse(JSON.stringify(pieces)),
+    date:new Date().toISOString()
+  };
+
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+  projects.push(projectData);
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+
+  alert("Projet enregistré : " + projectName);
+}
+
+function newProject(){
+  projectNameInput.value="";
+
+  pieces=[{
+    id:crypto.randomUUID(),
+    developed:"",
+    length:"",
+    qty:1,
+    folds:0,
+    cuts:0,
+    time:0,
+    waste:""
+  }];
+
+  renderPieces();
+  updatePriceDisplay();
+  savePieces();
+  alert("Nouveau devis prêt.");
+}
+
+if(saveProjectBtn){
+  saveProjectBtn.addEventListener("click",saveCurrentProject);
+}
+
+if(newProjectBtn){
+  newProjectBtn.addEventListener("click",newProject);
+}  
 const settingsModal=document.getElementById("settingsModal");
 const openSettingsBtn=document.getElementById("openSettingsBtn");
 const closeSettingsBtn=document.getElementById("closeSettingsBtn");
