@@ -1185,11 +1185,52 @@ function newProject(){
   savePieces();
   alert("Nouveau devis prêt.");
 }
+  function loadProjects(){
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
 
+  if(!projects.length){
+    alert("Aucun projet enregistré.");
+    return;
+  }
+
+  let projectList="Projets disponibles :\n\n";
+
+  projects.forEach((p,i)=>{
+    projectList += `${i+1}. ${p.name} | ${p.clientId} | ${new Date(p.date).toLocaleDateString("fr-FR")}\n`;
+  });
+
+  const choice=prompt(projectList + "\nEntrez le numéro du projet à ouvrir :");
+
+  if(!choice) return;
+
+  const selected=projects[Number(choice)-1];
+
+  if(!selected){
+    alert("Projet invalide.");
+    return;
+  }
+
+  projectNameInput.value=selected.name;
+  selectedClient.value=selected.clientId;
+  selectedThickness.value=selected.thickness;
+  sheetFormat.value=selected.sheetFormat;
+  pieces=selected.pieces;
+
+  renderClientForm();
+  renderPieces();
+  updatePriceDisplay();
+  savePieces();
+
+  alert("Projet chargé : " + selected.name);
+}
 if(saveProjectBtn){
   saveProjectBtn.addEventListener("click",saveCurrentProject);
 }
+const loadProjectBtn=document.getElementById("loadProjectBtn");
 
+if(loadProjectBtn){
+  loadProjectBtn.addEventListener("click",loadProjects);
+}
 if(newProjectBtn){
   newProjectBtn.addEventListener("click",newProject);
 }  
