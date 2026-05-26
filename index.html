@@ -1038,7 +1038,7 @@ sheet.freeRects.forEach(chute=>{
   }
 });
     // Chute basse sur largeur restante
-    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+    const usedHeight=Math.max(...sheet.parts.map(p=>p.y+p.h),0);
     const remainingW=sheetW-usedHeight;
 
     if(remainingW>0){
