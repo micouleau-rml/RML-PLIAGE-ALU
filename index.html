@@ -1022,28 +1022,21 @@ allParts.forEach(part=>{
       `;
     });
 
-    // Chutes blanches par ligne
-    sheet.rows.forEach(row=>{
-      const remainingL=sheetL-row.usedLength;
+    // Chutes restantes réelles
+sheet.freeRects.forEach(chute=>{
+  if(chute.w>20 && chute.h>20){
+    rects+=`
+      <rect x="${chute.x*scale}" y="${chute.y*scale}"
+        width="${chute.w*scale}" height="${chute.h*scale}"
+        fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
 
-      if(remainingL>0){
-        rects+=`
-          <rect x="${row.usedLength*scale}" y="${row.y*scale}"
-                width="${remainingL*scale}" height="${row.height*scale}"
-                fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
-
-  ${(remainingL*scale>45 && row.height*scale>7) ? `
-  <text x="${row.usedLength*scale+6}"
-        y="${row.y*scale + Math.max(9, Math.min(row.height*scale-3,16))}"
-        font-size="${Math.max(7, Math.min(11, row.height*scale-3))}"
-        fill="#111">
-    Chute ${remainingL} x ${row.height}
-  </text>
-` : ""}
-        `;
-      }
-    });
-
+      <text x="${chute.x*scale+8}" y="${chute.y*scale+22}"
+        font-size="13" fill="#111">
+        Chute ${Math.round(chute.w)} x ${Math.round(chute.h)}
+      </text>
+    `;
+  }
+});
     // Chute basse sur largeur restante
     const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
     const remainingW=sheetW-usedHeight;
