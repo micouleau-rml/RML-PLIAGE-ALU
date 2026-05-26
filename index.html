@@ -976,6 +976,7 @@ allParts.forEach(part=>{
 });
 
   let summaryRows="";
+  let pageRows="";
   let drawings="";
   let totalParts=allParts.length;
   let totalSheetArea=sheets.length*(sheetW*sheetL/1000000);
@@ -999,6 +1000,17 @@ allParts.forEach(part=>{
       </tr>
     `;
 
+    sheet.parts.forEach(p=>{
+      pageRows+=`
+        <tr>
+          <td>${sheetIndex+1}</td>
+          <td>P${p.pieceNo || ""}</td>
+          <td>${Math.round(p.h)}</td>
+          <td>${Math.round(p.w)}</td>
+          <td>1</td>
+        </tr>
+      `;
+    });
     const svgW=sheetL*scale;
     const svgH=sheetW*scale;
 
