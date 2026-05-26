@@ -1017,23 +1017,40 @@ allParts.forEach(part=>{
     let rects="";
 
     sheet.parts.forEach(p=>{
-      const displayH=p.h*scale;      
+  const displayH=p.h*scale;      
+  const displayW=p.w*scale;
+
+  const vertical=p.w<220;
+
+  const textSvg=vertical
+  ? `
+  <text
+  x="${(p.x*scale)+(displayW/2)}"
+  y="${(p.y*scale)+(displayH/2)}"
+  font-size="12"
+  text-anchor="middle"
+  dominant-baseline="middle"
+  transform="rotate(-90 ${(p.x*scale)+(displayW/2)} ${(p.y*scale)+(displayH/2)})"
+  >
+  ${p.label}
+  </text>
+  `
+  : `
+  <text
+  x="${(p.x*scale)+8}"
+  y="${(p.y*scale)+20}"
+  font-size="12"
+  >
+  ${p.label}
+  </text>
+  `;     
       
       rects +=`
         <rect x="${p.x*scale}" y="${p.y*scale}"
               width="${p.w*scale}" height="${displayH}"
               fill="#dff3df" stroke="#111"/>
-
-  ${(p.w*scale>55 && p.h*scale>8) ? `
-    <text x="${p.x*scale+6}" 
-          y="${p.y*scale + Math.max(10, Math.min(p.h*scale-3,18))}" 
-          font-size="${Math.max(7, Math.min(12, p.h*scale-3))}" 
-          fill="#111">
-    ${p.label}
-  </text>
-` : ""}
+       ${textSvg}
       `;
-    });
 
     // Chutes restantes réelles
 sheet.freeRects.forEach(chute=>{
