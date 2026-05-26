@@ -834,58 +834,145 @@ function generatePdfDocument(type){
   // On trie les pièces les plus larges en premier
   allParts.sort((a,b)=>(b.h*b.w)-(a.h*a.w));
 
-  const sheets=[];
+  let sheets=[];
 
-  allParts.forEach(part=>{
-    let placed=false;
+function newSheet(){
+  return {
+    parts:[],
+    freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]
+  };
+}
 
-    for(const sheet of sheets){
-      if(placePartInSheet(sheet,part)){
-        placed=true;
-        break;
+function mergeFreeRects(rects){
+  let changed=true;
+
+  while(changed){
+    changed=false;
+
+    for(let i=0;i<rects.length;i++){
+      for(let j=i+1;j<rects.length;j++){
+        const a=rects[i];
+        const b=rects[j];
+
+        // Fusion verticale : même x, même largeur, zones collées
+        if(a.x===b.x && a.w===b.w && a.y+a.h===b.y){
+          a.h+=b.h;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
+
+        if(a.x===b.x && a.w===b.w && b.y+b.h===a.y){
+          a.y=b.y;
+          a.h+=b.h;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
+
+        // Fusion horizontale : même y, même hauteur, zones collées
+        if(a.y===b.y && a.h===b.h && a.x+a.w===b.x){
+          a.w+=b.w;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
+
+        if(a.y===b.y && a.h===b.h && b.x+b.w===a.x){
+          a.x=b.x;
+          a.w+=b.w;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
       }
+      if(changed) break;
     }
+  }
 
-    if(!placed){
-      const newSheet={
-        rows:[],
-        parts:[]
-      };
-      placePartInSheet(newSheet,part);
-      sheets.push(newSheet);
-    }
+  return rects.filter(r=>r.w>0 && r.h>0);
+}
+
+function tryPlacePart(sheet, part){
+  let best=null;
+
+  sheet.freeRects.forEach((r,idx)=>{
+    const variants=[
+      {w:part.w,h:part.h,rotated:false},
+      {w:part.h,h:part.w,rotated:true}
+    ];
+
+    variants.forEach(v=>{
+      if(v.w<=r.w && v.h<=r.h){
+        const waste=(r.w*r.h)-(v.w*v.h);
+        const score=waste + Math.min(r.w-v.w,r.h-v.h);
+
+        if(!best || score<best.score){
+          best={rect:r,rectIndex:idx,w:v.w,h:v.h,rotated:v.rotated,score};
+        }
+      }
+    });
   });
 
-  function placePartInSheet(sheet,part){
-    // Essayer de placer dans une ligne existante
-    for(const row of sheet.rows){
-      if(part.h<=row.height && row.usedLength+part.w<=sheetL){
-        const x=row.usedLength;
-        const y=row.y;
+  if(!best) return false;
 
-        row.usedLength+=part.w;
-        sheet.parts.push({...part,x,y});
-        return true;
-      }
-    }
+  const placed={
+    ...part,
+    x:best.rect.x,
+    y:best.rect.y,
+    w:best.w,
+    h:best.h,
+    rotated:best.rotated
+  };
 
-    // Créer une nouvelle ligne
-    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+  sheet.parts.push(placed);
 
-    if(usedHeight+part.h<=sheetW && part.w<=sheetL){
-      const row={
-        y:usedHeight,
-        height:part.h,
-        usedLength:part.w
-      };
+  const r=best.rect;
+  sheet.freeRects.splice(best.rectIndex,1);
 
-      sheet.rows.push(row);
-      sheet.parts.push({...part,x:0,y:usedHeight});
-      return true;
-    }
-
-    return false;
+  // Chute à droite
+  if(r.w-best.w>0){
+    sheet.freeRects.push({
+      x:r.x+best.w,
+      y:r.y,
+      w:r.w-best.w,
+      h:best.h
+    });
   }
+
+  // Chute en dessous
+  if(r.h-best.h>0){
+    sheet.freeRects.push({
+      x:r.x,
+      y:r.y+best.h,
+      w:r.w,
+      h:r.h-best.h
+    });
+  }
+
+  sheet.freeRects=mergeFreeRects(sheet.freeRects);
+
+  return true;
+}
+
+allParts.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+
+allParts.forEach(part=>{
+  let placed=false;
+
+  for(const sheet of sheets){
+    if(tryPlacePart(sheet,part)){
+      placed=true;
+      break;
+    }
+  }
+
+  if(!placed){
+    const sheet=newSheet();
+    tryPlacePart(sheet,part);
+    sheets.push(sheet);
+  }
+});
 
   let summaryRows="";
   let drawings="";
