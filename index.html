@@ -1052,9 +1052,14 @@ allParts.forEach(part=>{
        ${textSvg}
       `;
 
-    // Chutes restantes réelles
-sheet.freeRects.forEach(chute=>{
+   let chuteInfos=[];
+
+sheet.freeRects.forEach((chute,chuteIndex)=>{
   if(chute.w>20 && chute.h>20){
+    const chuteNo="C"+(chuteIndex+1);
+
+    chuteInfos.push(`${chuteNo} = ${Math.round(chute.w)} x ${Math.round(chute.h)} mm`);
+
     rects+=`
       <rect x="${chute.x*scale}" y="${chute.y*scale}"
         width="${chute.w*scale}" height="${chute.h*scale}"
@@ -1062,7 +1067,7 @@ sheet.freeRects.forEach(chute=>{
 
       <text x="${chute.x*scale+8}" y="${chute.y*scale+22}"
         font-size="13" fill="#111">
-        Chute ${Math.round(chute.w)} x ${Math.round(chute.h)}
+        ${chuteNo}
       </text>
     `;
   }
@@ -1087,8 +1092,8 @@ sheet.freeRects.forEach(chute=>{
     drawings+=`
       <div class="drawing-block">
         <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
+        <p><strong>Chutes :</strong> ${chuteInfos.length ? chuteInfos.join(" / ") : "Aucune chute exploitable"}</p>        
         <p><strong>Contenu :</strong> ${detail}</p>
-
         <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
           <rect x="0" y="0" width="${svgW}" height="${svgH}"
                 fill="#fff" stroke="#111" stroke-width="2"/>
