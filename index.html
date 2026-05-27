@@ -1039,7 +1039,7 @@ Object.values(grouped).forEach(g=>{
               width="${p.w*scale}" height="${displayH}"
               fill="#dff3df" stroke="#111"/>
 
-  ${(p.w*scale>55 && p.h*scale>8) ? `
+  ${p.label ? ` 
     ${vertical ? `
 <text
   x="${(p.x*scale)+(displayW/2)}"
