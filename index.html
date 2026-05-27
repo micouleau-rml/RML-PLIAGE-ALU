@@ -1049,7 +1049,9 @@ allParts.forEach(part=>{
         <rect x="${p.x*scale}" y="${p.y*scale}"
               width="${p.w*scale}" height="${displayH}"
               fill="#dff3df" stroke="#111"/>
-       ${textSvg}
+       <text x="${p.x*scale+8}" y="${p.y*scale+20}" font-size="12" fill="#111">
+${p.label}
+</text>
       `;
 
    let chuteInfos=[];
