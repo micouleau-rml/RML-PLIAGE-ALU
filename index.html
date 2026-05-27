@@ -1195,17 +1195,22 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
   Surface matière consommée : ${totalSheetArea.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
 </div>
 
+</table>
+
+<h3>Détail des pièces par feuille</h3>
+
 <table>
-<thead>
-<tr>
-  <th>Feuille</th>
-  <th>Pièces placées</th>
-  <th>Total pièces</th>
-</tr>
-</thead>
-<tbody>
-${summaryRows}
-</tbody>
+  <thead>
+    <tr>
+      <th>Feuille</th>
+      <th>Développé mm</th>
+      <th>Longueur mm</th>
+      <th>Qté</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${pageRows}
+  </tbody>
 </table>
 
 ${drawings}
