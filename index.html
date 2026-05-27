@@ -278,7 +278,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <button class="btn-secondary" id="devisPdfBtn">Devis PDF numéroté</button>
 <button class="btn-secondary" id="clientPdfBtn">Bon client avec prix</button>
 <button class="btn-light" id="atelierPdfBtn">Bon atelier sans prix</button>
-    </div>
+<button class="btn-light" id="calpinageBtn">Calpinage 1500x3000</button>
+   </div>
   </div>
 
   <div class="grid">
@@ -301,6 +302,14 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
             <option value="15/10">Alu 15/10</option>
           </select>
         </div>
+        <div class="field col-3">
+  <label for="sheetFormat">Format feuille</label>
+  <select id="sheetFormat">
+    <option value="1500x3000">1500 x 3000 mm</option>
+    <option value="1250x3000">1250 x 3000 mm</option>
+    <option value="1000x2000">1000 x 2000 mm</option>
+  </select>
+</div>        
         <div class="field col-3">
           <label for="globalPriceDisplay">Tarif matière €/m²</label>
           <input id="globalPriceDisplay" type="text" readonly />
@@ -356,6 +365,9 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <div class="actions">
         <button class="btn-secondary" id="printBtn">Imprimer / PDF</button>
         <button class="btn-danger" id="quotePdfBtn">Visualiser PDF</button>  
+        <button class="btn-primary" id="saveProjectBtn">Enregistrer projet</button>
+        <button class="btn-secondary" id="loadProjectBtn">Mes projets</button>        
+        <button class="btn-light" id="newProjectBtn">Nouveau devis</button>        
         <button class="btn-light" id="exportJsonBtn">Sauvegarde clients</button>
         <button class="btn-light" id="exportFullBackupBtn">Sauvegarde complète</button>
         <button class="btn-light" id="exportProjectBackupBtn">Sauvegarde projet</button>
@@ -578,6 +590,17 @@ function recalcAll(){
     resultTableBody.appendChild(tr);
   });
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
+  
+  const minimumOrder=45;
+const hasValidPiece=pieces.some(p =>
+  Number(p.developed||0)>0 &&
+  Number(p.length||0)>0 &&
+  Number(p.qty||0)>0
+);
+
+if(hasValidPiece && totalAmount<minimumOrder){
+  totalAmount=minimumOrder;
+}
   document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount);
   document.getElementById("summaryLines").textContent=String(pieces.length);
 }
@@ -680,7 +703,7 @@ function generatePdfDocument(type){
     const matiere=surface*getCurrentPricePerM2();
     const prixPlis=plis*qty*Number(client?.costs?.fold||0);
     const prixCoupes=coupes*qty*Number(client?.costs?.cut||0);
-    const prixTemps=(temps*qty)*(Number(client?.costs?.hourly||0)/60);
+    const prixTemps=temps*(Number(client?.costs?.hourly||0)/60);
     const ligne=matiere+prixPlis+prixCoupes+prixTemps;
 
     total+=ligne;
@@ -693,7 +716,7 @@ function generatePdfDocument(type){
         <td>${qty}</td>
         <td>${plis*qty}</td>
         <td>${coupes*qty}</td>
-        <td>${temps*qty} min</td>
+        <td>${temps} min</td>
         <td>${surface.toFixed(3)} m²</td>
         ${showPrices ? `<td>${fmtEuro(ligne)}</td>` : ""}
       </tr>
@@ -762,9 +785,408 @@ function generatePdfDocument(type){
   </div>
 
 <div style="text-align:center;margin-top:25px;">
-  <button onclick="window.print()" style="padding:12px 22px;font-size:16px;border:none;border-radius:8px;background:#0f62fe;color:white;cursor:pointer;">
+  <button onclick="window.print()" style="padding:12px 22px;font-size:16px;border:none;border-radius:8px;background:#0f62fe;color:white;margin-right:10px;">
     Imprimer / Enregistrer en PDF
   </button>
+
+  <button onclick="window.close()" style="padding:12px 22px;font-size:16px;border:none;border-radius:8px;background:#0f62fe;color:white;">
+  Retour à l'application
+</button>
+</div>
+</body>
+</html>`;
+
+  const win=window.open("", "_blank");
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+}
+
+  function generateCalpinageDocument(){
+  const client=getCurrentClient();
+  const project=(projectName?.value || "Projet sans nom").trim();
+  const today=new Date().toLocaleDateString("fr-FR");
+
+  const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
+  const scale=0.18;
+
+  let allParts=[];
+
+  pieces.forEach((piece,index)=>{
+    const dev=Number(piece.developed||0);
+    const long=Number(piece.length||0)*1000;
+    const qty=Number(piece.qty||0);
+
+    if(!dev || !long || !qty) return;
+
+    for(let i=0;i<qty;i++){
+      allParts.push({
+        pieceNo:index+1,
+        dev,
+        long,
+        w:long,
+        h:dev,
+        label:`P${index+1} - ${dev} x ${long}`
+      });
+    }
+  });
+
+  // On trie les pièces les plus larges en premier
+  allParts.sort((a,b)=>(b.h*b.w)-(a.h*a.w));
+
+  let sheets=[];
+
+function newSheet(){
+  return {
+    parts:[],
+    freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]
+  };
+}
+
+function mergeFreeRects(rects){
+  let changed=true;
+
+  while(changed){
+    changed=false;
+
+    for(let i=0;i<rects.length;i++){
+      for(let j=i+1;j<rects.length;j++){
+        const a=rects[i];
+        const b=rects[j];
+
+        // Fusion verticale : même x, même largeur, zones collées
+        if(a.x===b.x && a.w===b.w && a.y+a.h===b.y){
+          a.h+=b.h;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
+
+        if(a.x===b.x && a.w===b.w && b.y+b.h===a.y){
+          a.y=b.y;
+          a.h+=b.h;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
+
+        // Fusion horizontale : même y, même hauteur, zones collées
+        if(a.y===b.y && a.h===b.h && a.x+a.w===b.x){
+          a.w+=b.w;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
+
+        if(a.y===b.y && a.h===b.h && b.x+b.w===a.x){
+          a.x=b.x;
+          a.w+=b.w;
+          rects.splice(j,1);
+          changed=true;
+          break;
+        }
+      }
+      if(changed) break;
+    }
+  }
+
+  return rects.filter(r=>r.w>0 && r.h>0);
+}
+
+function tryPlacePart(sheet, part){
+  let best=null;
+
+  sheet.freeRects.forEach((r,idx)=>{
+    const variants=[
+      {w:part.w,h:part.h,rotated:false},
+      {w:part.h,h:part.w,rotated:true}
+    ];
+
+    variants.forEach(v=>{
+      if(v.w<=r.w && v.h<=r.h){
+        const waste=(r.w*r.h)-(v.w*v.h);
+        const score=waste + Math.min(r.w-v.w,r.h-v.h);
+
+        if(!best || score<best.score){
+          best={rect:r,rectIndex:idx,w:v.w,h:v.h,rotated:v.rotated,score};
+        }
+      }
+    });
+  });
+
+  if(!best) return false;
+
+  const placed={
+    ...part,
+    x:best.rect.x,
+    y:best.rect.y,
+    w:best.w,
+    h:best.h,
+    rotated:best.rotated
+  };
+
+  sheet.parts.push(placed);
+
+  const r=best.rect;
+  sheet.freeRects.splice(best.rectIndex,1);
+
+  // Chute à droite
+  if(r.w-best.w>0){
+    sheet.freeRects.push({
+      x:r.x+best.w,
+      y:r.y,
+      w:r.w-best.w,
+      h:best.h
+    });
+  }
+
+  // Chute en dessous
+  if(r.h-best.h>0){
+    sheet.freeRects.push({
+      x:r.x,
+      y:r.y+best.h,
+      w:r.w,
+      h:r.h-best.h
+    });
+  }
+
+  sheet.freeRects=mergeFreeRects(sheet.freeRects);
+
+  return true;
+}
+
+allParts.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+
+allParts.forEach(part=>{
+  let placed=false;
+
+  for(const sheet of sheets){
+    if(tryPlacePart(sheet,part)){
+      placed=true;
+      break;
+    }
+  }
+
+  if(!placed){
+    const sheet=newSheet();
+    tryPlacePart(sheet,part);
+    sheets.push(sheet);
+  }
+});
+
+  let summaryRows="";
+  let drawings="";
+  let totalParts=allParts.length;
+  let totalSheetArea=sheets.length*(sheetW*sheetL/1000000);
+
+  sheets.forEach((sheet,sheetIndex)=>{
+    const counts={};
+
+    sheet.parts.forEach(p=>{
+      counts[p.pieceNo]=(counts[p.pieceNo]||0)+1;
+    });
+
+    const detail=Object.entries(counts)
+      .map(([pieceNo,count])=>`P${pieceNo} : ${count} u`)
+      .join(" / ");
+
+    summaryRows+=`
+      <tr>
+        <td>${sheetIndex+1}</td>
+        <td>${detail}</td>
+        <td>${sheet.parts.length}</td>
+      </tr>
+    `;
+
+    const svgW=sheetL*scale;
+    const svgH=sheetW*scale;
+
+    let rects="";
+
+    sheet.parts.forEach(p=>{
+      const displayH=p.h*scale;      
+      
+      rects +=`
+        <rect x="${p.x*scale}" y="${p.y*scale}"
+              width="${p.w*scale}" height="${displayH}"
+              fill="#dff3df" stroke="#111"/>
+
+  ${(p.w*scale>55 && p.h*scale>8) ? `
+    <text x="${p.x*scale+6}" 
+          y="${p.y*scale + Math.max(10, Math.min(p.h*scale-3,18))}" 
+          font-size="${Math.max(7, Math.min(12, p.h*scale-3))}" 
+          fill="#111">
+    ${p.label}
+  </text>
+` : ""}
+      `;
+    });
+
+    // Chutes restantes réelles
+sheet.freeRects.forEach(chute=>{
+  if(chute.w>20 && chute.h>20){
+    rects+=`
+      <rect x="${chute.x*scale}" y="${chute.y*scale}"
+        width="${chute.w*scale}" height="${chute.h*scale}"
+        fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
+
+      <text x="${chute.x*scale+8}" y="${chute.y*scale+22}"
+        font-size="13" fill="#111">
+        Chute ${Math.round(chute.w)} x ${Math.round(chute.h)}
+      </text>
+    `;
+  }
+});
+    // Chute basse sur largeur restante
+    const usedHeight=Math.max(...sheet.parts.map(p=>p.y+p.h),0);
+    const remainingW=sheetW-usedHeight;
+
+    if(remainingW>0){
+      rects+=`
+        <rect x="0" y="${usedHeight*scale}"
+              width="${sheetL*scale}" height="${remainingW*scale}"
+              fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
+
+        <text x="10" y="${usedHeight*scale+24}"
+              font-size="14" fill="#111">
+          Chute ${remainingW} x ${sheetL}
+        </text>
+      `;
+    }
+
+    drawings+=`
+      <div class="drawing-block">
+        <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
+        <p><strong>Contenu :</strong> ${detail}</p>
+
+        <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
+          <rect x="0" y="0" width="${svgW}" height="${svgH}"
+                fill="#fff" stroke="#111" stroke-width="2"/>
+          ${rects}
+        </svg>
+      </div>
+    `;
+  });
+
+  const html=`
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Calpinage atelier</title>
+<style>
+@page{size:A4 portrait;margin:8mm;}
+body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;}
+.sheet{width:190mm;margin:auto;padding:8mm;box-sizing:border-box;}
+h1{text-align:center;font-size:24px;margin:0;}
+h2{text-align:center;font-size:15px;font-weight:400;margin:4px 0 18px;}
+.top{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.box{border:1px solid #333;padding:10px;font-size:13px;}
+.summary{margin-top:14px;border:2px solid #111;padding:10px;font-size:14px;background:#f7f7f7;}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:14px;}
+th,td{border:1px solid #333;padding:6px;text-align:center;}
+th{background:#f2f2f2;}
+.drawing-block{
+  border:1px solid #333;
+  padding:10px;
+  margin-top:18px;
+  page-break-inside:avoid;
+  break-inside:avoid;
+}
+
+@media print{
+  @page{
+    size:A4 portrait;
+    margin:8mm;
+  }
+
+  .actions{
+    display:none!important;
+  }
+
+  .sheet{
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+  }
+
+  .drawing-block{
+  page-break-before:always!important;
+  break-after:auto!important;
+  page-break-after:auto!important;
+  break-inside:avoid!important;
+  page-break-inside:avoid!important;
+  height:250mm!important;
+  overflow:hidden!important;
+
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+}
+
+  .drawing-block:first-of-type{
+    break-before:auto!important;
+    page-break-before:auto!important;
+  }
+
+  svg{
+    max-width:100%!important;
+    height:auto!important;
+    max-height:160mm!important;
+  }
+}
+.drawing-block h3{margin:0 0 8px;font-size:15px;}
+svg{max-width:100%;height:auto;margin-top:8px;}
+.actions{text-align:center;margin-top:20px;}
+button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;margin:4px;}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<h1>FEUILLE DE CALPINAGE ATELIER</h1>
+<h2>Optimisation globale du projet — feuille ${sheetW} x ${sheetL} mm</h2>
+
+<div class="top">
+  <div class="box">
+    <strong>Client :</strong> ${client?.name || "-"}<br>
+    <strong>Projet :</strong> ${project}<br>
+    <strong>Épaisseur :</strong> ${selectedThickness.value}
+  </div>
+
+  <div class="box">
+    <strong>Date :</strong> ${today}<br>
+    <strong>Format feuille :</strong> ${sheetW} x ${sheetL} mm<br>
+    <strong>Surface feuille :</strong> ${((sheetW*sheetL)/1000000).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+  </div>
+</div>
+
+<div class="summary">
+  <strong>Total projet :</strong><br>
+  Pièces totales à fabriquer : ${totalParts}<br>
+  Feuilles nécessaires : ${sheets.length}<br>
+  Surface matière consommée : ${totalSheetArea.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+</div>
+
+<table>
+<thead>
+<tr>
+  <th>Feuille</th>
+  <th>Pièces placées</th>
+  <th>Total pièces</th>
+</tr>
+</thead>
+<tbody>
+${summaryRows}
+</tbody>
+</table>
+
+${drawings}
+
+ <div class="actions">
+  <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
+  <button onclick="window.close()">Retour à l’application</button>
 </div>
 </body>
 </html>`;
@@ -780,18 +1202,202 @@ document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[
 document.getElementById("saveClientBtn").addEventListener("click",saveOrUpdateClient);
 document.getElementById("deleteClientBtn").addEventListener("click",deleteCurrentClient);
 document.getElementById("newClientBtn").addEventListener("click",newClientForm);
+
 selectedClient.addEventListener("change",()=>{renderClientForm(); updatePriceDisplay();});
 selectedThickness.addEventListener("change",updatePriceDisplay);
+
 document.getElementById("printBtn").addEventListener("click",()=>window.print());
 document.getElementById("devisPdfBtn").addEventListener("click",()=>generatePdfDocument("devis"));
 document.getElementById("clientPdfBtn").addEventListener("click",()=>generatePdfDocument("client"));
 document.getElementById("atelierPdfBtn").addEventListener("click",()=>generatePdfDocument("atelier"));
+document.getElementById("calpinageBtn").addEventListener("click",generateCalpinageDocument);  
+
 document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
 document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");});
-document.getElementById("importJsonFile").addEventListener("change",async e=>{const file=e.target.files?.[0]; if(!file) return; try{const text=await file.text(); importBackupFromText(text);}catch(err){console.error(err); setStatus("Import impossible : fichier JSON non valide ou non lisible.",false); alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l’application.");}finally{e.target.value="";}});
+document.getElementById("importJsonFile").addEventListener("change",async e=>{
+  const file=e.target.files?.[0];
+  if(!file) return;
 
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+
+    if(data.projects){
+      localStorage.setItem(PROJECTS_KEY,JSON.stringify(data.projects));
+      alert("Liste des projets restaurée.");
+      return;
+    }
+
+    if((data.name || data.projectName) && (data.pieces || data.lines || data.items)){
+      const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+    const importedProject={
+  id:data.id || crypto.randomUUID(),
+  name:data.name || data.projectName || "Projet importé",
+  clientId:data.clientId || data.selectedClientId || data.client?.id || selectedClient.value,
+  thickness:data.thickness || data.selectedThickness || selectedThickness.value,
+  sheetFormat:data.sheetFormat || data.selectedSheetFormat || sheetFormat.value,
+  pieces:data.pieces || data.lines || data.items || data.project?.pieces || data.data?.pieces || data.payload?.pieces || [],
+  date:data.date || data.exportedAt || new Date().toISOString()
+};
+
+projects.push(importedProject);
+localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+
+if(data.client){
+  const exists=clients.some(c=>c.id===data.client.id);
+  if(!exists){
+    clients.push(data.client);
+    saveClients();
+  }
+}
+
+projectNameInput.value=importedProject.name;
+
+renderClientSelect();
+
+selectedClient.value=importedProject.clientId;
+selectedThickness.value=importedProject.thickness;
+sheetFormat.value=importedProject.sheetFormat;
+pieces=Array.isArray(importedProject.pieces) && importedProject.pieces.length
+  ? importedProject.pieces
+  : [{
+      id:crypto.randomUUID(),
+      developed:"",
+      length:"",
+      qty:1,
+      folds:0,
+      cuts:0,
+      time:0,
+      waste:""
+    }];
+
+renderClientForm();
+renderPieces();
+updatePriceDisplay();
+savePieces();
+
+alert("Projet restauré et ouvert : " + importedProject.name);
+e.target.value="";
+return;
+    }
+
+    if(data.clients && data.pieces){
+      clients=data.clients;
+      pieces=data.pieces;
+      saveClients();
+      savePieces();
+      renderClientSelect();
+      renderPieces();
+      updatePriceDisplay();
+      alert("Sauvegarde complète restaurée.");
+      return;
+    }
+
+    alert("Format de sauvegarde non reconnu.");
+  }catch(err){
+    alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l'application.");
+  }
+});
+
+const saveProjectBtn=document.getElementById("saveProjectBtn");
+const newProjectBtn=document.getElementById("newProjectBtn");
+const projectNameInput=document.getElementById("projectName");
+const PROJECTS_KEY="rml_pliage_projects_v1";
+
+function saveCurrentProject(){
+  const projectName=(projectNameInput.value || "Projet sans nom").trim();
+
+  const projectData={
+    id:crypto.randomUUID(),
+    name:projectName,
+    clientId:selectedClient.value,
+    thickness:selectedThickness.value,
+    sheetFormat:sheetFormat.value,
+    pieces:JSON.parse(JSON.stringify(pieces)),
+    date:new Date().toISOString()
+  };
+
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+  projects.push(projectData);
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+
+  alert("Projet enregistré : " + projectName);
+}
+
+function newProject(){
+  projectNameInput.value="";
+  selectedClient.selectedIndex=0;
+  selectedThickness.selectedIndex=0;
+  sheetFormat.selectedIndex=0;
+  globalPriceDisplay.value="";
+  
+  pieces=[{
+    id:crypto.randomUUID(),
+    developed:"",
+    length:"",
+    qty:1,
+    folds:0,
+    cuts:0,
+    time:0,
+    waste:""
+  }];
+
+  renderPieces();
+  updatePriceDisplay();
+  savePieces();
+  alert("Nouveau devis prêt.");
+}
+  function loadProjects(){
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+
+  if(!projects.length){
+    alert("Aucun projet enregistré.");
+    return;
+  }
+
+  let projectList="Projets disponibles :\n\n";
+
+  projects.forEach((p,i)=>{
+    projectList += `${i+1}. ${p.name} | ${p.clientId} | ${new Date(p.date).toLocaleDateString("fr-FR")}\n`;
+  });
+
+  const choice=prompt(projectList + "\nEntrez le numéro du projet à ouvrir :");
+
+  if(!choice) return;
+
+  const selected=projects[Number(choice)-1];
+
+  if(!selected){
+    alert("Projet invalide.");
+    return;
+  }
+
+  projectNameInput.value=selected.name;
+  selectedClient.value=selected.clientId;
+  selectedThickness.value=selected.thickness;
+  sheetFormat.value=selected.sheetFormat;
+  pieces=selected.pieces;
+
+  renderClientForm();
+  renderPieces();
+  updatePriceDisplay();
+  savePieces();
+
+  alert("Projet chargé : " + selected.name);
+}
+if(saveProjectBtn){
+  saveProjectBtn.addEventListener("click",saveCurrentProject);
+}
+const loadProjectBtn=document.getElementById("loadProjectBtn");
+
+if(loadProjectBtn){
+  loadProjectBtn.addEventListener("click",loadProjects);
+}
+if(newProjectBtn){
+  newProjectBtn.addEventListener("click",newProject);
+}  
 const settingsModal=document.getElementById("settingsModal");
 const openSettingsBtn=document.getElementById("openSettingsBtn");
 const closeSettingsBtn=document.getElementById("closeSettingsBtn");
@@ -813,11 +1419,16 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
 renderClientSelect(); renderPieces(); updatePriceDisplay();
 
 const devisBtn=document.getElementById("devisPdfBtn");
+const sheetFormat=document.getElementById("sheetFormat");
 const clientBtn=document.getElementById("clientPdfBtn");
 const atelierBtn=document.getElementById("atelierPdfBtn");
 const oldPdfBtn=document.getElementById("pdfBtn");
 const quotePdfBtn=document.getElementById("quotePdfBtn");
+const calpinageBtn=document.getElementById("calpinageBtn");
 
+if(calpinageBtn){
+  calpinageBtn.addEventListener("click",generateCalpinageDocument);
+}
 if(devisBtn){
   devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
