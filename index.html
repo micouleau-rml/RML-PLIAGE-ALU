@@ -1065,10 +1065,16 @@ Object.values(grouped).forEach(g=>{
         width="${chute.w*scale}" height="${chute.h*scale}"
         fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
 
-      <text x="${chute.x*scale+8}" y="${chute.y*scale+22}"
-        font-size="13" fill="#111">
-        ${chuteNo}
-      </text>
+      <text
+  x="${(chute.x*scale)+(chute.w*scale/2)}"
+  y="${(chute.y*scale)+(chute.h*scale/2)}"
+  font-size="18"
+  font-weight="700"
+  text-anchor="middle"
+  dominant-baseline="middle"
+  fill="#111">
+  ${chuteNo}
+</text>
     `;
   }
 });
