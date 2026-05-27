@@ -1251,10 +1251,9 @@ ${drawings}
 </body>
 </html>`;
 
-  const win=window.open("", "_blank");
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+  document.open();
+  document.write(html);
+  document.close();
 }
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
