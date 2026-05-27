@@ -1246,7 +1246,9 @@ ${drawings}
 
  <div class="actions">
   <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
-  <button onclick="window.close()">Retour à l’application</button>
+  <button onclick="location.href=location.origin + location.pathname">
+Retour à l'application
+</button>
 </div>
 </body>
 </html>`;
