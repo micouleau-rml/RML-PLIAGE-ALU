@@ -1017,51 +1017,27 @@ allParts.forEach(part=>{
     let rects="";
 
     sheet.parts.forEach(p=>{
-  const displayH=p.h*scale;      
-  const displayW=p.w*scale;
-
-  const vertical=p.w<220;
-
-  const textSvg=vertical
-  ? `
-  <text
-  x="${(p.x*scale)+(displayW/2)}"
-  y="${(p.y*scale)+(displayH/2)}"
-  font-size="12"
-  text-anchor="middle"
-  dominant-baseline="middle"
-  transform="rotate(-90 ${(p.x*scale)+(displayW/2)} ${(p.y*scale)+(displayH/2)})"
-  >
-  ${p.label}
-  </text>
-  `
-  : `
-  <text
-  x="${(p.x*scale)+8}"
-  y="${(p.y*scale)+20}"
-  font-size="12"
-  >
-  ${p.label}
-  </text>
-  `;     
+      const displayH=p.h*scale;      
       
       rects +=`
         <rect x="${p.x*scale}" y="${p.y*scale}"
               width="${p.w*scale}" height="${displayH}"
               fill="#dff3df" stroke="#111"/>
-       <text x="${p.x*scale+8}" y="${p.y*scale+20}" font-size="12" fill="#111">
-${p.label}
-</text>
+
+  ${(p.w*scale>55 && p.h*scale>8) ? `
+    <text x="${p.x*scale+6}" 
+          y="${p.y*scale + Math.max(10, Math.min(p.h*scale-3,18))}" 
+          font-size="${Math.max(7, Math.min(12, p.h*scale-3))}" 
+          fill="#111">
+    ${p.label}
+  </text>
+` : ""}
       `;
+    });
 
-   let chuteInfos=[];
-
-sheet.freeRects.forEach((chute,chuteIndex)=>{
+    // Chutes restantes réelles
+sheet.freeRects.forEach(chute=>{
   if(chute.w>20 && chute.h>20){
-    const chuteNo="C"+(chuteIndex+1);
-
-    chuteInfos.push(`${chuteNo} = ${Math.round(chute.w)} x ${Math.round(chute.h)} mm`);
-
     rects+=`
       <rect x="${chute.x*scale}" y="${chute.y*scale}"
         width="${chute.w*scale}" height="${chute.h*scale}"
@@ -1069,7 +1045,7 @@ sheet.freeRects.forEach((chute,chuteIndex)=>{
 
       <text x="${chute.x*scale+8}" y="${chute.y*scale+22}"
         font-size="13" fill="#111">
-        ${chuteNo}
+        Chute ${Math.round(chute.w)} x ${Math.round(chute.h)}
       </text>
     `;
   }
@@ -1094,8 +1070,8 @@ sheet.freeRects.forEach((chute,chuteIndex)=>{
     drawings+=`
       <div class="drawing-block">
         <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
-        <p><strong>Chutes :</strong> ${chuteInfos.length ? chuteInfos.join(" / ") : "Aucune chute exploitable"}</p>        
         <p><strong>Contenu :</strong> ${detail}</p>
+
         <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
           <rect x="0" y="0" width="${svgW}" height="${svgH}"
                 fill="#fff" stroke="#111" stroke-width="2"/>
