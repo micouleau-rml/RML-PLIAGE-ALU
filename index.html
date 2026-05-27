@@ -797,6 +797,7 @@ function generatePdfDocument(type){
 </html>`;
 
   const win=window.open("", "_blank");
+  if(win){ win.focus(); }
   win.document.open();
   win.document.write(html);
   win.document.close();
