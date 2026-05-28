@@ -1099,7 +1099,7 @@ sheet.freeRects.forEach((chute,chuteIndex)=>{
       rects+=`
         <rect x="0" y="${usedHeight*scale}"
               width="${sheetL*scale}" height="${remainingW*scale}"
-              fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
+              fill="${chuteColors[sheet.freeRects.length % chuteColors.length]}" stroke="#111" stroke-dasharray="6,4"/>
 
         <text x="10" y="${usedHeight*scale+24}"
               font-size="14" fill="#111">
