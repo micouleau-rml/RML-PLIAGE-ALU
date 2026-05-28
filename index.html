@@ -1065,7 +1065,7 @@ Object.values(grouped).forEach(g=>{
     // Chutes restantes réelles
     let chuteInfos=[];
    sheet.freeRects.forEach((chute,chuteIndex)=>{
-  if(chute.w>20 && chute.h>20){
+  if(chute.w>0 && chute.h>0){
 
     const chuteNo="C"+(chuteIndex+1);
 
