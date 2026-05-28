@@ -1064,28 +1064,21 @@ Object.values(grouped).forEach(g=>{
 
     // Chutes restantes réelles
     let chuteInfos=[];
-   sheet.freeRects.forEach((chute,chuteIndex)=>{
+const chuteColors=["#ffe8a3","#c7f9cc","#bde0fe","#ffc8dd","#d8f3dc","#e0c3fc","#ffd6a5","#caffbf"];
+
+sheet.freeRects.forEach((chute,chuteIndex)=>{
   if(chute.w>0 && chute.h>0){
 
-    const chuteNo="C"+(chuteIndex+1);
+    const chuteColor=chuteColors[chuteIndex % chuteColors.length];
 
     chuteInfos.push(
-      `${chuteNo} : ${Math.round(chute.w)} x ${Math.round(chute.h)} mm`
+      `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${Math.round(chute.w)} x ${Math.round(chute.h)} mm`
     );
 
     rects+=`
       <rect x="${chute.x*scale}" y="${chute.y*scale}"
         width="${chute.w*scale}" height="${chute.h*scale}"
-        fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
-
-  <text
-x="${chute.w*scale<18 ? chute.x*scale + chute.w*scale + 8 : (chute.x*scale)+(chute.w*scale/2)}"
-y="${chute.h*scale<14 ? chute.y*scale + 10 : (chute.y*scale)+(chute.h*scale/2)}"
-font-size="9"
-font-weight="700"
-text-anchor="${chute.w*scale<18 ? "start" : "middle"}"
-dominant-baseline="middle"
-fill="#111">${chuteNo}</text>
+        fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
     `;
   }
 });
