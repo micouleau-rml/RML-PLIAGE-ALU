@@ -1031,7 +1031,7 @@ Object.values(grouped).forEach(g=>{
     sheet.parts.forEach(p=>{
       const displayH=p.h*scale;      
       const displayW=p.w*scale;
-      const vertical=displayW<60;     
+      const vertical=(p.h>p.w) || displayW<60;    
       rects +=`
         <rect x="${p.x*scale}" y="${p.y*scale}"
               width="${p.w*scale}" height="${displayH}"
