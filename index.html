@@ -1079,13 +1079,13 @@ Object.values(grouped).forEach(g=>{
         fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
 
   <text
-  x="${(chute.x*scale)+(chute.w*scale/2)}"
-  y="${(chute.y*scale)+(chute.h*scale/2)}"
-  font-size="9"
-  font-weight="700"
-  text-anchor="middle"
-  dominant-baseline="middle"
-  fill="#111">${chuteNo}</text>
+x="${chute.w*scale<18 ? chute.x*scale + chute.w*scale + 8 : (chute.x*scale)+(chute.w*scale/2)}"
+y="${chute.h*scale<14 ? chute.y*scale + 10 : (chute.y*scale)+(chute.h*scale/2)}"
+font-size="9"
+font-weight="700"
+text-anchor="${chute.w*scale<18 ? "start" : "middle"}"
+dominant-baseline="middle"
+fill="#111">${chuteNo}</text>
     `;
   }
 });
