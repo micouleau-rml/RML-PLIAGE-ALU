@@ -1043,28 +1043,13 @@ const fontSize=Math.max(
 const centerX=(p.x*scale)+(displayW/2);
 const centerY=(p.y*scale)+(displayH/2);
 
-const pieceText=isVertical
-? `
-<text
-  x="${centerX}"
-  y="${centerY}"
-  font-size="${fontSize}"
-  text-anchor="middle"
-  dominant-baseline="middle"
-  transform="rotate(-90 ${centerX} ${centerY})"
-  fill="#111">
-  ${p.label}
+const pieceText = isVertical ? `
+<text x="${centerX}" y="${centerY}" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle" transform="rotate(-90 ${centerX} ${centerY})" fill="#111">
+${p.label}
 </text>
-`
-: `
-<text
-  x="${centerX}"
-  y="${centerY}"
-  font-size="${fontSize}"
-  text-anchor="middle"
-  dominant-baseline="middle"
-  fill="#111">
-  ${p.label}
+` : `
+<text x="${centerX}" y="${centerY}" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle" fill="#111">
+${p.label}
 </text>
 `;
 
