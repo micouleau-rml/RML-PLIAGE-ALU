@@ -1085,6 +1085,7 @@ Object.values(grouped).forEach(g=>{
   font-weight="700"
   text-anchor="middle"
   dominant-baseline="middle"
+  style="overflow:visible">  
   fill="#111">
   ${chuteNo}
 </text>
@@ -1115,7 +1116,7 @@ Object.values(grouped).forEach(g=>{
         <p style="margin-top:6px;font-size:14px">
         ${chuteInfos.join(" / ")}
         </p>        
-<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
+<svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}" style="overflow:visible">
           <rect x="0" y="0" width="${svgW}" height="${svgH}"
                 fill="#fff" stroke="#111" stroke-width="2"/>
           ${rects}
