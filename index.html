@@ -1284,7 +1284,16 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
   try{
     const text=await file.text();
     const data=JSON.parse(text);
-
+    if(data.clients && Array.isArray(data.clients)){
+  clients=data.clients;
+  saveClients();
+  renderClientSelect();
+  renderClientForm();
+  updatePriceDisplay();
+  alert("Clients restaurés.");
+  e.target.value="";
+  return;
+}
     if(data.projects){
       localStorage.setItem(PROJECTS_KEY,JSON.stringify(data.projects));
       alert("Liste des projets restaurée.");
