@@ -1096,12 +1096,14 @@ sheet.freeRects.forEach((chute,chuteIndex)=>{
     const usedHeight=Math.max(...sheet.parts.map(p=>p.y+p.h),0);
     const remainingW=sheetW-usedHeight;
 
+    const remainingColor=
+    chuteColors[(sheet.freeRects.length-1) % chuteColors.length];    
+   
     if(remainingW>0){
       rects+=`
         <rect x="0" y="${usedHeight*scale}"
               width="${sheetL*scale}" height="${remainingW*scale}"
-              fill="${chuteColors[(sheet.freeRects.length+1) % chuteColors.length]}"
-
+              fill="${remainingColor}"
         <text x="10" y="${usedHeight*scale+24}"
               font-size="14" fill="#111">
           Chute ${remainingW} x ${sheetL}
