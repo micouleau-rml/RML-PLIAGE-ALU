@@ -904,7 +904,7 @@ function tryPlacePart(sheet, part){
     variants.forEach(v=>{
       if(v.w<=r.w && v.h<=r.h){
         const waste=(r.w*r.h)-(v.w*v.h);
-        const score=waste + Math.min(r.w-v.w,r.h-v.h);
+        const score=waste + Math.abs((r.w-v.w) - (r.h-v.h));
 
         if(!best || score<best.score){
           best={rect:r,rectIndex:idx,w:v.w,h:v.h,rotated:v.rotated,score};
