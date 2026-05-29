@@ -1065,14 +1065,16 @@ Object.values(grouped).forEach(g=>{
     // Chutes restantes réelles
     let chuteInfos=[];
 const chuteColors=[
-  "#1d4ed8",
-  "#2563eb",
-  "#1e40af",
-  "#3b82f6",
-  "#1e3a8a",
-  "#0f766e",
-  "#0369a1",
-  "#4338ca"
+  "#dbeafe", // bleu pastel
+  "#fdecc8", // beige clair
+  "#dff5df", // vert pastel
+  "#ffe3c2", // orange pastel
+  "#e8e5ff", // lavande
+  "#f7efc8", // sable
+  "#d8ead3", // vert sauge
+  "#f3d7c8", // terracotta pastel
+  "#dcecfb", // bleu gris
+  "#ececec"  // gris doux
 ];
 
 sheet.freeRects.forEach((chute,chuteIndex)=>{
@@ -1099,7 +1101,7 @@ sheet.freeRects.forEach((chute,chuteIndex)=>{
       rects+=`
         <rect x="0" y="${usedHeight*scale}"
               width="${sheetL*scale}" height="${remainingW*scale}"
-              fill="${chuteColors[sheet.freeRects.length % chuteColors.length]}" stroke="#111" stroke-dasharray="6,4"/>
+              fill="${chuteColors[(sheet.freeRects.length+1) % chuteColors.length]}"
 
         <text x="10" y="${usedHeight*scale+24}"
               font-size="14" fill="#111">
