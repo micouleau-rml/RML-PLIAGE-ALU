@@ -1500,11 +1500,8 @@ const quotePdfBtn=document.getElementById("quotePdfBtn");
 const calpinageBtn=document.getElementById("calpinageBtn");
 
 if(calpinageBtn){
-  calpinageBtn.addEventListener("click",()=>{
-  localStorage.setItem("rml_pliage_selected_client", selectedClient.value);
-  generateCalpinageDocument();
-});
-
+    calpinageBtn.addEventListener("click",generateCalpinageDocument);
+}
   if(devisBtn){
   devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
