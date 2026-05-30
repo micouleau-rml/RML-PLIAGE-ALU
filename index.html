@@ -856,36 +856,54 @@ function generatePdfDocument(type){
     }
   });
 
-  function placePartInSheet(sheet,part){
-    // Essayer de placer dans une ligne existante
-    for(const row of sheet.rows){
-      if(part.h<=row.height && row.usedLength+part.w<=sheetL){
-        const x=row.usedLength;
-        const y=row.y;
+function placePartInSheet(sheet,part){
+  if(!sheet.freeRects){
+    sheet.freeRects=[{x:0,y:0,w:sheetL,h:sheetW}];
+  }
 
-        row.usedLength+=part.w;
-        sheet.parts.push({...part,x,y});
-        return true;
+  let best=null;
+
+  sheet.freeRects.forEach((r,idx)=>{
+    if(part.w<=r.w && part.h<=r.h){
+      const waste=(r.w*r.h)-(part.w*part.h);
+      if(!best || waste<best.waste){
+        best={rect:r,idx,waste};
       }
     }
+  });
 
-    // Créer une nouvelle ligne
-    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+  if(!best) return false;
 
-    if(usedHeight+part.h<=sheetW && part.w<=sheetL){
-      const row={
-        y:usedHeight,
-        height:part.h,
-        usedLength:part.w
-      };
+  const r=best.rect;
 
-      sheet.rows.push(row);
-      sheet.parts.push({...part,x:0,y:usedHeight});
-      return true;
-    }
+  sheet.parts.push({
+    ...part,
+    x:r.x,
+    y:r.y
+  });
 
-    return false;
+  sheet.freeRects.splice(best.idx,1);
+
+  if(r.w-part.w>0){
+    sheet.freeRects.push({
+      x:r.x+part.w,
+      y:r.y,
+      w:r.w-part.w,
+      h:part.h
+    });
   }
+
+  if(r.h-part.h>0){
+    sheet.freeRects.push({
+      x:r.x,
+      y:r.y+part.h,
+      w:r.w,
+      h:r.h-part.h
+    });
+  }
+
+  return true;
+}
 
   let summaryRows="";
   let drawings="";
