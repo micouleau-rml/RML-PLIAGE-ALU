@@ -796,8 +796,9 @@ function generatePdfDocument(type){
 </body>
 </html>`;
 
-  const win = window.open("", "_blank");
-  
+  document.open();
+  document.write(html);
+  document.close();
 }
 
   function generateCalpinageDocument(){
@@ -1419,6 +1420,13 @@ function newProject(){
   renderPieces();
   updatePriceDisplay();
   savePieces();
+  localStorage.setItem("rml_pliage_current_project", JSON.stringify({
+  name: projectNameInput.value,
+  clientId: selectedClient.value,
+  thickness: selectedThickness.value,
+  sheetFormat: sheetFormat.value,
+  pieces: pieces
+}));
   alert("Nouveau devis prêt.");
 }
   function loadProjects(){
@@ -1456,7 +1464,15 @@ function newProject(){
   renderPieces();
   updatePriceDisplay();
   savePieces();
-
+ 
+  localStorage.setItem("rml_pliage_current_project", JSON.stringify({
+  name: projectNameInput.value,
+  clientId: selectedClient.value,
+  thickness: selectedThickness.value,
+  sheetFormat: sheetFormat.value,
+  pieces: pieces
+}));
+  
   alert("Projet chargé : " + selected.name);
 }
 if(saveProjectBtn){
@@ -1489,6 +1505,19 @@ closeSettingsBtn.addEventListener("click",closeSettings);
 settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
 renderClientSelect(); renderPieces(); updatePriceDisplay();
+const currentProject=JSON.parse(localStorage.getItem("rml_pliage_current_project") || "null");
+
+if(currentProject){
+  projectNameInput.value=currentProject.name || "";
+  selectedClient.value=currentProject.clientId || selectedClient.value;
+  selectedThickness.value=currentProject.thickness || selectedThickness.value;
+  sheetFormat.value=currentProject.sheetFormat || sheetFormat.value;
+  pieces=currentProject.pieces || pieces;
+
+  renderClientForm();
+  renderPieces();
+  updatePriceDisplay();
+}
 
 const devisBtn=document.getElementById("devisPdfBtn");
 const sheetFormat=document.getElementById("sheetFormat");
@@ -1499,7 +1528,19 @@ const quotePdfBtn=document.getElementById("quotePdfBtn");
 const calpinageBtn=document.getElementById("calpinageBtn");
 
 if(calpinageBtn){
-  calpinageBtn.addEventListener("click",generateCalpinageDocument);
+  calpinageBtn.addEventListener("click",()=>{
+
+    localStorage.setItem("rml_pliage_current_project", JSON.stringify({
+      name: projectNameInput.value,
+      clientId: selectedClient.value,
+      thickness: selectedThickness.value,
+      sheetFormat: sheetFormat.value,
+      pieces: pieces
+    }));
+
+    generateCalpinageDocument();
+
+  });
 }
 if(devisBtn){
   devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
