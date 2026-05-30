@@ -976,17 +976,21 @@ let chuteIndex=0;
     const remainingW=sheetW-usedHeight;
 
     if(remainingW>0){
-      rects+=`
-        <rect x="0" y="${usedHeight*scale}"
-              width="${sheetL*scale}" height="${remainingW*scale}"
-              fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
+  const chuteNo="C"+(chuteIndex+1);
+  const chuteColor=chuteColors[chuteIndex % chuteColors.length];
 
-        <text x="10" y="${usedHeight*scale+24}"
-              font-size="14" fill="#111">
-          Chute ${remainingW} x ${sheetL}
-        </text>
-      `;
-    }
+  chuteInfos.push(
+    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${remainingW} x ${sheetL} mm`
+  );
+
+  rects+=`
+    <rect x="0" y="${usedHeight*scale}"
+          width="${sheetL*scale}" height="${remainingW*scale}"
+          fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
+  `;
+
+  chuteIndex++;
+}
 
     drawings+=`
       <div class="drawing-block">
