@@ -1248,18 +1248,22 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
 ${drawings}
 
  <div class="actions">
-  <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
-  <button onclick="location.href=location.origin + location.pathname">
+ <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
+  
+<button onclick="window.close()">
 Retour à l'application
 </button>
 </div>
+
 </body>
 </html>`;
 
-  document.open();
-  document.write(html);
-  document.close();
-}
+const win = window.open("", "_blank");
+
+win.document.open();
+win.document.write(html);
+win.document.close();
+
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
 document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];savePieces();renderPieces();setStatus("Pièces réinitialisées.");});
