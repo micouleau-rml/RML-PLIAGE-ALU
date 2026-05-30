@@ -1430,13 +1430,7 @@ function newProject(){
   renderPieces();
   updatePriceDisplay();
   savePieces();
-  localStorage.setItem("rml_pliage_current_project", JSON.stringify({
-  name: projectNameInput.value,
-  clientId: selectedClient.value,
-  thickness: selectedThickness.value,
-  sheetFormat: sheetFormat.value,
-  pieces: pieces
-}));
+  
   alert("Nouveau devis prêt.");
 }
   function loadProjects(){
