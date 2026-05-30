@@ -1525,14 +1525,6 @@ if(quotePdfBtn){
   quotePdfBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
 
-const savedClient=localStorage.getItem("rml_pliage_selected_client");
-
-if(savedClient){
-  selectedClient.value=savedClient;
-  renderClientForm();
-  updatePriceDisplay();
-}
-
 </script>
 </body>
 </html>
