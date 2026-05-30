@@ -1346,16 +1346,6 @@ pieces=Array.isArray(importedProject.pieces) && importedProject.pieces.length
       waste:""
     }];
 
-savePieces();
-
-localStorage.setItem("rml_pliage_current_project", JSON.stringify({
-  name: projectNameInput.value,
-  clientId: selectedClient.value,
-  thickness: selectedThickness.value,
-  sheetFormat: sheetFormat.value,
-  pieces: pieces
-}));
-
 renderClientForm();
 renderPieces();
 updatePriceDisplay();
