@@ -935,26 +935,40 @@ function generatePdfDocument(type){
       `;
     });
 
+    let chuteInfos=[];
+const chuteColors=[
+  "#f8c8dc", // rose
+  "#fca5a5", // rouge pastel
+  "#dbeafe", // bleu pastel
+  "#fde68a", // jaune/ocre
+  "#e9d5ff", // violet pastel
+  "#fed7aa", // orange pastel
+  "#fbcfe8", // rose clair
+  "#c7d2fe", // bleu violet
+  "#e5e7eb"  // gris doux
+];
+let chuteIndex=0;
+    
     // Chutes blanches par ligne
     sheet.rows.forEach(row=>{
       const remainingL=sheetL-row.usedLength;
 
       if(remainingL>0){
-        rects+=`
-          <rect x="${row.usedLength*scale}" y="${row.y*scale}"
-                width="${remainingL*scale}" height="${row.height*scale}"
-                fill="#fff" stroke="#111" stroke-dasharray="6,4"/>
+  const chuteNo="C"+(chuteIndex+1);
+  const chuteColor=chuteColors[chuteIndex % chuteColors.length];
 
-  ${(remainingL*scale>45 && row.height*scale>7) ? `
-  <text x="${row.usedLength*scale+6}"
-        y="${row.y*scale + Math.max(9, Math.min(row.height*scale-3,16))}"
-        font-size="${Math.max(7, Math.min(11, row.height*scale-3))}"
-        fill="#111">
-    Chute ${remainingL} x ${row.height}
-  </text>
-` : ""}
-        `;
-      }
+  chuteInfos.push(
+    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${remainingL} x ${row.height} mm`
+  );
+
+  rects+=`
+    <rect x="${row.usedLength*scale}" y="${row.y*scale}"
+          width="${remainingL*scale}" height="${row.height*scale}"
+          fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
+  `;
+
+  chuteIndex++;
+}
     });
 
     // Chute basse sur largeur restante
@@ -978,7 +992,9 @@ function generatePdfDocument(type){
       <div class="drawing-block">
         <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
         <p><strong>Contenu :</strong> ${detail}</p>
-
+        <p style="margin-top:6px;font-size:14px">
+  ${chuteInfos.join(" / ")}
+</p>
         <svg width="${svgW}" height="${svgH}" viewBox="0 0 ${svgW} ${svgH}">
           <rect x="0" y="0" width="${svgW}" height="${svgH}"
                 fill="#fff" stroke="#111" stroke-width="2"/>
