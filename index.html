@@ -509,7 +509,7 @@ function renderClientSelect(){
     settingsClientSelect.appendChild(s);
   }
 });
-  selectedClient.value=clients.some(c=>c.id===previous)?previous:(clients[0]?.id||"");
+  selectedClient.value=clients.some(c=>c.id===previous)?previous:selectedClient.value;
   renderClientForm(); updatePriceDisplay();
 }
 function renderClientForm(){
