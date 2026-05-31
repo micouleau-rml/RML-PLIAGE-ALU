@@ -978,6 +978,31 @@ const chuteColors=[
   "#e5e7eb"  // gris doux
 ];
 let chuteIndex=0;
+
+function detectInternalChutes(sheet){
+  const chutes=[];
+
+  sheet.rows.forEach(row=>{
+    const nextRows=sheet.rows.filter(r=>r.y > row.y);
+
+    nextRows.forEach(r=>{
+      if(r.y >= row.y + row.height) return;
+
+      if(r.usedLength < row.usedLength){
+        chutes.push({
+          x:r.usedLength,
+          y:r.y,
+          w:row.usedLength-r.usedLength,
+          h:r.height
+        });
+      }
+    });
+  });
+
+  return chutes;
+}
+
+const internalChutes=detectInternalChutes(sheet);
     
     // Chutes blanches par ligne
 sheet.rows.forEach(row=>{
@@ -1000,6 +1025,25 @@ sheet.rows.forEach(row=>{
     chuteIndex++;
   }
 });
+
+internalChutes.forEach(chute=>{
+
+  const chuteNo="C"+(chuteIndex+1);
+  const chuteColor=chuteColors[chuteIndex % chuteColors.length];
+
+  chuteInfos.push(
+    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${Math.round(chute.w)} x ${Math.round(chute.h)} mm`
+  );
+
+  rects+=`
+    <rect x="${chute.x*scale}" y="${chute.y*scale}"
+          width="${chute.w*scale}" height="${chute.h*scale}"
+          fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
+  `;
+
+  chuteIndex++;
+});
+    
     // Chute basse sur largeur restante
     const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
     const remainingW=sheetW-usedHeight;
