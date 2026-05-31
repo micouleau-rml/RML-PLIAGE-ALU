@@ -970,7 +970,33 @@ sheet.rows.forEach(row=>{
     chuteIndex++;
   }
 });
-    
+
+    // Chutes intérieures dans les lignes
+sheet.rows.forEach(row=>{
+  sheet.parts
+    .filter(p=>p.y===row.y && p.h<row.height)
+    .forEach(p=>{
+      const chuteW=p.w;
+      const chuteH=row.height-p.h;
+
+      if(chuteW>20 && chuteH>20){
+        const chuteNo="C"+(chuteIndex+1);
+        const chuteColor=chuteColors[chuteIndex % chuteColors.length];
+
+        chuteInfos.push(
+          `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${Math.round(chuteW)} x ${Math.round(chuteH)} mm`
+        );
+
+        rects+=`
+          <rect x="${p.x*scale}" y="${(p.y+p.h)*scale}"
+                width="${chuteW*scale}" height="${chuteH*scale}"
+                fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
+        `;
+
+        chuteIndex++;
+      }
+    });
+});    
     // Chute basse sur largeur restante
     const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
     const remainingW=sheetW-usedHeight;
