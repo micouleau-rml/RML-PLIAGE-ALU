@@ -797,9 +797,14 @@ function generatePdfDocument(type){
 </html>`;
 
   const win=window.open("", "_blank");
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+if(!win){
+  alert("Fenêtre bloquée par Safari.");
+  return;
+}
+
+win.document.write(html);
+win.document.close();
+win.focus();
 }
 
   function generateCalpinageDocument(){
