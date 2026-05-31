@@ -915,36 +915,6 @@ function generatePdfDocument(type){
     const svgH=sheetW*scale;
 
     let rects="";
-function detectInternalChutes(sheet){
-  const occupied=sheet.parts.map(p=>({x:p.x,y:p.y,w:p.w,h:p.h}));
-  let free=[{x:0,y:0,w:sheetL,h:sheetW}];
-
-  occupied.forEach(part=>{
-    let next=[];
-
-    free.forEach(r=>{
-      const noOverlap=
-        part.x>=r.x+r.w ||
-        part.x+part.w<=r.x ||
-        part.y>=r.y+r.h ||
-        part.y+part.h<=r.y;
-
-      if(noOverlap){
-        next.push(r);
-        return;
-      }
-
-      if(part.x>r.x) next.push({x:r.x,y:r.y,w:part.x-r.x,h:r.h});
-      if(part.x+part.w<r.x+r.w) next.push({x:part.x+part.w,y:r.y,w:(r.x+r.w)-(part.x+part.w),h:r.h});
-      if(part.y>r.y) next.push({x:r.x,y:r.y,w:r.w,h:part.y-r.y});
-      if(part.y+part.h<r.y+r.h) next.push({x:r.x,y:part.y+part.h,w:r.w,h:(r.y+r.h)-(part.y+part.h)});
-    });
-
-    free=next.filter(r=>r.w>20 && r.h>20);
-  });
-
-  return free;
-}    
 
     sheet.parts.forEach(p=>{
       const displayH=p.h*scale;      
@@ -978,31 +948,6 @@ const chuteColors=[
   "#e5e7eb"  // gris doux
 ];
 let chuteIndex=0;
-
-function detectInternalChutes(sheet){
-  const chutes=[];
-
-  sheet.rows.forEach(row=>{
-    const nextRows=sheet.rows.filter(r=>r.y > row.y);
-
-    nextRows.forEach(r=>{
-      if(r.y >= row.y + row.height) return;
-
-      if(r.usedLength < row.usedLength){
-        chutes.push({
-          x:r.usedLength,
-          y:r.y,
-          w:row.usedLength-r.usedLength,
-          h:r.height
-        });
-      }
-    });
-  });
-
-  return chutes;
-}
-
-const internalChutes=detectInternalChutes(sheet);
     
     // Chutes blanches par ligne
 sheet.rows.forEach(row=>{
@@ -1024,24 +969,6 @@ sheet.rows.forEach(row=>{
 
     chuteIndex++;
   }
-});
-
-internalChutes.forEach(chute=>{
-
-  const chuteNo="C"+(chuteIndex+1);
-  const chuteColor=chuteColors[chuteIndex % chuteColors.length];
-
-  chuteInfos.push(
-    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${Math.round(chute.w)} x ${Math.round(chute.h)} mm`
-  );
-
-  rects+=`
-    <rect x="${chute.x*scale}" y="${chute.y*scale}"
-          width="${chute.w*scale}" height="${chute.h*scale}"
-          fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
-  `;
-
-  chuteIndex++;
 });
     
     // Chute basse sur largeur restante
