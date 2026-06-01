@@ -858,7 +858,7 @@ win.document.close();
 
   function placePartInSheet(sheet,part){
 
-  // 1. Essayer de placer dans une ligne existante
+  // Essayer de placer dans une ligne existante
   for(const row of sheet.rows){
     if(part.h<=row.height && row.usedLength+part.w<=sheetL){
 
@@ -871,6 +871,24 @@ win.document.close();
     }
   }
 
+  // Créer une nouvelle ligne
+  const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+
+  if(usedHeight+part.h<=sheetW && part.w<=sheetL){
+
+    const row={
+      y:usedHeight,
+      height:part.h,
+      usedLength:part.w
+    };
+
+    sheet.rows.push(row);
+    sheet.parts.push({...part,x:0,y:usedHeight});
+    return true;
+  }
+
+  return false;
+}
   // 3. Créer une nouvelle ligne
   const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
 
