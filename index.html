@@ -832,14 +832,7 @@ win.document.close();
   });
 
   // On trie les pièces les plus larges en premier
-  allParts.sort((a,b)=>{
-  const maxA=Math.max(a.w,a.h);
-  const maxB=Math.max(b.w,b.h);
-
-  if(maxB!==maxA) return maxB-maxA;
-
-  return (b.w*b.h)-(a.w*a.h);
-});
+ allParts.sort((a,b)=>(b.h*b.w)-(a.h*a.w));
 
   const sheets=[];
 
