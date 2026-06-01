@@ -853,83 +853,65 @@ win.document.close();
       }
     }
 
-    const newSheet={
-  rows:[],
-  parts:[],
-  freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]
-};
+    if(!placed){
+      const newSheet={
+        rows:[],
+        parts:[]
+      };
       placePartInSheet(newSheet,part);
       sheets.push(newSheet);
     }
   });
 
   function placePartInSheet(sheet,part){
+    // Essayer de placer dans une ligne existante
+    for(const row of sheet.rows){
+      if(part.h<=row.height && row.usedLength+part.w<=sheetL){
+        const x=row.usedLength;
+        const y=row.y;
 
-  if(!sheet.freeRects){
-    sheet.freeRects=[{x:0,y:0,w:sheetL,h:sheetW}];
-  }
-
-  let best=null;
-
-  sheet.freeRects.forEach((r,idx)=>{
-    const variants=[
-      {w:part.w,h:part.h,rotated:false},
-      {w:part.h,h:part.w,rotated:true}
-    ];
-
-    variants.forEach(v=>{
-      if(v.w<=r.w && v.h<=r.h){
-        const waste=(r.w*r.h)-(v.w*v.h);
-        const shortSide=Math.min(r.w-v.w,r.h-v.h);
-        const score=waste+shortSide;
-
-        if(!best || score<best.score){
-          best={rect:r,rectIndex:idx,w:v.w,h:v.h,rotated:v.rotated,score};
-        }
+        row.usedLength+=part.w;
+        sheet.parts.push({...part,x,y});
+        return true;
       }
-    });
-  });
+    }
 
-  if(!best) return false;
+    // 2. Essayer de placer dans une zone exploitable à droite
+for(const row of sheet.rows){
+  const zoneX=row.usedLength;
+  const zoneY=row.y;
+  const zoneW=sheetL-row.usedLength;
+  const zoneH=row.height;
 
-  const r=best.rect;
-
-  sheet.parts.push({
-    ...part,
-    x:r.x,
-    y:r.y,
-    w:best.w,
-    h:best.h,
-    rotated:best.rotated
-  });
-
-  sheet.freeRects.splice(best.rectIndex,1);
-
-  const rightW=r.w-best.w;
-  const bottomH=r.h-best.h;
-
-  if(rightW>0){
-    sheet.freeRects.push({
-      x:r.x+best.w,
-      y:r.y,
-      w:rightW,
-      h:best.h
-    });
+  if(part.w<=zoneW && part.h<=zoneH){
+    sheet.parts.push({...part,x:zoneX,y:zoneY});
+    row.usedLength+=part.w;
+    return true;
   }
 
-  if(bottomH>0){
-    sheet.freeRects.push({
-      x:r.x,
-      y:r.y+best.h,
-      w:r.w,
-      h:bottomH
-    });
+  if(part.h<=zoneW && part.w<=zoneH){
+    sheet.parts.push({...part,x:zoneX,y:zoneY,w:part.h,h:part.w});
+    row.usedLength+=part.h;
+    return true;
   }
+}    
+    // Créer une nouvelle ligne
+    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
 
-  sheet.freeRects=sheet.freeRects.filter(r=>r.w>20 && r.h>20);
+    if(usedHeight+part.h<=sheetW && part.w<=sheetL){
+      const row={
+        y:usedHeight,
+        height:part.h,
+        usedLength:part.w
+      };
 
-  return true;
-}
+      sheet.rows.push(row);
+      sheet.parts.push({...part,x:0,y:usedHeight});
+      return true;
+    }
+
+    return false;
+  }
 
   let summaryRows="";
   let drawings="";
