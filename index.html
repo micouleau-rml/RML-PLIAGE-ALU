@@ -857,17 +857,56 @@ win.document.close();
   });
 
   function placePartInSheet(sheet,part){
-    // Essayer de placer dans une ligne existante
-    for(const row of sheet.rows){
-      if(part.h<=row.height && row.usedLength+part.w<=sheetL){
-        const x=row.usedLength;
-        const y=row.y;
 
-        row.usedLength+=part.w;
-        sheet.parts.push({...part,x,y});
+  // 1. Essayer de placer dans une ligne existante
+  for(const row of sheet.rows){
+    if(part.h<=row.height && row.usedLength+part.w<=sheetL){
+
+      const x=row.usedLength;
+      const y=row.y;
+
+      row.usedLength+=part.w;
+      sheet.parts.push({...part,x,y});
+      return true;
+    }
+  }
+
+  // 2. Essayer de placer dans une chute intérieure sous une pièce plus basse
+  for(const row of sheet.rows){
+    for(const p of sheet.parts){
+      if(p.y!==row.y) continue;
+      if(p.h>=row.height) continue;
+
+      const chuteX=p.x;
+      const chuteY=p.y+p.h;
+      const chuteW=p.w;
+      const chuteH=row.height-p.h;
+
+      if(part.w<=chuteW && part.h<=chuteH){
+        sheet.parts.push({...part,x:chuteX,y:chuteY});
         return true;
       }
     }
+  }
+
+  // 3. Créer une nouvelle ligne
+  const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+
+  if(usedHeight+part.h<=sheetW && part.w<=sheetL){
+
+    const row={
+      y:usedHeight,
+      height:part.h,
+      usedLength:part.w
+    };
+
+    sheet.rows.push(row);
+    sheet.parts.push({...part,x:0,y:usedHeight});
+    return true;
+  }
+
+  return false;
+}
 
     // Créer une nouvelle ligne
     const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
