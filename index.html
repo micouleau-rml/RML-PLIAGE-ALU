@@ -964,7 +964,7 @@ for(const row of sheet.rows){
               text-anchor="middle"
               dominant-baseline="middle"
               fill="#111">
-          ${p.label}
+          ${p.pieceNo || p.label.split(" - ")[0]}
         </text>
       `;
     }
@@ -976,7 +976,7 @@ for(const row of sheet.rows){
             dominant-baseline="middle"
             transform="rotate(-90 ${cx} ${cy})"
             fill="#111">
-        ${p.label}
+        ${p.pieceNo || p.label.split(" - ")[0]}
       </text>
     `;
   })()}
