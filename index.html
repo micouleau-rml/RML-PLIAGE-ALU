@@ -946,20 +946,30 @@ for(const row of sheet.rows){
       const displayH=p.h*scale;      
       
       rects +=`
-        <rect x="${p.x*scale}" y="${p.y*scale}"
-              width="${p.w*scale}" height="${displayH}"
-              fill="#dff3df" stroke="#111"/>
+  <rect x="${p.x*scale}" y="${p.y*scale}"
+        width="${p.w*scale}" height="${displayH}"
+        fill="#dff3df" stroke="#111"/>
 
-  ${(p.w*scale>55 && p.h*scale>8) ? `
-    <text x="${p.x*scale+6}" 
-          y="${p.y*scale + Math.max(10, Math.min(p.h*scale-3,18))}" 
-          font-size="${Math.max(7, Math.min(12, p.h*scale-3))}" 
+  ${(p.w*scale>35 && p.h*scale>8) ? `
+    <text x="${p.x*scale+6}"
+          y="${p.y*scale + Math.max(10, Math.min(p.h*scale-3,18))}"
+          font-size="${Math.max(7, Math.min(12, p.h*scale-3))}"
           fill="#111">
-    ${p.label}
-  </text>
-` : ""}
-      `;
-    });
+      ${p.label}
+    </text>
+  ` : `
+    <text x="${(p.x*scale)+(p.w*scale/2)}"
+          y="${(p.y*scale)+(p.h*scale/2)}"
+          font-size="7"
+          text-anchor="middle"
+          dominant-baseline="middle"
+          transform="rotate(-90 ${(p.x*scale)+(p.w*scale/2)} ${(p.y*scale)+(p.h*scale/2)})"
+          fill="#111">
+      ${p.label}
+    </text>
+  `}
+`;
+});
 
     let chuteInfos=[];
 const chuteColors=[
