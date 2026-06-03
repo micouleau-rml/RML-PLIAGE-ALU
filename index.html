@@ -290,6 +290,10 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <label for="selectedClient">Client / mémo tarifaire</label>
           <select id="selectedClient"></select>
         </div>
+        <div class="field col-12">
+  <label for="projectColor">Couleur</label>
+  <input id="projectColor" type="text" placeholder="Ex : RAL 7016, Blanc, Noir sablé..." />
+</div>
         <div class="field col-6">
         <label for="projectName">Nom du projet / chantier</label>
         <input id="projectName" type="text" placeholder="Ex. Villa Dupont Bordeaux" />
@@ -442,6 +446,7 @@ const selectedClient=document.getElementById("selectedClient");
 const selectedThickness=document.getElementById("selectedThickness");
 const globalPriceDisplay=document.getElementById("globalPriceDisplay");
 const projectName=document.getElementById("projectName");
+const projectColor=document.getElementById("projectColor");
 const piecesEl=document.getElementById("pieces");
 const resultTableBody=document.getElementById("resultTableBody");
 const statusEl=document.getElementById("status");
