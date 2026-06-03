@@ -496,7 +496,10 @@ function renderClientSelect(){
   const previous=selectedClient.value;
   selectedClient.innerHTML="";
   if(settingsClientSelect) settingsClientSelect.innerHTML="";  
-  clients.forEach(c=>{
+  clients
+  .slice()
+  .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"fr",{sensitivity:"base"}))
+  .forEach(c=>{
   const o=document.createElement("option");
   o.value=c.id;
   o.textContent=c.name;
