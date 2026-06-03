@@ -286,28 +286,31 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     <div class="card">
       <h2 class="section-title">1. Saisie des pièces</h2>
       <div class="row">
-        <div class="field col-6">
+        <div class="field col-12">
           <label for="selectedClient">Client / mémo tarifaire</label>
           <select id="selectedClient"></select>
-        </div>
-        <div class="field col-3">
+       </div>
+    </div>       
+        
+      <div class="row"> 
+        <div class="field col-6">
   <label for="projectColor">Couleur</label>
   <input id="projectColor" type="text" placeholder="Ex : RAL 7016, Blanc, Noir sablé..." />
 </div>   
         
-        <div class="field col-3">
+        <div class="field col-6">
         <label for="projectName">Nom du projet / chantier</label>
         <input id="projectName" type="text" placeholder="Ex. Villa Dupont Bordeaux" />
       </div>
     </div>
 
         <div class="row">       
-        <div class="field col-3">
+        <div class="field col-4">
           <label for="globalPriceDisplay">Tarif matière €/m²</label>
           <input id="globalPriceDisplay" type="text" readonly />
         </div>
         
-        <div class="field col-3">
+        <div class="field col-4">
           <label for="selectedThickness">Épaisseur métal</label>
           <select id="selectedThickness">
             <option value="7/10">Alu 7/10</option>
@@ -316,7 +319,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           </select>
         </div>
        
-        <div class="field col-3">
+        <div class="field col-4">
   <label for="sheetFormat">Format feuille</label>
   <select id="sheetFormat">
     <option value="1500x3000">1500 x 3000 mm</option>
