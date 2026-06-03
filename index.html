@@ -290,14 +290,23 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <label for="selectedClient">Client / mémo tarifaire</label>
           <select id="selectedClient"></select>
         </div>
-        <div class="field col-12">
+        <div class="field col-3">
   <label for="projectColor">Couleur</label>
   <input id="projectColor" type="text" placeholder="Ex : RAL 7016, Blanc, Noir sablé..." />
-</div>
-        <div class="field col-6">
+</div>   
+        
+        <div class="field col-3">
         <label for="projectName">Nom du projet / chantier</label>
         <input id="projectName" type="text" placeholder="Ex. Villa Dupont Bordeaux" />
       </div>
+    </div>
+
+        <div class="row">       
+        <div class="field col-3">
+          <label for="globalPriceDisplay">Tarif matière €/m²</label>
+          <input id="globalPriceDisplay" type="text" readonly />
+        </div>
+        
         <div class="field col-3">
           <label for="selectedThickness">Épaisseur métal</label>
           <select id="selectedThickness">
@@ -306,6 +315,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
             <option value="15/10">Alu 15/10</option>
           </select>
         </div>
+       
         <div class="field col-3">
   <label for="sheetFormat">Format feuille</label>
   <select id="sheetFormat">
@@ -314,12 +324,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     <option value="1000x2000">1000 x 2000 mm</option>
   </select>
 </div>        
-        <div class="field col-3">
-          <label for="globalPriceDisplay">Tarif matière €/m²</label>
-          <input id="globalPriceDisplay" type="text" readonly />
-        </div>
-      </div>
-
+</div>
       <div class="actions">
         <button class="btn-primary" id="addPieceBtn">+ Ajouter une pièce</button>
         <button class="btn-light" id="duplicateLastBtn">Dupliquer la dernière</button>
