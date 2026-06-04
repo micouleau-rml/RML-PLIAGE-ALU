@@ -859,77 +859,95 @@ win.document.close();
 
   const sheets=[];
 
-  allParts.forEach(part=>{
-    let placed=false;
+// Moteur guillotine : bandes sur la largeur 1500, longueurs dans les 3000
+allParts.sort((a,b)=>{
+  if(b.long!==a.long) return b.long-a.long;
+  return b.dev-a.dev;
+});
 
+allParts.forEach(part=>{
+  let placed=false;
+
+  // 1. Essayer de placer dans une bande de même développé
+  for(const sheet of sheets){
+    if(placeInExistingBand(sheet,part,true)){
+      placed=true;
+      break;
+    }
+  }
+
+  // 2. Essayer de placer dans une bande plus haute compatible
+  if(!placed){
     for(const sheet of sheets){
-      if(placePartInSheet(sheet,part)){
+      if(placeInExistingBand(sheet,part,false)){
         placed=true;
         break;
       }
     }
+  }
 
-    if(!placed){
-      const newSheet={
-        rows:[],
-        parts:[]
-      };
-      placePartInSheet(newSheet,part);
-      sheets.push(newSheet);
-    }
-  });
-
-  function placePartInSheet(sheet,part){
-    // Essayer de placer dans une ligne existante
-    for(const row of sheet.rows){
-      if(part.h<=row.height && row.usedLength+part.w<=sheetL){
-        const x=row.usedLength;
-        const y=row.y;
-
-        row.usedLength+=part.w;
-        sheet.parts.push({...part,x,y});
-        return true;
+  // 3. Créer une nouvelle bande dans une feuille existante
+  if(!placed){
+    for(const sheet of sheets){
+      if(createNewBand(sheet,part)){
+        placed=true;
+        break;
       }
     }
-
-    // 2. Essayer de placer dans une zone exploitable à droite
-for(const row of sheet.rows){
-  const zoneX=row.usedLength;
-  const zoneY=row.y;
-  const zoneW=sheetL-row.usedLength;
-  const zoneH=row.height;
-
-  if(part.w<=zoneW && part.h<=zoneH){
-    sheet.parts.push({...part,x:zoneX,y:zoneY});
-    row.usedLength+=part.w;
-    return true;
   }
 
-  if(part.h<=zoneW && part.w<=zoneH){
-    sheet.parts.push({...part,x:zoneX,y:zoneY,w:part.h,h:part.w});
-    row.usedLength+=part.h;
-    return true;
+  // 4. Créer une nouvelle feuille
+  if(!placed){
+    const newSheet={
+      rows:[],
+      parts:[]
+    };
+
+    createNewBand(newSheet,part);
+    sheets.push(newSheet);
   }
-}    
-    // Créer une nouvelle ligne
-    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+});
 
-    if(usedHeight+part.h<=sheetW && part.w<=sheetL){
-      const row={
-        y:usedHeight,
-        height:part.h,
-        usedLength:part.w
-      };
+function placeInExistingBand(sheet,part,exactOnly){
+  for(const row of sheet.rows){
+    const sameDev=row.height===part.h;
+    const compatible=row.height>=part.h;
 
-      sheet.rows.push(row);
-      sheet.parts.push({...part,x:0,y:usedHeight});
+    if(exactOnly && !sameDev) continue;
+    if(!exactOnly && !compatible) continue;
+
+    if(row.usedLength+part.w<=sheetL){
+      const x=row.usedLength;
+      const y=row.y;
+
+      row.usedLength+=part.w;
+      sheet.parts.push({...part,x,y});
+
       return true;
     }
-
-    return false;
   }
 
-  let summaryRows="";
+  return false;
+}
+
+function createNewBand(sheet,part){
+  const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+
+  if(usedHeight+part.h<=sheetW && part.w<=sheetL){
+    const row={
+      y:usedHeight,
+      height:part.h,
+      usedLength:part.w
+    };
+
+    sheet.rows.push(row);
+    sheet.parts.push({...part,x:0,y:usedHeight});
+
+    return true;
+  }
+
+  return false;
+}
   let drawings="";
   let totalParts=allParts.length;
   let totalSheetArea=sheets.length*(sheetW*sheetL/1000000);
