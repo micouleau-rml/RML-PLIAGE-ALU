@@ -859,76 +859,144 @@ win.document.close();
 
   const sheets=[];
 
-  allParts.forEach(part=>{
-    let placed=false;
+allParts.forEach(part=>{
+  let placed=false;
 
-    for(const sheet of sheets){
-      if(placePartInSheet(sheet,part)){
-        placed=true;
-        break;
-      }
+  for(const sheet of sheets){
+    if(placePartInSheet(sheet,part)){
+      placed=true;
+      break;
     }
+  }
 
-    if(!placed){
-      const newSheet={
-        rows:[],
-        parts:[]
+  if(!placed){
+    const newSheet={
+      rows:[],
+      parts:[],
+      freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]
+    };
+
+    placePartInSheet(newSheet,part);
+    sheets.push(newSheet);
+  }
+});
+
+// Recrée des lignes uniquement pour garder ton affichage/chutes compatible
+sheets.forEach(sheet=>{
+  sheet.rows=buildRowsFromParts(sheet.parts);
+});
+
+function placePartInSheet(sheet,part){
+  if(!sheet.freeRects){
+    sheet.freeRects=[{x:0,y:0,w:sheetL,h:sheetW}];
+  }
+
+  let best=null;
+
+  sheet.freeRects.forEach((r,rectIndex)=>{
+    const tests=[
+      {w:part.w,h:part.h,rotated:false},
+      {w:part.h,h:part.w,rotated:true}
+    ];
+
+    tests.forEach(t=>{
+      if(t.w<=r.w && t.h<=r.h){
+        const waste=(r.w*r.h)-(t.w*t.h);
+        const shortSide=Math.min(r.w-t.w,r.h-t.h);
+        const score=waste+shortSide;
+
+        if(!best || score<best.score){
+          best={rect:r,rectIndex,w:t.w,h:t.h,rotated:t.rotated,score};
+        }
+      }
+    });
+  });
+
+  if(!best) return false;
+
+  const r=best.rect;
+
+  sheet.parts.push({
+    ...part,
+    x:r.x,
+    y:r.y,
+    w:best.w,
+    h:best.h,
+    rotated:best.rotated
+  });
+
+  const placedRect={
+    x:r.x,
+    y:r.y,
+    w:best.w,
+    h:best.h
+  };
+
+  sheet.freeRects.splice(best.rectIndex,1);
+
+  splitFreeRect(sheet, r, placedRect);
+  cleanFreeRects(sheet);
+
+  return true;
+}
+
+function splitFreeRect(sheet,free,used){
+  const rightW=(free.x+free.w)-(used.x+used.w);
+  const bottomH=(free.y+free.h)-(used.y+used.h);
+
+  if(rightW>20){
+    sheet.freeRects.push({
+      x:used.x+used.w,
+      y:free.y,
+      w:rightW,
+      h:free.h
+    });
+  }
+
+  if(bottomH>20){
+    sheet.freeRects.push({
+      x:free.x,
+      y:used.y+used.h,
+      w:free.w,
+      h:bottomH
+    });
+  }
+}
+
+function cleanFreeRects(sheet){
+  sheet.freeRects=sheet.freeRects
+    .filter(r=>r.w>20 && r.h>20)
+    .filter((r,i,arr)=>{
+      return !arr.some((o,j)=>
+        i!==j &&
+        r.x>=o.x &&
+        r.y>=o.y &&
+        r.x+r.w<=o.x+o.w &&
+        r.y+r.h<=o.y+o.h
+      );
+    });
+}
+
+function buildRowsFromParts(parts){
+  const rows=[];
+
+  parts.forEach(p=>{
+    let row=rows.find(r=>Math.abs(r.y-p.y)<2 && Math.abs(r.height-p.h)<2);
+
+    if(!row){
+      row={
+        y:p.y,
+        height:p.h,
+        usedLength:p.x+p.w
       };
-      placePartInSheet(newSheet,part);
-      sheets.push(newSheet);
+      rows.push(row);
+    }else{
+      row.usedLength=Math.max(row.usedLength,p.x+p.w);
     }
   });
 
-  function placePartInSheet(sheet,part){
-    // Essayer de placer dans une ligne existante
-    for(const row of sheet.rows){
-      if(part.h<=row.height && row.usedLength+part.w<=sheetL){
-        const x=row.usedLength;
-        const y=row.y;
-
-        row.usedLength+=part.w;
-        sheet.parts.push({...part,x,y});
-        return true;
-      }
-    }
-
-    // 2. Essayer de placer dans une zone exploitable à droite
-for(const row of sheet.rows){
-  const zoneX=row.usedLength;
-  const zoneY=row.y;
-  const zoneW=sheetL-row.usedLength;
-  const zoneH=row.height;
-
-  if(part.w<=zoneW && part.h<=zoneH){
-    sheet.parts.push({...part,x:zoneX,y:zoneY});
-    row.usedLength+=part.w;
-    return true;
-  }
-
-  if(part.h<=zoneW && part.w<=zoneH){
-    sheet.parts.push({...part,x:zoneX,y:zoneY,w:part.h,h:part.w});
-    row.usedLength+=part.h;
-    return true;
-  }
-}    
-    // Créer une nouvelle ligne
-    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
-
-    if(usedHeight+part.h<=sheetW && part.w<=sheetL){
-      const row={
-        y:usedHeight,
-        height:part.h,
-        usedLength:part.w
-      };
-
-      sheet.rows.push(row);
-      sheet.parts.push({...part,x:0,y:usedHeight});
-      return true;
-    }
-
-    return false;
-  }
-
+  return rows.sort((a,b)=>a.y-b.y);
+}
   let summaryRows="";
   let drawings="";
   let totalParts=allParts.length;
