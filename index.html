@@ -894,19 +894,17 @@ function placePartInSheet(sheet,part){
   let best=null;
 
   sheet.freeRects.forEach((r,rectIndex)=>{
-    const tests=[
+    [
       {w:part.w,h:part.h,rotated:false},
       {w:part.h,h:part.w,rotated:true}
-    ];
-
-    tests.forEach(t=>{
+    ].forEach(t=>{
       if(t.w<=r.w && t.h<=r.h){
-        const waste=(r.w*r.h)-(t.w*t.h);
-        const shortSide=Math.min(r.w-t.w,r.h-t.h);
-        const score=waste+shortSide;
+        const leftoverW=r.w-t.w;
+        const leftoverH=r.h-t.h;
+        const score=Math.min(leftoverW,leftoverH)*1000000 + Math.max(leftoverW,leftoverH);
 
         if(!best || score<best.score){
-          best={rect:r,rectIndex,w:t.w,h:t.h,rotated:t.rotated,score};
+          best={r,rectIndex,w:t.w,h:t.h,rotated:t.rotated,score};
         }
       }
     });
@@ -914,51 +912,80 @@ function placePartInSheet(sheet,part){
 
   if(!best) return false;
 
-  const r=best.rect;
-
-  sheet.parts.push({
-    ...part,
-    x:r.x,
-    y:r.y,
-    w:best.w,
-    h:best.h,
-    rotated:best.rotated
-  });
-
-  const placedRect={
-    x:r.x,
-    y:r.y,
+  const placed={
+    x:best.r.x,
+    y:best.r.y,
     w:best.w,
     h:best.h
   };
 
-  sheet.freeRects.splice(best.rectIndex,1);
+  sheet.parts.push({
+    ...part,
+    x:placed.x,
+    y:placed.y,
+    w:placed.w,
+    h:placed.h,
+    rotated:best.rotated
+  });
 
-  splitFreeRect(sheet, r, placedRect);
+  const oldFree=sheet.freeRects.slice();
+  sheet.freeRects=[];
+
+  oldFree.forEach(free=>{
+    if(rectsOverlap(free,placed)){
+      splitFreeRect(sheet,free,placed);
+    }else{
+      sheet.freeRects.push(free);
+    }
+  });
+
   cleanFreeRects(sheet);
-
   return true;
 }
 
-function splitFreeRect(sheet,free,used){
-  const rightW=(free.x+free.w)-(used.x+used.w);
-  const bottomH=(free.y+free.h)-(used.y+used.h);
+function rectsOverlap(a,b){
+  return !(
+    b.x>=a.x+a.w ||
+    b.x+b.w<=a.x ||
+    b.y>=a.y+a.h ||
+    b.y+b.h<=a.y
+  );
+}
 
-  if(rightW>20){
+function splitFreeRect(sheet,free,used){
+  if(used.x>free.x){
     sheet.freeRects.push({
-      x:used.x+used.w,
+      x:free.x,
       y:free.y,
-      w:rightW,
+      w:used.x-free.x,
       h:free.h
     });
   }
 
-  if(bottomH>20){
+  if(used.x+used.w<free.x+free.w){
+    sheet.freeRects.push({
+      x:used.x+used.w,
+      y:free.y,
+      w:(free.x+free.w)-(used.x+used.w),
+      h:free.h
+    });
+  }
+
+  if(used.y>free.y){
+    sheet.freeRects.push({
+      x:free.x,
+      y:free.y,
+      w:free.w,
+      h:used.y-free.y
+    });
+  }
+
+  if(used.y+used.h<free.y+free.h){
     sheet.freeRects.push({
       x:free.x,
       y:used.y+used.h,
       w:free.w,
-      h:bottomH
+      h:(free.y+free.h)-(used.y+used.h)
     });
   }
 }
@@ -966,15 +993,13 @@ function splitFreeRect(sheet,free,used){
 function cleanFreeRects(sheet){
   sheet.freeRects=sheet.freeRects
     .filter(r=>r.w>20 && r.h>20)
-    .filter((r,i,arr)=>{
-      return !arr.some((o,j)=>
-        i!==j &&
-        r.x>=o.x &&
-        r.y>=o.y &&
-        r.x+r.w<=o.x+o.w &&
-        r.y+r.h<=o.y+o.h
-      );
-    });
+    .filter((r,i,arr)=>!arr.some((o,j)=>
+      i!==j &&
+      r.x>=o.x &&
+      r.y>=o.y &&
+      r.x+r.w<=o.x+o.w &&
+      r.y+r.h<=o.y+o.h
+    ));
 }
 
 function buildRowsFromParts(parts){
