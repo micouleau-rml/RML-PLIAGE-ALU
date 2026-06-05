@@ -859,7 +859,7 @@ win.document.close();
 
   const sheets=[];
 
-// Moteur guillotine : bandes sur la largeur 1500, longueurs dans les 3000
+// Moteur guillotine : bandes sur 1500, longueurs sur 3000
 allParts.sort((a,b)=>{
   if(b.long!==a.long) return b.long-a.long;
   return b.dev-a.dev;
@@ -868,7 +868,6 @@ allParts.sort((a,b)=>{
 allParts.forEach(part=>{
   let placed=false;
 
-  // 1. Essayer de placer dans une bande de même développé
   for(const sheet of sheets){
     if(placeInExistingBand(sheet,part,true)){
       placed=true;
@@ -876,17 +875,15 @@ allParts.forEach(part=>{
     }
   }
 
-  // 2. Essayer de placer dans une bande plus haute compatible
   if(!placed){
     for(const sheet of sheets){
-      if(placeInExistingBand(sheet,part,false)){
+      if(placeInRightSideZone(sheet,part)){
         placed=true;
         break;
       }
     }
   }
 
-  // 3. Créer une nouvelle bande dans une feuille existante
   if(!placed){
     for(const sheet of sheets){
       if(createNewBand(sheet,part)){
@@ -896,11 +893,11 @@ allParts.forEach(part=>{
     }
   }
 
-  // 4. Créer une nouvelle feuille
   if(!placed){
     const newSheet={
       rows:[],
-      parts:[]
+      parts:[],
+      sideBands:[]
     };
 
     createNewBand(newSheet,part);
@@ -922,12 +919,98 @@ function placeInExistingBand(sheet,part,exactOnly){
 
       row.usedLength+=part.w;
       sheet.parts.push({...part,x,y});
-
       return true;
     }
   }
 
   return false;
+}
+
+function placeInRightSideZone(sheet,part){
+  if(!sheet.sideBands) sheet.sideBands=[];
+
+  const zones=getRightSideZones(sheet);
+
+  for(const zone of zones){
+    for(const band of sheet.sideBands){
+      if(band.zoneX!==zone.x || band.zoneY!==zone.y) continue;
+      if(band.y<zone.y || band.y+band.height>zone.y+zone.h) continue;
+
+      if(part.h<=band.height && band.usedLength+part.w<=zone.w){
+        const x=zone.x+band.usedLength;
+        const y=band.y;
+
+        band.usedLength+=part.w;
+        sheet.parts.push({...part,x,y});
+        return true;
+      }
+    }
+
+    const usedHeight=sheet.sideBands
+      .filter(b=>b.zoneX===zone.x && b.zoneY===zone.y)
+      .reduce((sum,b)=>sum+b.height,0);
+
+    if(usedHeight+part.h<=zone.h && part.w<=zone.w){
+      const band={
+        zoneX:zone.x,
+        zoneY:zone.y,
+        y:zone.y+usedHeight,
+        height:part.h,
+        usedLength:part.w
+      };
+
+      sheet.sideBands.push(band);
+      sheet.parts.push({...part,x:zone.x,y:band.y});
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getRightSideZones(sheet){
+  const xs=[...new Set(
+    sheet.rows
+      .map(r=>r.usedLength)
+      .filter(x=>x<sheetL)
+  )].sort((a,b)=>a-b);
+
+  const zones=[];
+
+  xs.forEach(x=>{
+    const rows=sheet.rows
+      .filter(r=>r.usedLength<=x)
+      .sort((a,b)=>a.y-b.y);
+
+    if(!rows.length) return;
+
+    let startY=rows[0].y;
+    let height=rows[0].height;
+    let lastBottom=rows[0].y+rows[0].height;
+
+    for(let i=1;i<rows.length;i++){
+      const r=rows[i];
+
+      if(Math.abs(r.y-lastBottom)<2){
+        height+=r.height;
+        lastBottom=r.y+r.height;
+      }else{
+        if(height>20 && sheetL-x>20){
+          zones.push({x,y:startY,w:sheetL-x,h:height});
+        }
+
+        startY=r.y;
+        height=r.height;
+        lastBottom=r.y+r.height;
+      }
+    }
+
+    if(height>20 && sheetL-x>20){
+      zones.push({x,y:startY,w:sheetL-x,h:height});
+    }
+  });
+
+  return zones.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
 }
 
 function createNewBand(sheet,part){
@@ -942,7 +1025,6 @@ function createNewBand(sheet,part){
 
     sheet.rows.push(row);
     sheet.parts.push({...part,x:0,y:usedHeight});
-
     return true;
   }
 
