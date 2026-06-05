@@ -861,8 +861,8 @@ win.document.close();
 
 // Moteur guillotine : bandes sur 1500, longueurs sur 3000
 allParts.sort((a,b)=>{
-  if(b.long!==a.long) return b.long-a.long;
-  return b.dev-a.dev;
+  if(b.dev!==a.dev) return b.dev-a.dev;
+  return b.long-a.long;
 });
 
 allParts.forEach(part=>{
