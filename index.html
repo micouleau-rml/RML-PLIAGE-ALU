@@ -1085,9 +1085,12 @@ if(placedCount!==allParts.length){
               text-anchor="middle"
               dominant-baseline="middle"
               fill="#111">
-          ${(p.w*scale>80 && p.h*scale>14) ? p.label : (p.pieceNo || p.label.split(" - ")[0])}
-        </text>
-      `;
+          ${(p.w*scale>80 && p.h*scale>14)
+            ? `P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`
+            : `P${p.pieceNo}`
+         }
+         </text>
+         `;
     }
 
     return `
@@ -1097,7 +1100,10 @@ if(placedCount!==allParts.length){
             dominant-baseline="middle"
             transform="rotate(-90 ${cx} ${cy})"
             fill="#111">
-        ${(p.w*scale>80 && p.h*scale>14) ? p.label : (p.pieceNo || p.label.split(" - ")[0])}
+        ${(p.w*scale>80 && p.h*scale>14)
+          ? `P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`
+          : `P${p.pieceNo}`
+        }
       </text>
     `;
   })()}
