@@ -1105,56 +1105,25 @@ if(placedCount!==allParts.length){
 });
     let chuteInfos=[];
 const chuteColors=[
-  "#f8c8dc", // rose
-  "#fca5a5", // rouge pastel
-  "#dbeafe", // bleu pastel
-  "#fde68a", // jaune/ocre
-  "#e9d5ff", // violet pastel
-  "#fed7aa", // orange pastel
-  "#fbcfe8", // rose clair
-  "#c7d2fe", // bleu violet
-  "#e5e7eb"  // gris doux
+  "#f8c8dc",
+  "#fca5a5",
+  "#dbeafe",
+  "#fde68a",
+  "#e9d5ff",
+  "#fed7aa",
+  "#fbcfe8",
+  "#c7d2fe",
+  "#e5e7eb"
 ];
+
 let chuteIndex=0;
-    
-    // Zones exploitables à droite des lignes
-let zones=[];
 
-sheet.rows.forEach(row=>{
-  const remainingL=sheetL-row.usedLength;
+// Affichage direct des vraies zones libres du moteur
+const zones=(sheet.freeRects || [])
+  .filter(z=>z.w>0 && z.h>0)
+  .sort((a,b)=>(b.w*b.h)-(a.w*a.h));
 
-  if(remainingL>0){
-    zones.push({
-      x:row.usedLength,
-      y:row.y,
-      w:remainingL,
-      h:row.height
-    });
-  }
-});
-
-// Fusion des zones alignées verticalement
-zones.sort((a,b)=>a.x-b.x || a.w-b.w || a.y-b.y);
-
-let mergedZones=[];
-
-zones.forEach(z=>{
-  const last=mergedZones[mergedZones.length-1];
-
-  if(
-    last &&
-    last.x===z.x &&
-    last.w===z.w &&
-    last.y+last.h===z.y
-  ){
-    last.h+=z.h;
-  }else{
-    mergedZones.push({...z});
-  }
-});
-
-// Affichage des zones exploitables
-mergedZones.forEach(zone=>{
+zones.forEach(zone=>{
   const chuteNo="Z"+(chuteIndex+1);
   const chuteColor=chuteColors[chuteIndex % chuteColors.length];
 
@@ -1168,30 +1137,19 @@ mergedZones.forEach(zone=>{
           fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
   `;
 
+  if(zone.w*scale>18 && zone.h*scale>10){
+    rects+=`
+      <text x="${(zone.x*scale)+(zone.w*scale/2)}"
+            y="${(zone.y*scale)+(zone.h*scale/2)}"
+            font-size="8"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            fill="#111">${chuteNo}</text>
+    `;
+  }
+
   chuteIndex++;
 });
-    
-    // Chute basse sur largeur restante
-    const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
-    const remainingW=sheetW-usedHeight;
-
-    if(remainingW>0){
-  const chuteNo="Z"+(chuteIndex+1);
-  const chuteColor=chuteColors[chuteIndex % chuteColors.length];
-
-  chuteInfos.push(
-    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${remainingW} x ${sheetL} mm`
-  );
-
-  rects+=`
-    <rect x="0" y="${usedHeight*scale}"
-          width="${sheetL*scale}" height="${remainingW*scale}"
-          fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
-  `;
-
-  chuteIndex++;
-}
-
     drawings+=`
       <div class="drawing-block">
         <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
