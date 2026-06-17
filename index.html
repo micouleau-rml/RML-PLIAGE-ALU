@@ -859,176 +859,179 @@ win.document.close();
 
   const sheets=[];
 
-// Moteur guillotine : bandes sur 1500, longueurs sur 3000
-allParts.sort((a,b)=>{
-  if(b.dev!==a.dev) return b.dev-a.dev;
-  return b.long-a.long;
-});
+// Tri : grandes pièces d'abord, petites ensuite
+allParts.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
 
 allParts.forEach(part=>{
   let placed=false;
 
   for(const sheet of sheets){
-    if(placeInExistingBand(sheet,part,true)){
+    if(placePartInSheet(sheet,part)){
       placed=true;
       break;
     }
   }
 
   if(!placed){
-    for(const sheet of sheets){
-      if(placeInRightSideZone(sheet,part)){
-        placed=true;
-        break;
-      }
-    }
-  }
-
-  if(!placed){
-    for(const sheet of sheets){
-      if(createNewBand(sheet,part)){
-        placed=true;
-        break;
-      }
-    }
-  }
-
-  if(!placed){
     const newSheet={
-      rows:[],
       parts:[],
-      sideBands:[]
+      rows:[],
+      freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]
     };
 
-    createNewBand(newSheet,part);
-    sheets.push(newSheet);
+    if(placePartInSheet(newSheet,part)){
+      sheets.push(newSheet);
+      placed=true;
+    }
+  }
+
+  if(!placed){
+    alert("Pièce impossible à placer : P"+part.pieceNo+" - "+part.dev+" x "+part.long);
   }
 });
 
-function placeInExistingBand(sheet,part,exactOnly){
-  for(const row of sheet.rows){
-    const sameDev=row.height===part.h;
-    const compatible=row.height>=part.h;
+sheets.forEach(sheet=>{
+  sheet.rows=buildRowsFromParts(sheet.parts);
+});
 
-    if(exactOnly && !sameDev) continue;
-    if(!exactOnly && !compatible) continue;
+function placePartInSheet(sheet,part){
+  let best=null;
 
-    if(row.usedLength+part.w<=sheetL){
-      const x=row.usedLength;
-      const y=row.y;
+  sheet.freeRects.forEach((zone,zoneIndex)=>{
+    const tests=[
+      {w:part.w,h:part.h,rotated:false},
+      {w:part.h,h:part.w,rotated:true}
+    ];
 
-      row.usedLength+=part.w;
-      sheet.parts.push({...part,x,y});
-      return true;
-    }
-  }
+    tests.forEach(t=>{
+      if(t.w<=zone.w && t.h<=zone.h){
+        const waste=(zone.w*zone.h)-(t.w*t.h);
+        const score=waste + Math.min(zone.w-t.w,zone.h-t.h);
 
-  return false;
-}
-
-function placeInRightSideZone(sheet,part){
-  if(!sheet.sideBands) sheet.sideBands=[];
-
-  const zones=getRightSideZones(sheet);
-
-  for(const zone of zones){
-    for(const band of sheet.sideBands){
-      if(band.zoneX!==zone.x || band.zoneY!==zone.y) continue;
-      if(band.y<zone.y || band.y+band.height>zone.y+zone.h) continue;
-
-      if(part.h<=band.height && band.usedLength+part.w<=zone.w){
-        const x=zone.x+band.usedLength;
-        const y=band.y;
-
-        band.usedLength+=part.w;
-        sheet.parts.push({...part,x,y});
-        return true;
-      }
-    }
-
-    const usedHeight=sheet.sideBands
-      .filter(b=>b.zoneX===zone.x && b.zoneY===zone.y)
-      .reduce((sum,b)=>sum+b.height,0);
-
-    if(usedHeight+part.h<=zone.h && part.w<=zone.w){
-      const band={
-        zoneX:zone.x,
-        zoneY:zone.y,
-        y:zone.y+usedHeight,
-        height:part.h,
-        usedLength:part.w
-      };
-
-      sheet.sideBands.push(band);
-      sheet.parts.push({...part,x:zone.x,y:band.y});
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function getRightSideZones(sheet){
-  const xs=[...new Set(
-    sheet.rows
-      .map(r=>r.usedLength)
-      .filter(x=>x<sheetL)
-  )].sort((a,b)=>a-b);
-
-  const zones=[];
-
-  xs.forEach(x=>{
-    const rows=sheet.rows
-      .filter(r=>r.usedLength<=x)
-      .sort((a,b)=>a.y-b.y);
-
-    if(!rows.length) return;
-
-    let startY=rows[0].y;
-    let height=rows[0].height;
-    let lastBottom=rows[0].y+rows[0].height;
-
-    for(let i=1;i<rows.length;i++){
-      const r=rows[i];
-
-      if(Math.abs(r.y-lastBottom)<2){
-        height+=r.height;
-        lastBottom=r.y+r.height;
-      }else{
-        if(height>20 && sheetL-x>20){
-          zones.push({x,y:startY,w:sheetL-x,h:height});
+        if(!best || score<best.score){
+          best={zone,zoneIndex,w:t.w,h:t.h,rotated:t.rotated,score};
         }
-
-        startY=r.y;
-        height=r.height;
-        lastBottom=r.y+r.height;
       }
-    }
+    });
+  });
 
-    if(height>20 && sheetL-x>20){
-      zones.push({x,y:startY,w:sheetL-x,h:height});
+  if(!best) return false;
+
+  const placed={
+    ...part,
+    x:best.zone.x,
+    y:best.zone.y,
+    w:best.w,
+    h:best.h,
+    rotated:best.rotated
+  };
+
+  sheet.parts.push(placed);
+
+  const used={x:placed.x,y:placed.y,w:placed.w,h:placed.h};
+  const oldFree=sheet.freeRects.slice();
+  sheet.freeRects=[];
+
+  oldFree.forEach(zone=>{
+    if(overlap(zone,used)){
+      splitZone(sheet,zone,used);
+    }else{
+      sheet.freeRects.push(zone);
     }
   });
 
-  return zones.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+  cleanZones(sheet);
+
+  return true;
 }
 
-function createNewBand(sheet,part){
-  const usedHeight=sheet.rows.reduce((sum,row)=>sum+row.height,0);
+function overlap(a,b){
+  return !(
+    b.x>=a.x+a.w ||
+    b.x+b.w<=a.x ||
+    b.y>=a.y+a.h ||
+    b.y+b.h<=a.y
+  );
+}
 
-  if(usedHeight+part.h<=sheetW && part.w<=sheetL){
-    const row={
-      y:usedHeight,
-      height:part.h,
-      usedLength:part.w
-    };
-
-    sheet.rows.push(row);
-    sheet.parts.push({...part,x:0,y:usedHeight});
-    return true;
+function splitZone(sheet,zone,used){
+  if(used.x>zone.x){
+    sheet.freeRects.push({
+      x:zone.x,
+      y:zone.y,
+      w:used.x-zone.x,
+      h:zone.h
+    });
   }
 
-  return false;
+  if(used.x+used.w<zone.x+zone.w){
+    sheet.freeRects.push({
+      x:used.x+used.w,
+      y:zone.y,
+      w:(zone.x+zone.w)-(used.x+used.w),
+      h:zone.h
+    });
+  }
+
+  if(used.y>zone.y){
+    sheet.freeRects.push({
+      x:zone.x,
+      y:zone.y,
+      w:zone.w,
+      h:used.y-zone.y
+    });
+  }
+
+  if(used.y+used.h<zone.y+zone.h){
+    sheet.freeRects.push({
+      x:zone.x,
+      y:used.y+used.h,
+      w:zone.w,
+      h:(zone.y+zone.h)-(used.y+used.h)
+    });
+  }
+}
+
+function cleanZones(sheet){
+  sheet.freeRects=sheet.freeRects
+    .filter(z=>z.w>0 && z.h>0)
+    .filter((z,i,arr)=>{
+      return !arr.some((o,j)=>
+        i!==j &&
+        z.x>=o.x &&
+        z.y>=o.y &&
+        z.x+z.w<=o.x+o.w &&
+        z.y+z.h<=o.y+o.h
+      );
+    });
+}
+
+function buildRowsFromParts(parts){
+  const rows=[];
+
+  parts.forEach(p=>{
+    let row=rows.find(r=>Math.abs(r.y-p.y)<2);
+
+    if(!row){
+      row={
+        y:p.y,
+        height:p.h,
+        usedLength:p.x+p.w
+      };
+      rows.push(row);
+    }else{
+      row.height=Math.max(row.height,p.h);
+      row.usedLength=Math.max(row.usedLength,p.x+p.w);
+    }
+  });
+
+  return rows.sort((a,b)=>a.y-b.y);
+}
+
+const placedCount=sheets.reduce((sum,s)=>sum+s.parts.length,0);
+
+if(placedCount!==allParts.length){
+  alert("Attention : "+(allParts.length-placedCount)+" pièce(s) non placée(s).");
 }
   
   let summaryRows="";
