@@ -1040,7 +1040,12 @@ if(placedCount!==allParts.length){
   let totalSheetArea=sheets.length*(sheetW*sheetL/1000000);
 
   sheets.forEach((sheet,sheetIndex)=>{
-    const counts={};
+
+  if(!sheet.parts || sheet.parts.length===0){
+    return;
+  }
+
+  const counts={};
 
     sheet.parts.forEach(p=>{
       counts[p.pieceNo]=(counts[p.pieceNo]||0)+1;
@@ -1156,20 +1161,25 @@ zones.forEach(zone=>{
 
   chuteIndex++;
 });
-    drawings+=`
-      <div class="drawing-block">
-        <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
-        <p><strong>Contenu :</strong> ${detail}</p>
-        <p style="margin:6px 0 10px 0;font-size:13px;line-height:1.25">
-  <strong>Zones exploitables :</strong> ${chuteInfos.join(" / ")}
-</p>
-        <svg width="100%" viewBox="0 0 ${svgW} ${svgH}" style="display:block;margin-top:10px">
-          <rect x="0" y="0" width="${svgW}" height="${svgH}"
-                fill="#fff" stroke="#111" stroke-width="2"/>
-          ${rects}
-        </svg>
-      </div>
-    `;
+    
+    if(!sheet.parts || sheet.parts.length===0){
+  return;
+}
+
+drawings+=`
+  <div class="drawing-block">
+    <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
+    <p><strong>Contenu :</strong> ${detail}</p>
+    <p style="margin:3px 0 5px 0;font-size:11px;line-height:1.15">
+      <strong>Zones exploitables :</strong> ${chuteInfos.join(" / ")}
+    </p>
+    <svg width="100%" viewBox="0 0 ${svgW} ${svgH}" style="display:block;margin-top:4px">
+      <rect x="0" y="0" width="${svgW}" height="${svgH}"
+            fill="#fff" stroke="#111" stroke-width="2"/>
+      ${rects}
+    </svg>
+  </div>
+`;
   });
 
   const html=`
@@ -1216,8 +1226,8 @@ th{background:#f2f2f2;}
 
   .drawing-block{
   width:194mm!important;
-  height:135mm!important;
-  margin:0 auto 4mm auto!important;
+  height:142mm!important;
+  margin:0 auto 2mm auto!important;
   padding:6mm 0 0 4mm!important;
   box-sizing:border-box!important;
   page-break-inside:avoid!important;
@@ -1232,7 +1242,7 @@ th{background:#f2f2f2;}
   width:100%!important;
   max-width:100%!important;
   height:auto!important;
-  max-height:85mm!important;
+  max-height:105mm!important;
   margin:0 auto!important;
 }
 }
