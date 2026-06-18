@@ -1225,24 +1225,34 @@ th{background:#f2f2f2;}
   }
 
   .drawing-block{
-  width:194mm!important;
-  height:135mm!important;
-  margin:0 auto 0 auto!important;
-  padding:4mm 0 0 4mm!important;
+  width:190mm!important;
+  height:132mm!important;
+  margin:0 auto!important;
+  padding:3mm 0 0 3mm!important;
   box-sizing:border-box!important;
   overflow:hidden!important;
-  display:block!important;
-  page-break-inside:auto!important;
-  break-inside:auto!important;
-  page-break-before:auto!important;
+  display:inline-block!important;
+  vertical-align:top!important;
+  page-break-inside:avoid!important;
 }
 
-  svg{
+.drawing-block:nth-of-type(2n){
+  page-break-after:always!important;
+}
+
+#pdfPrintZone{
+  display:block!important;
+  width:194mm!important;
+  margin:0 auto!important;
+  padding:0!important;
+}
+
+svg{
   display:block!important;
   width:100%!important;
   max-width:100%!important;
   height:auto!important;
-  max-height:105mm!important;
+  max-height:82mm!important;
   margin:0 auto!important;
 }
 }
