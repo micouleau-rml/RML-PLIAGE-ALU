@@ -1427,6 +1427,7 @@ function saveCurrentProject(){
   const projectData={
     id:crypto.randomUUID(),
     name:projectName,
+    color: projectColor ? projectColor.value : "",
     clientId:selectedClient.value,
     thickness:selectedThickness.value,
     sheetFormat:sheetFormat.value,
@@ -1513,6 +1514,9 @@ function newProject(){
   }
 
   projectNameInput.value=selected.name;
+if(typeof projectColor!=="undefined" && projectColor){
+  projectColor.value=selected.color || "";
+}
   selectedClient.value=selected.clientId;
   selectedThickness.value=selected.thickness;
   sheetFormat.value=selected.sheetFormat;
