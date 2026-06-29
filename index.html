@@ -1478,9 +1478,32 @@ function newProject(){
     projectList += `${i+1}. ${p.name} | ${p.clientId} | ${new Date(p.date).toLocaleDateString("fr-FR")}\n`;
   });
 
-  const choice=prompt(projectList + "\nEntrez le numéro du projet à ouvrir :");
+  projectList += "\nEntrez le numéro du projet à ouvrir";
+  projectList += "\nOu tapez S + numéro pour supprimer. Exemple : S2";
+
+  const choice=prompt(projectList);
 
   if(!choice) return;
+
+  if(choice.toUpperCase().startsWith("S")){
+    const index=Number(choice.substring(1))-1;
+    const selected=projects[index];
+
+    if(!selected){
+      alert("Projet invalide.");
+      return;
+    }
+
+    const ok=confirm("Supprimer définitivement ce projet ?\n\n" + selected.name);
+
+    if(!ok) return;
+
+    projects.splice(index,1);
+    localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+
+    alert("Projet supprimé.");
+    return;
+  }
 
   const selected=projects[Number(choice)-1];
 
