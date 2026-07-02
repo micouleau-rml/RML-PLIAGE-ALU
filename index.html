@@ -1129,11 +1129,97 @@ const chuteColors=[
 
 let chuteIndex=0;
 
+function buildFreeZonesFromPlacedParts(sheet){
+  const zones=[];
+  const parts=(sheet.parts || []).map(p=>({
+    x:Math.round(p.x),
+    y:Math.round(p.y),
+    w:Math.round(p.w),
+    h:Math.round(p.h)
+  }));
+
+  const yCuts=[0,sheetW];
+  parts.forEach(p=>{
+    yCuts.push(p.y);
+    yCuts.push(p.y+p.h);
+  });
+
+  const ys=[...new Set(yCuts)].sort((a,b)=>a-b);
+
+  for(let i=0;i<ys.length-1;i++){
+    const y1=ys[i];
+    const y2=ys[i+1];
+    const h=y2-y1;
+    if(h<=0) continue;
+
+    const occupied=parts
+      .filter(p=>!(p.y+p.h<=y1 || p.y>=y2))
+      .map(p=>({x:p.x,w:p.w}))
+      .sort((a,b)=>a.x-b.x);
+
+    let x=0;
+
+    occupied.forEach(o=>{
+      if(o.x>x){
+        zones.push({x:x,y:y1,w:o.x-x,h:h});
+      }
+      x=Math.max(x,o.x+o.w);
+    });
+
+    if(x<sheetL){
+      zones.push({x:x,y:y1,w:sheetL-x,h:h});
+    }
+  }
+
+  return mergeFreeZones(zones);
+}
+
+function mergeFreeZones(zones){
+  let merged=zones
+    .filter(z=>z.w>0 && z.h>0)
+    .map(z=>({
+      x:Math.round(z.x),
+      y:Math.round(z.y),
+      w:Math.round(z.w),
+      h:Math.round(z.h)
+    }));
+
+  let changed=true;
+
+  while(changed){
+    changed=false;
+
+    outer:
+    for(let i=0;i<merged.length;i++){
+      for(let j=i+1;j<merged.length;j++){
+        const a=merged[i];
+        const b=merged[j];
+
+        if(a.x===b.x && a.w===b.w && a.y+a.h===b.y){
+          a.h+=b.h;
+          merged.splice(j,1);
+          changed=true;
+          break outer;
+        }
+
+        if(a.y===b.y && a.h===b.h && a.x+a.w===b.x){
+          a.w+=b.w;
+          merged.splice(j,1);
+          changed=true;
+          break outer;
+        }
+      }
+    }
+  }
+
+  return merged;
+}    
+
 // Affichage direct des vraies zones libres du moteur
-const zones=(sheet.freeRects || [])
+const zones=buildFreeZonesFromPlacedParts(sheet)
   .filter(z=>z.w>0 && z.h>0)
   .sort((a,b)=>(b.w*b.h)-(a.w*a.h));
-
+    
 zones.forEach(zone=>{
   const chuteNo="Z"+(chuteIndex+1);
   const chuteColor=chuteColors[chuteIndex % chuteColors.length];
