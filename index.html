@@ -1616,13 +1616,7 @@ function newProject(){
     return;
   }
 
-  let projectList="Projets disponibles :\n\n";
-
-  projects.forEach((p,i)=>{
-    projectList += `${i+1}. ${p.name} | ${p.clientId} | ${new Date(p.date).toLocaleDateString("fr-FR")}\n`;
-  });
-
-  let projectList="Projets disponibles — le plus récent est en haut :\n\n";
+ let projectList="Projets disponibles — le plus récent est en haut :\n\n";
 
 projects.forEach((p,i)=>{
   projectList += `${i+1}. ${p.name} | ${p.clientId} | ${new Date(p.date).toLocaleDateString("fr-FR")}\n`;
