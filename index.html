@@ -1403,6 +1403,76 @@ svg{
 svg{max-width:100%;height:auto;margin:0 auto;}
 .actions{text-align:center;margin-top:20px;}
 button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;margin:4px;}
+
+.projects-modal{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.55);
+  z-index:99999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+}
+
+.projects-box{
+  background:white;
+  width:min(760px,95vw);
+  max-height:80vh;
+  overflow:auto;
+  border-radius:22px;
+  padding:24px;
+  box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+
+.projects-box h2{
+  margin:0 0 8px;
+}
+
+.projects-help{
+  color:#64748b;
+  margin-bottom:16px;
+}
+
+.project-item{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  padding:14px;
+  border:1px solid #dbe3ee;
+  border-radius:14px;
+  margin-bottom:10px;
+  background:#f8fafc;
+}
+
+.project-actions{
+  display:flex;
+  gap:8px;
+}
+
+.project-actions button{
+  padding:9px 14px;
+  border:none;
+  border-radius:10px;
+  background:#0f62fe;
+  color:white;
+  font-weight:700;
+}
+
+.project-actions .delete-project{
+  background:#fee2e2;
+  color:#b91c1c;
+}
+
+.close-projects{
+  margin-top:14px;
+  padding:11px 18px;
+  border:none;
+  border-radius:12px;
+  background:#e5e7eb;
+  font-weight:700;
+}
 </style>
 </head>
 <body>
@@ -1608,68 +1678,98 @@ function newProject(){
   savePieces();
   alert("Nouveau devis prêt.");
 }
-  function loadProjects(){
+
+function closeProjectsModal(){
+  const modal=document.getElementById("projectsModal");
+  if(modal) modal.remove();
+}
+
+function openSavedProject(index){
   const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
   projects.sort((a,b)=>new Date(b.date)-new Date(a.date));
-  if(!projects.length){
-    alert("Aucun projet enregistré.");
-    return;
-  }
 
- let projectList="Pour ouvrir : tapez le numéro du projet\n";
-projectList += "Pour supprimer : tapez S + numéro. Exemple : S2\n\n";
-projectList += "Projets disponibles — le plus récent est en haut :\n\n";
-
-projects.forEach((p,i)=>{
-  projectList += `${i+1}. ${p.name} | ${p.clientId} | ${new Date(p.date).toLocaleDateString("fr-FR")}\n`;
-});
-  
-    const choice=prompt(projectList);
-
-  if(!choice) return;
-
-  if(choice.toUpperCase().startsWith("S")){
-    const index=Number(choice.substring(1))-1;
-    const selected=projects[index];
-
-    if(!selected){
-      alert("Projet invalide.");
-      return;
-    }
-
-    const ok=confirm("Supprimer définitivement ce projet ?\n\n" + selected.name);
-
-    if(!ok) return;
-
-    projects.splice(index,1);
-    localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
-
-    alert("Projet supprimé.");
-    return;
-  }
-
-  const selected=projects[Number(choice)-1];
-
+  const selected=projects[index];
   if(!selected){
     alert("Projet invalide.");
     return;
   }
 
   projectNameInput.value=selected.name;
-if(typeof projectColor!=="undefined" && projectColor){
-  projectColor.value=selected.color || "";
-}
+
+  if(typeof projectColor!=="undefined" && projectColor){
+    projectColor.value=selected.color || "";
+  }
+
   selectedClient.value=selected.clientId;
   selectedThickness.value=selected.thickness;
   sheetFormat.value=selected.sheetFormat;
-  pieces=selected.pieces;
+  pieces=selected.pieces || [];
 
   renderClientForm();
   renderPieces();
   updatePriceDisplay();
   savePieces();
 
+  closeProjectsModal();
   alert("Projet chargé : " + selected.name);
+}
+
+function deleteSavedProject(index){
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+  projects.sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  const selected=projects[index];
+  if(!selected) return;
+
+  const ok=confirm("Supprimer définitivement ce projet ?\n\n" + selected.name);
+  if(!ok) return;
+
+  projects.splice(index,1);
+  localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+
+  closeProjectsModal();
+  loadProjects();
+}  
+  function loadProjects(){
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+  projects.sort((a,b)=>new Date(b.date)-new Date(a.date));
+
+  if(!projects.length){
+    alert("Aucun projet enregistré.");
+    return;
+  }
+
+  let html=`
+    <div id="projectsModal" class="projects-modal">
+      <div class="projects-box">
+        <h2>Mes projets enregistrés</h2>
+        <p class="projects-help">Le projet le plus récent est affiché en haut.</p>
+        <div class="projects-list">
+  `;
+
+  projects.forEach((p,i)=>{
+    html+=`
+      <div class="project-item">
+        <div>
+          <strong>${p.name}</strong><br>
+          <small>${p.clientId || ""} • ${p.color || ""} • ${new Date(p.date).toLocaleDateString("fr-FR")}</small>
+        </div>
+        <div class="project-actions">
+          <button onclick="openSavedProject(${i})">Ouvrir</button>
+          <button class="delete-project" onclick="deleteSavedProject(${i})">Supprimer</button>
+        </div>
+      </div>
+    `;
+  });
+
+  html+=`
+        </div>
+        <button class="close-projects" onclick="closeProjectsModal()">Fermer</button>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML("beforeend",html);
 }
 if(saveProjectBtn){
   saveProjectBtn.addEventListener("click",saveCurrentProject);
