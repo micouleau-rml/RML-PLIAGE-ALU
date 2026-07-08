@@ -1474,7 +1474,6 @@ selectedThickness.addEventListener("change",updatePriceDisplay);
 document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
-document.getElementById("installHelpBtn").addEventListener("click",()=>{alert("Quand le site sera en ligne sur GitHub Pages : ouvrez-le dans Safari, touchez Partager puis Sur l’écran d’accueil.");});
 document.getElementById("importJsonFile").addEventListener("change",async e=>{
   const file=e.target.files?.[0];
   if(!file) return;
