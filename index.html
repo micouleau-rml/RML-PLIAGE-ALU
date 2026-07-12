@@ -508,26 +508,46 @@ function getCurrentPricePerM2(){const c=getCurrentClient();return Number(c?.pric
 
 function renderClientSelect(){
   const previous=selectedClient.value;
-  selectedClient.innerHTML="";
-  if(settingsClientSelect) settingsClientSelect.innerHTML="";  
-  clients
-  .slice()
-  .sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"fr",{sensitivity:"base"}))
-  .forEach(c=>{
-  const o=document.createElement("option");
-  o.value=c.id;
-  o.textContent=c.name;
-  selectedClient.appendChild(o);
+
+  selectedClient.innerHTML=`
+    <option value="" disabled>Choisir un client</option>
+  `;
 
   if(settingsClientSelect){
-    const s=document.createElement("option");
-    s.value=c.id;
-    s.textContent=c.name;
-    settingsClientSelect.appendChild(s);
+    settingsClientSelect.innerHTML="";
   }
-});
-  selectedClient.value=clients.some(c=>c.id===previous)?previous:(clients[0]?.id||"");
-  renderClientForm(); updatePriceDisplay();
+
+  clients
+    .slice()
+    .sort((a,b)=>
+      String(a.name||"").localeCompare(
+        String(b.name||""),
+        "fr",
+        {sensitivity:"base"}
+      )
+    )
+    .forEach(c=>{
+      const option=document.createElement("option");
+      option.value=c.id;
+      option.textContent=c.name;
+      selectedClient.appendChild(option);
+
+      if(settingsClientSelect){
+        const settingsOption=document.createElement("option");
+        settingsOption.value=c.id;
+        settingsOption.textContent=c.name;
+        settingsClientSelect.appendChild(settingsOption);
+      }
+    });
+
+  if(previous && clients.some(c=>c.id===previous)){
+    selectedClient.value=previous;
+  }else{
+    selectedClient.value="";
+  }
+
+  renderClientForm();
+  updatePriceDisplay();
 }
 function renderClientForm(){
   const c=getCurrentClient(); if(!c)return;
