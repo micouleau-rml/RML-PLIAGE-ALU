@@ -486,9 +486,8 @@ function fmtNumber(n,d=2){return Number(n||0).toLocaleString("fr-FR",{minimumFra
 function fmtArea(n){return fmtNumber(n,3)+" m²"}
 function fmtEuro(n){return fmtNumber(n,2)+" €"}
 function setStatus(msg,ok=true){statusEl.textContent=msg;statusEl.className=ok?"success-text":"danger-text";}
-const CURRENT_DRAFT_KEY="rml_pliage_current_draft_v1";
-  
-  function loadClients(){
+
+function loadClients(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY_CLIENTS);
     if(!raw) return structuredClone(defaultClients);
@@ -515,102 +514,7 @@ function loadPieces(){
     return Array.isArray(parsed)&&parsed.length ? parsed : [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
   }catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}]}
 }
-function savePieces(){
-  localStorage.setItem(
-    STORAGE_KEY_PIECES,
-    JSON.stringify(pieces)
-  );
-
-  saveCurrentDraft();
-}
-function saveCurrentDraft(){
-  try{
-    const nameField=document.getElementById("projectName");
-    const colorField=document.getElementById("projectColor");
-    const clientField=document.getElementById("selectedClient");
-    const thicknessField=document.getElementById("selectedThickness");
-    const formatField=document.getElementById("sheetFormat");
-
-    const draft={
-      projectName:nameField ? nameField.value : "",
-      projectColor:colorField ? colorField.value : "",
-      clientId:clientField ? clientField.value : "",
-      thickness:thicknessField ? thicknessField.value : "7/10",
-      sheetFormat:formatField ? formatField.value : "1500x3000",
-      pieces:JSON.parse(JSON.stringify(pieces)),
-      savedAt:new Date().toISOString()
-    };
-
-    localStorage.setItem(CURRENT_DRAFT_KEY,JSON.stringify(draft));
-  }catch(error){
-    console.error("Erreur de sauvegarde automatique :",error);
-  }
-}
-function restoreCurrentDraft(){
-  try{
-    const raw=localStorage.getItem(CURRENT_DRAFT_KEY);
-    if(!raw) return false;
-
-    const draft=JSON.parse(raw);
-
-    const nameField=document.getElementById("projectName");
-    const colorField=document.getElementById("projectColor");
-    const clientField=document.getElementById("selectedClient");
-    const thicknessField=document.getElementById("selectedThickness");
-    const formatField=document.getElementById("sheetFormat");
-
-    if(nameField){
-      nameField.value=draft.projectName || "";
-    }
-
-    if(
-      clientField &&
-      draft.clientId &&
-      clients.some(c=>c.id===draft.clientId)
-    ){
-      clientField.value=draft.clientId;
-    }else if(clientField){
-      clientField.value="";
-    }
-
-    if(thicknessField && draft.thickness){
-      thicknessField.value=draft.thickness;
-    }
-
-    if(formatField && draft.sheetFormat){
-      formatField.value=draft.sheetFormat;
-    }
-
-    pieces=
-      Array.isArray(draft.pieces) && draft.pieces.length
-        ? draft.pieces
-        : [{
-            id:crypto.randomUUID(),
-            developed:"",
-            length:"",
-            qty:1,
-            folds:0,
-            cuts:0,
-            time:0,
-            waste:""
-          }];
-
-    renderClientForm();
-    renderPieces();
-    updatePriceDisplay();
-
-    // À faire après les fonctions de rendu
-    if(colorField){
-      colorField.value=draft.projectColor || "";
-    }
-
-    return true;
-  }catch(error){
-    console.error("Erreur de restauration automatique :",error);
-    return false;
-  }
-}
-  
+function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
 function getCurrentClient(){
   return clients.find(c=>c.id===selectedClient.value) || null;
 }
@@ -1714,7 +1618,6 @@ const colorField=document.getElementById("projectColor");
 if(colorField){
   colorField.value=importedProject.color || "";
 }
-saveCurrentDraft();
 
 alert("Projet restauré et ouvert : " + importedProject.name);
 e.target.value="";
@@ -1893,26 +1796,8 @@ if(mobileSettingsBtn){mobileSettingsBtn.addEventListener("click",openSettings);}
 closeSettingsBtn.addEventListener("click",closeSettings);
 settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
-renderClientSelect();
+renderClientSelect(); renderPieces(); updatePriceDisplay();
 
-if(!restoreCurrentDraft()){
-    renderPieces();
-    updatePriceDisplay();
-}
-
-const currentProjectNameField=document.getElementById("projectName");
-const currentProjectColorField=document.getElementById("projectColor");
-
-if(currentProjectNameField){
-  currentProjectNameField.addEventListener("input",saveCurrentDraft);
-}
-
-if(currentProjectColorField){
-  currentProjectColorField.addEventListener("input",saveCurrentDraft);
-}
-selectedClient.addEventListener("change", saveCurrentDraft);
-selectedThickness.addEventListener("change", saveCurrentDraft);
-sheetFormat.addEventListener("change", saveCurrentDraft);
 const devisBtn=document.getElementById("devisPdfBtn");
 const sheetFormat=document.getElementById("sheetFormat");
 const clientBtn=document.getElementById("clientPdfBtn");
