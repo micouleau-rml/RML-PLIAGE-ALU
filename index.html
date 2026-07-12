@@ -524,22 +524,28 @@ function savePieces(){
   saveCurrentDraft();
 }
 function saveCurrentDraft(){
-  const draft={
-    projectName:projectName?.value || "",
-    projectColor:projectColor?.value || "",
-    clientId:selectedClient?.value || "",
-    thickness:selectedThickness?.value || "7/10",
-    sheetFormat:sheetFormat?.value || "1500x3000",
-    pieces:JSON.parse(JSON.stringify(pieces)),
-    savedAt:new Date().toISOString()
-  };
+  try{
+    const nameField=document.getElementById("projectName");
+    const colorField=document.getElementById("projectColor");
+    const clientField=document.getElementById("selectedClient");
+    const thicknessField=document.getElementById("selectedThickness");
+    const formatField=document.getElementById("sheetFormat");
 
-  localStorage.setItem(
-    CURRENT_DRAFT_KEY,
-    JSON.stringify(draft)
-  );
+    const draft={
+      projectName:nameField ? nameField.value : "",
+      projectColor:colorField ? colorField.value : "",
+      clientId:clientField ? clientField.value : "",
+      thickness:thicknessField ? thicknessField.value : "7/10",
+      sheetFormat:formatField ? formatField.value : "1500x3000",
+      pieces:JSON.parse(JSON.stringify(pieces)),
+      savedAt:new Date().toISOString()
+    };
+
+    localStorage.setItem(CURRENT_DRAFT_KEY,JSON.stringify(draft));
+  }catch(error){
+    console.error("Erreur de sauvegarde automatique :",error);
+  }
 }
-
 function restoreCurrentDraft(){
   try{
     const raw=localStorage.getItem(CURRENT_DRAFT_KEY);
@@ -547,23 +553,32 @@ function restoreCurrentDraft(){
 
     const draft=JSON.parse(raw);
 
-    projectName.value=draft.projectName || "";
+    const nameField=document.getElementById("projectName");
+    const colorField=document.getElementById("projectColor");
+    const clientField=document.getElementById("selectedClient");
+    const thicknessField=document.getElementById("selectedThickness");
+    const formatField=document.getElementById("sheetFormat");
+
+    if(nameField){
+      nameField.value=draft.projectName || "";
+    }
 
     if(
+      clientField &&
       draft.clientId &&
       clients.some(c=>c.id===draft.clientId)
     ){
-      selectedClient.value=draft.clientId;
-    }else{
-      selectedClient.value="";
+      clientField.value=draft.clientId;
+    }else if(clientField){
+      clientField.value="";
     }
 
-    if(draft.thickness){
-      selectedThickness.value=draft.thickness;
+    if(thicknessField && draft.thickness){
+      thicknessField.value=draft.thickness;
     }
 
-    if(draft.sheetFormat){
-      sheetFormat.value=draft.sheetFormat;
+    if(formatField && draft.sheetFormat){
+      formatField.value=draft.sheetFormat;
     }
 
     pieces=
@@ -584,15 +599,14 @@ function restoreCurrentDraft(){
     renderPieces();
     updatePriceDisplay();
 
-    const colorField=document.getElementById("projectColor");
+    // À faire après les fonctions de rendu
     if(colorField){
       colorField.value=draft.projectColor || "";
     }
 
     return true;
-
   }catch(error){
-    console.error("Impossible de restaurer le projet en cours :",error);
+    console.error("Erreur de restauration automatique :",error);
     return false;
   }
 }
