@@ -730,10 +730,44 @@ if(typeof projectColor !== "undefined" && projectColor){
     projectColor.value = parsed.projectColor || parsed.color || "";
 }
   
-  saveClients(); renderClientSelect();
-  if(parsed.selectedClientId&&clients.some(c=>c.id===parsed.selectedClientId)) selectedClient.value=parsed.selectedClientId;
-  if(parsed.selectedThickness&&["7/10","10/10","15/10"].includes(parsed.selectedThickness)) selectedThickness.value=parsed.selectedThickness;
-  renderClientForm(); renderPieces(); updatePriceDisplay(); setStatus("Sauvegarde restaurée."); alert("Restauration terminée.");
+  saveClients();
+renderClientSelect();
+
+if(
+  parsed.selectedClientId &&
+  clients.some(c=>c.id===parsed.selectedClientId)
+){
+  selectedClient.value=parsed.selectedClientId;
+}
+
+if(
+  parsed.selectedThickness &&
+  ["7/10","10/10","15/10"].includes(parsed.selectedThickness)
+){
+  selectedThickness.value=parsed.selectedThickness;
+}
+
+if(parsed.sheetFormat){
+  sheetFormat.value=parsed.sheetFormat;
+}
+
+if(projectName){
+  projectName.value=parsed.projectName || "";
+}
+
+renderClientForm();
+renderPieces();
+updatePriceDisplay();
+
+/* Restaurer la couleur après tous les rendus */
+if(typeof projectColor!=="undefined" && projectColor){
+  projectColor.value=parsed.projectColor || parsed.color || "";
+  projectColor.dispatchEvent(new Event("input",{bubbles:true}));
+  projectColor.dispatchEvent(new Event("change",{bubbles:true}));
+}
+
+setStatus("Sauvegarde restaurée.");
+alert("Restauration terminée.");
 }
 function generatePdfDocument(type){
   const client=getCurrentClient();
