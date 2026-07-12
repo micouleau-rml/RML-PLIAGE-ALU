@@ -515,6 +515,61 @@ function loadPieces(){
   }catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}]}
 }
 function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
+function saveCurrentProjectState(){
+  const state={
+    clientId:selectedClient.value || "",
+    projectColor:document.getElementById("projectColor")?.value || "",
+    projectName:document.getElementById("projectName")?.value || "",
+    thickness:selectedThickness.value || "7/10",
+    sheetFormat:document.getElementById("sheetFormat")?.value || "1500x3000"
+  };
+
+  localStorage.setItem(
+    STORAGE_KEY_CURRENT_PROJECT,
+    JSON.stringify(state)
+  );
+}
+
+function restoreCurrentProjectState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT);
+    if(!raw) return;
+
+    const state=JSON.parse(raw);
+    const sheetFormatField=document.getElementById("sheetFormat");
+
+    if(state.clientId && clients.some(c=>c.id===state.clientId)){
+      selectedClient.value=state.clientId;
+    }else{
+      selectedClient.value="";
+    }
+
+    if(state.thickness){
+      selectedThickness.value=state.thickness;
+    }
+
+    if(sheetFormatField && state.sheetFormat){
+      sheetFormatField.value=state.sheetFormat;
+    }
+
+    renderClientForm();
+    updatePriceDisplay();
+
+    const projectNameField=document.getElementById("projectName");
+    if(projectNameField){
+      projectNameField.value=state.projectName || "";
+    }
+
+    const projectColorField=document.getElementById("projectColor");
+    if(projectColorField){
+      projectColorField.value=state.projectColor || "";
+    }
+
+  }catch(error){
+    console.error("Erreur restauration projet courant :",error);
+  }
+}
+  
 function getCurrentClient(){
   return clients.find(c=>c.id===selectedClient.value) || null;
 }
