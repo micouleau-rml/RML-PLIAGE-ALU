@@ -699,7 +699,8 @@ function exportProjectBackup(){
     client,
     selectedClientId:selectedClient.value,
     selectedThickness:selectedThickness.value,
-    pieces
+    pieces,
+    sheetFormat: sheetFormat.value    
   };
 
   const safeClient=(client?.name || "client").replace(/[^a-z0-9]/gi,"-").toLowerCase();
@@ -721,6 +722,14 @@ function importBackupFromText(text){
     if(!pieces.length) pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
     savePieces();
   }
+if(projectName){
+    projectName.value = parsed.projectName || "";
+}
+
+if(typeof projectColor !== "undefined" && projectColor){
+    projectColor.value = parsed.projectColor || parsed.color || "";
+}
+  
   saveClients(); renderClientSelect();
   if(parsed.selectedClientId&&clients.some(c=>c.id===parsed.selectedClientId)) selectedClient.value=parsed.selectedClientId;
   if(parsed.selectedThickness&&["7/10","10/10","15/10"].includes(parsed.selectedThickness)) selectedThickness.value=parsed.selectedThickness;
