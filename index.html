@@ -33,6 +33,18 @@ h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
 .field input,.field select,.field textarea,button{font:inherit}
 .field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;color:var(--text);min-height:46px}
 .field textarea{min-height:90px;resize:vertical}
+#selectedClient:invalid{
+  color:#9ca3af;
+}
+
+#selectedClient option{
+  color:#17202a;
+}
+
+#selectedClient option[value=""]{
+  color:#9ca3af;
+}
+  
 .filebox{border:1px dashed var(--line);border-radius:14px;padding:12px;background:#fafcff;margin-top:10px}
 .col-12{grid-column:span 12}.col-6{grid-column:span 6}.col-4{grid-column:span 4}.col-3{grid-column:span 3}.col-2{grid-column:span 2}
 .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
