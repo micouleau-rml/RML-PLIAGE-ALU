@@ -1899,8 +1899,16 @@ if(!restoreCurrentDraft()){
     updatePriceDisplay();
 }
 
-projectName.addEventListener("input", saveCurrentDraft);
-projectColor.addEventListener("input", saveCurrentDraft);
+const currentProjectNameField=document.getElementById("projectName");
+const currentProjectColorField=document.getElementById("projectColor");
+
+if(currentProjectNameField){
+  currentProjectNameField.addEventListener("input",saveCurrentDraft);
+}
+
+if(currentProjectColorField){
+  currentProjectColorField.addEventListener("input",saveCurrentDraft);
+}
 selectedClient.addEventListener("change", saveCurrentDraft);
 selectedThickness.addEventListener("change", saveCurrentDraft);
 sheetFormat.addEventListener("change", saveCurrentDraft);
