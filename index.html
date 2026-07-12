@@ -1586,12 +1586,22 @@ function saveCurrentProject(){
 }
 
 function newProject(){
+
+  // Nom et couleur du projet
   projectNameInput.value="";
-  selectedClient.selectedIndex=0;
+
+  if(typeof projectColor!=="undefined" && projectColor){
+    projectColor.value="";
+  }
+
+  // Aucun client sélectionné
+  selectedClient.value="";
+
+  // Remise aux valeurs initiales
   selectedThickness.selectedIndex=0;
   sheetFormat.selectedIndex=0;
-  globalPriceDisplay.value="";
-  
+
+  // Une seule pièce entièrement vide
   pieces=[{
     id:crypto.randomUUID(),
     developed:"",
@@ -1603,9 +1613,12 @@ function newProject(){
     waste:""
   }];
 
+  // Réinitialisation de l’affichage
+  renderClientForm();
   renderPieces();
   updatePriceDisplay();
   savePieces();
+
   alert("Nouveau devis prêt.");
 }
   function loadProjects(){
