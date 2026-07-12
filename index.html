@@ -1878,8 +1878,18 @@ if(mobileSettingsBtn){mobileSettingsBtn.addEventListener("click",openSettings);}
 closeSettingsBtn.addEventListener("click",closeSettings);
 settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
-renderClientSelect(); renderPieces(); updatePriceDisplay();
+renderClientSelect();
 
+if(!restoreCurrentDraft()){
+    renderPieces();
+    updatePriceDisplay();
+}
+
+projectName.addEventListener("input", saveCurrentDraft);
+projectColor.addEventListener("input", saveCurrentDraft);
+selectedClient.addEventListener("change", saveCurrentDraft);
+selectedThickness.addEventListener("change", saveCurrentDraft);
+sheetFormat.addEventListener("change", saveCurrentDraft);
 const devisBtn=document.getElementById("devisPdfBtn");
 const sheetFormat=document.getElementById("sheetFormat");
 const clientBtn=document.getElementById("clientPdfBtn");
