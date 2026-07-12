@@ -503,7 +503,9 @@ function loadPieces(){
   }catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}]}
 }
 function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
-function getCurrentClient(){return clients.find(c=>c.id===selectedClient.value)||clients[0]}
+function getCurrentClient(){
+  return clients.find(c=>c.id===selectedClient.value) || null;
+}
 function getCurrentPricePerM2(){const c=getCurrentClient();return Number(c?.prices?.[selectedThickness.value]||0)}
 
 function renderClientSelect(){
