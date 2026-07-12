@@ -486,7 +486,7 @@ function fmtNumber(n,d=2){return Number(n||0).toLocaleString("fr-FR",{minimumFra
 function fmtArea(n){return fmtNumber(n,3)+" m²"}
 function fmtEuro(n){return fmtNumber(n,2)+" €"}
 function setStatus(msg,ok=true){statusEl.textContent=msg;statusEl.className=ok?"success-text":"danger-text";}
-
+const STORAGE_KEY_CURRENT_PROJECT="rml_pliage_current_project_v1";
 function loadClients(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY_CLIENTS);
