@@ -695,6 +695,7 @@ function exportProjectBackup(){
     version:8,
     exportedAt:new Date().toISOString(),
     projectName:project,
+    projectColor: projectColor ? projectColor.value : "",
     client,
     selectedClientId:selectedClient.value,
     selectedThickness:selectedThickness.value,
