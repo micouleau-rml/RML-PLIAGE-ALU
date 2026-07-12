@@ -486,8 +486,9 @@ function fmtNumber(n,d=2){return Number(n||0).toLocaleString("fr-FR",{minimumFra
 function fmtArea(n){return fmtNumber(n,3)+" m²"}
 function fmtEuro(n){return fmtNumber(n,2)+" €"}
 function setStatus(msg,ok=true){statusEl.textContent=msg;statusEl.className=ok?"success-text":"danger-text";}
-
-function loadClients(){
+const CURRENT_DRAFT_KEY="rml_pliage_current_draft_v1";
+  
+  function loadClients(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY_CLIENTS);
     if(!raw) return structuredClone(defaultClients);
@@ -514,7 +515,88 @@ function loadPieces(){
     return Array.isArray(parsed)&&parsed.length ? parsed : [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
   }catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}]}
 }
-function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
+function savePieces(){
+  localStorage.setItem(
+    STORAGE_KEY_PIECES,
+    JSON.stringify(pieces)
+  );
+
+  saveCurrentDraft();
+}
+function saveCurrentDraft(){
+  const draft={
+    projectName:projectName?.value || "",
+    projectColor:projectColor?.value || "",
+    clientId:selectedClient?.value || "",
+    thickness:selectedThickness?.value || "7/10",
+    sheetFormat:sheetFormat?.value || "1500x3000",
+    pieces:JSON.parse(JSON.stringify(pieces)),
+    savedAt:new Date().toISOString()
+  };
+
+  localStorage.setItem(
+    CURRENT_DRAFT_KEY,
+    JSON.stringify(draft)
+  );
+}
+
+function restoreCurrentDraft(){
+  try{
+    const raw=localStorage.getItem(CURRENT_DRAFT_KEY);
+    if(!raw) return false;
+
+    const draft=JSON.parse(raw);
+
+    projectName.value=draft.projectName || "";
+
+    if(
+      draft.clientId &&
+      clients.some(c=>c.id===draft.clientId)
+    ){
+      selectedClient.value=draft.clientId;
+    }else{
+      selectedClient.value="";
+    }
+
+    if(draft.thickness){
+      selectedThickness.value=draft.thickness;
+    }
+
+    if(draft.sheetFormat){
+      sheetFormat.value=draft.sheetFormat;
+    }
+
+    pieces=
+      Array.isArray(draft.pieces) && draft.pieces.length
+        ? draft.pieces
+        : [{
+            id:crypto.randomUUID(),
+            developed:"",
+            length:"",
+            qty:1,
+            folds:0,
+            cuts:0,
+            time:0,
+            waste:""
+          }];
+
+    renderClientForm();
+    renderPieces();
+    updatePriceDisplay();
+
+    const colorField=document.getElementById("projectColor");
+    if(colorField){
+      colorField.value=draft.projectColor || "";
+    }
+
+    return true;
+
+  }catch(error){
+    console.error("Impossible de restaurer le projet en cours :",error);
+    return false;
+  }
+}
+  
 function getCurrentClient(){
   return clients.find(c=>c.id===selectedClient.value) || null;
 }
