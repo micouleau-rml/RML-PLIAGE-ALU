@@ -1714,6 +1714,7 @@ const colorField=document.getElementById("projectColor");
 if(colorField){
   colorField.value=importedProject.color || "";
 }
+saveCurrentDraft();
 
 alert("Projet restauré et ouvert : " + importedProject.name);
 e.target.value="";
