@@ -1851,7 +1851,36 @@ if(mobileSettingsBtn){mobileSettingsBtn.addEventListener("click",openSettings);}
 closeSettingsBtn.addEventListener("click",closeSettings);
 settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
-renderClientSelect(); renderPieces(); updatePriceDisplay();
+renderClientSelect();
+restoreCurrentProjectState();
+renderPieces();
+updatePriceDisplay();
+
+const projectNameField=document.getElementById("projectName");
+const projectColorField=document.getElementById("projectColor");
+const sheetFormatField=document.getElementById("sheetFormat");
+
+if(projectNameField){
+  projectNameField.addEventListener("input",saveCurrentProjectState);
+}
+
+if(projectColorField){
+  projectColorField.addEventListener("input",saveCurrentProjectState);
+}
+
+if(selectedClient){
+  selectedClient.addEventListener("change",saveCurrentProjectState);
+}
+
+if(selectedThickness){
+  selectedThickness.addEventListener("change",saveCurrentProjectState);
+}
+
+if(sheetFormatField){
+  sheetFormatField.addEventListener("change",saveCurrentProjectState);
+}
+
+window.addEventListener("beforeunload",saveCurrentProjectState);
 
 const devisBtn=document.getElementById("devisPdfBtn");
 const sheetFormat=document.getElementById("sheetFormat");
