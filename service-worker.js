@@ -1,4 +1,4 @@
-const CACHE_NAME = "rml-pliage-v2026-07-13-01";
+const CACHE_NAME = "rml-pliage-v2026-07-13-02";
 
 const FILES_TO_CACHE = [
   "./",
