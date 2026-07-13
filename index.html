@@ -78,6 +78,185 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
 .modal-close{background:#f3f5f7;color:#233241}
 @media (max-width:700px){.modal-card{padding:14px;max-height:92vh}}
 
+  /* ===== FENÊTRE MES PROJETS ===== */
+
+.projects-modal{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(15,23,42,.55);
+}
+
+.projects-box{
+  width:min(920px,96vw);
+  max-height:82vh;
+  overflow:auto;
+  padding:22px;
+  background:#fff;
+  border:1px solid #d9e1ea;
+  border-radius:22px;
+  box-shadow:0 24px 70px rgba(0,0,0,.28);
+}
+
+.projects-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:18px;
+}
+
+.projects-title h2{
+  margin:0;
+  font-size:1.35rem;
+}
+
+.projects-close-top{
+  padding:9px 15px;
+  min-height:40px;
+  background:#e5e7eb;
+  color:#233241;
+}
+
+.projects-header,
+.project-item{
+  display:grid;
+  grid-template-columns:
+    minmax(100px,1.1fr)
+    minmax(150px,1.8fr)
+    120px
+    145px;
+  gap:12px;
+  align-items:center;
+}
+
+.projects-header{
+  padding:0 12px 9px;
+  color:#687684;
+  font-size:.82rem;
+  font-weight:800;
+}
+
+.project-item{
+  margin-bottom:9px;
+  padding:12px;
+  border:1px solid #dbe3ee;
+  border-radius:14px;
+  background:#f8fafc;
+}
+
+.project-client,
+.project-reference{
+  min-width:0;
+  overflow:hidden;
+  font-weight:700;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.project-reference{
+  color:#334155;
+}
+
+.project-date{
+  color:#64748b;
+  font-size:.9rem;
+  white-space:nowrap;
+}
+
+.project-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.project-actions button{
+  min-height:40px;
+  padding:8px 13px;
+  border-radius:10px;
+}
+
+.project-actions .open-project{
+  background:#0f62fe;
+  color:#fff;
+}
+
+.project-actions .open-project:hover{
+  background:#0a4ecc;
+}
+
+.project-actions .delete-project{
+  width:42px;
+  min-width:42px;
+  padding:8px;
+  background:#fee2e2;
+  color:#b91c1c;
+  font-size:1rem;
+}
+
+.project-actions .delete-project:hover{
+  background:#fecaca;
+}
+
+/* Adaptation iPhone */
+@media(max-width:700px){
+  .projects-modal{
+    align-items:flex-end;
+    padding:0;
+  }
+
+  .projects-box{
+    width:100%;
+    max-height:90vh;
+    padding:14px;
+    border-radius:22px 22px 0 0;
+  }
+
+  .projects-header,
+  .project-item{
+    grid-template-columns:
+      minmax(62px,.9fr)
+      minmax(88px,1.3fr)
+      76px
+      104px;
+    gap:6px;
+  }
+
+  .projects-header{
+    padding:0 7px 7px;
+    font-size:.66rem;
+  }
+
+  .project-item{
+    padding:9px 7px;
+  }
+
+  .project-client,
+  .project-reference,
+  .project-date{
+    font-size:.73rem;
+  }
+
+  .project-actions{
+    gap:4px;
+  }
+
+  .project-actions button{
+    min-height:36px;
+    padding:6px 9px;
+    font-size:.74rem;
+  }
+
+  .project-actions .delete-project{
+    width:36px;
+    min-width:36px;
+  }
+}
 /* ===== CORRECTIF IPHONE FINAL ===== */
 #mobileSettingsBtn{display:none}
 @media (max-width:760px){
