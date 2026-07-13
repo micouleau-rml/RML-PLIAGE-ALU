@@ -516,6 +516,12 @@ function loadPieces(){
 }
 function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
 function saveCurrentProjectState(){
+  console.log(
+  "SAUVEGARDE",
+  document.getElementById("projectName")?.value,
+  document.getElementById("projectColor")?.value,
+  document.getElementById("selectedClient")?.value
+);
   const state={
     clientId:selectedClient.value || "",
     projectColor:document.getElementById("projectColor")?.value || "",
@@ -532,9 +538,11 @@ function saveCurrentProjectState(){
 
 function restoreCurrentProjectState(){
   try{
+    console.log("RESTAURATION");
     const raw=localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT);
+    console.log("DONNÉES TROUVÉES :",raw);
     if(!raw) return;
-
+    
     const state=JSON.parse(raw);
     const sheetFormatField=document.getElementById("sheetFormat");
 
