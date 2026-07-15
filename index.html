@@ -832,8 +832,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <button class="btn-light" id="bendAddSegmentBtn">+ Segment au tableau</button>
           <button class="btn-light" id="bendUndoBtn">Annuler le dernier</button>
           <button class="btn-light" id="bendMirrorBtn">Miroir</button>
-          <button class="btn-light" id="bendHorizontalBtn">↔ Horizontal</button>
-          <button class="btn-light" id="bendVerticalBtn">↕ Vertical</button>
+          <button class="btn-light" id="bendHorizontalBtn" title="Aligne le segment sélectionné, ou le plus long">↔ Horizontal</button>
+          <button class="btn-light" id="bendVerticalBtn" title="Aligne le segment sélectionné, ou le plus long">↕ Vertical</button>
           <button class="btn-light" id="bendZoomOutBtn">− Zoom</button>
           <button class="btn-light" id="bendZoomInBtn">+ Zoom</button>
           <button class="btn-light" id="bendAutoFitBtn">Centrer</button>
@@ -2649,15 +2649,62 @@ if(quotePdfBtn){
     }));
   }
 
-  function setProfileOrientation(vertical=false){
+  function getOrientationSegmentIndex(){
     buildExactPoints();
-    if(profile.exactPoints.length<2)return;
-    const first=profile.exactPoints[0];
-    const last=profile.exactPoints[profile.exactPoints.length-1];
-    const axis=Math.atan2(last.y-first.y,last.x-first.x);
-    viewRotation=-axis+(vertical?Math.PI/2:0);
+
+    const segmentCount=Math.max(0,profile.exactPoints.length-1);
+    if(!segmentCount)return -1;
+
+    // Si une ligne du tableau est sélectionnée, on aligne ce segment.
+    if(activeSegment>=0 && activeSegment<segmentCount){
+      return activeSegment;
+    }
+
+    // Sinon, on aligne automatiquement le segment le plus long.
+    let longestIndex=0;
+    let longestLength=-1;
+
+    for(let i=0;i<segmentCount;i++){
+      const a=profile.exactPoints[i];
+      const b=profile.exactPoints[i+1];
+      const length=Math.hypot(b.x-a.x,b.y-a.y);
+
+      if(length>longestLength){
+        longestLength=length;
+        longestIndex=i;
+      }
+    }
+
+    return longestIndex;
+  }
+
+  function setProfileOrientation(vertical=false){
+    const segmentIndex=getOrientationSegmentIndex();
+    if(segmentIndex<0)return;
+
+    const a=profile.exactPoints[segmentIndex];
+    const b=profile.exactPoints[segmentIndex+1];
+    const segmentAngle=Math.atan2(b.y-a.y,b.x-a.x);
+
+    // Canvas : l’axe horizontal correspond à 0 radian.
+    // L’axe vertical correspond à +90°.
+    viewRotation=(vertical ? Math.PI/2 : 0)-segmentAngle;
     viewZoom=1;
+
+    activeSegment=segmentIndex;
+    activeBend=-1;
+
+    const body=document.getElementById("bendTableBody");
+    if(body){
+      body.querySelectorAll("tr").forEach((row,index)=>{
+        row.classList.toggle("bend-active-row",index===segmentIndex);
+      });
+    }
+
     draw();
+
+    const mode=vertical ? "vertical" : "horizontal";
+    help.textContent=`Le segment ${segmentIndex+1} est maintenant placé à l’${mode}. Cliquez d’abord sur une autre ligne du tableau pour orienter un autre segment.`;
   }
 
   function changeProfileZoom(delta){
