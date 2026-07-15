@@ -452,7 +452,47 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     margin:8mm;
   }
 }
-  </style> 
+  
+
+/* ===== MODULE RML CALCUL DU DÉVELOPPÉ ===== */
+#bendDesignerModal{z-index:120000}
+#bendDesignerModal .modal-card{width:min(1180px,100%);max-height:94vh}
+.bend-toolbar{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:10px;margin-bottom:14px}
+.bend-workspace{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(330px,.8fr);gap:16px;align-items:start}
+.bend-canvas-card,.bend-data-card{border:1px solid var(--line);border-radius:16px;background:#f8fafc;padding:12px}
+.bend-canvas-wrap{position:relative;background:#dff2ff;border:1px solid #b8d5ea;border-radius:14px;overflow:hidden;min-height:420px;touch-action:none}
+#bendCanvas{display:block;width:100%;height:420px;cursor:crosshair;touch-action:none}
+.bend-canvas-help{position:absolute;left:12px;top:10px;background:rgba(255,255,255,.9);padding:7px 10px;border-radius:10px;font-size:.78rem;color:#475569;pointer-events:none}
+.bend-mini-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bend-results{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.bend-result{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.bend-result span{display:block;color:var(--muted);font-size:.78rem;font-weight:700;margin-bottom:5px}
+.bend-result strong{font-size:1.25rem}
+.bend-result.main{grid-column:span 2;border:2px solid var(--accent);background:#eef5ff}
+.bend-result.main strong{font-size:1.7rem;color:#0a4ecc}
+.bend-table-wrap{overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.bend-table{min-width:700px}
+.bend-table input,.bend-table select{width:100%;min-height:38px;border:1px solid var(--line);border-radius:8px;padding:7px;font-size:.9rem;background:#fff}
+.bend-table td,.bend-table th{padding:7px 6px;font-size:.82rem}
+.bend-row-actions{display:flex;gap:5px}
+.bend-row-actions button{min-height:36px;padding:6px 8px;border-radius:8px}
+.bend-warning{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:.82rem;line-height:1.35}
+.bend-calibration-note{font-size:.78rem;color:#64748b;line-height:1.4;margin-top:10px}
+.bend-target-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:12px}
+.bend-target-row .field{min-width:190px;flex:1}
+@media(max-width:900px){.bend-toolbar{grid-template-columns:repeat(3,1fr)}.bend-workspace{grid-template-columns:1fr}}
+@media(max-width:700px){
+  #bendDesignerModal{align-items:flex-end;padding:0}
+  #bendDesignerModal .modal-card{width:100%;height:96vh;max-height:96vh;border-radius:22px 22px 0 0;padding:12px}
+  .bend-toolbar{grid-template-columns:repeat(2,1fr);gap:8px}
+  .bend-workspace{grid-template-columns:1fr}
+  .bend-canvas-wrap{min-height:300px}
+  #bendCanvas{height:300px}
+  .bend-results{grid-template-columns:1fr}
+  .bend-result.main{grid-column:span 1}
+}
+
+</style> 
   </head>
 <body>
 <div class="container">
@@ -469,6 +509,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   <button class="btn-new" id="newProjectBtn">Nouveau devis</button>
   <button class="btn-primary" id="openSettingsBtn">Réglages</button>
   <button class="btn-light" id="calpinageBtn">📐 Calepinage</button>
+  <button class="btn-secondary" id="bendDesignerBtn">📐 Calcul du développé</button>
   <button class="btn-secondary" id="devisPdfBtn">Devis PDF numéroté</button>
   <button class="btn-secondary" id="clientPdfBtn">Bon client avec prix</button>
   <button class="btn-light" id="atelierPdfBtn">Bon atelier sans prix</button>
@@ -622,6 +663,70 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <button class="btn-light" id="newClientBtn">Nouveau client</button>
     </div>
     <div class="note">Les coûts de fabrication sont modulables par client : tarif pli, tarif coupe, taux horaire et chute par défaut.</div>
+  </div>
+</div>
+
+
+<!-- ===== MODULE CALCUL DU DÉVELOPPÉ ===== -->
+<div class="modal-overlay" id="bendDesignerModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2>Calcul du développé — dessin de profil</h2>
+        <div class="note">Dessinez la forme approximative, puis saisissez les cotes extérieures et les angles exacts.</div>
+      </div>
+      <button class="modal-close" id="closeBendDesignerBtn">Fermer</button>
+    </div>
+
+    <div class="bend-toolbar">
+      <div class="field"><label for="bendMaterial">Matière</label><select id="bendMaterial"><option value="alu">Aluminium</option><option value="steel">Acier</option><option value="inox">Inox</option></select></div>
+      <div class="field"><label for="bendThickness">Épaisseur (mm)</label><input id="bendThickness" type="number" min="0.1" step="0.1" value="1"></div>
+      <div class="field"><label for="bendVee">Vé (mm)</label><input id="bendVee" type="number" min="1" step="1" value="16"></div>
+      <div class="field"><label for="bendRadius">Rayon intérieur (mm)</label><input id="bendRadius" type="number" min="0" step="0.1" value="1"></div>
+      <div class="field"><label for="bendKFactor">Facteur K</label><input id="bendKFactor" type="number" min="0.1" max="0.6" step="0.01" value="0.33"></div>
+      <div class="field"><label for="bendRound">Arrondi atelier</label><select id="bendRound"><option value="0.01">0,01 mm</option><option value="0.1" selected>0,1 mm</option><option value="0.5">0,5 mm</option><option value="1">1 mm</option></select></div>
+    </div>
+
+    <div class="bend-workspace">
+      <div class="bend-canvas-card">
+        <div class="bend-canvas-wrap">
+          <canvas id="bendCanvas"></canvas>
+          <div class="bend-canvas-help">Touchez/click pour ajouter des sommets. Le tracé sert uniquement à définir la forme.</div>
+        </div>
+        <div class="bend-mini-actions">
+          <button class="btn-primary" id="bendAddSegmentBtn">+ Segment</button>
+          <button class="btn-light" id="bendUndoBtn">Annuler le dernier</button>
+          <button class="btn-light" id="bendMirrorBtn">Miroir</button>
+          <button class="btn-danger" id="bendResetBtn">Réinitialiser</button>
+        </div>
+        <div class="bend-results">
+          <div class="bend-result"><span>Somme des cotes extérieures</span><strong id="bendOuterSum">0,00 mm</strong></div>
+          <div class="bend-result"><span>Déduction totale des plis</span><strong id="bendTotalDeduction">0,00 mm</strong></div>
+          <div class="bend-result"><span>Nombre de plis</span><strong id="bendFoldCount">0</strong></div>
+          <div class="bend-result"><span>Rayon / Vé</span><strong id="bendToolSummary">R 1 / V 16</strong></div>
+          <div class="bend-result main"><span>Développé calculé</span><strong id="bendDeveloped">0,0 mm</strong></div>
+        </div>
+        <div class="bend-warning" id="bendWarning">Le calcul est théorique (facteur K). Pour retrouver exactement les valeurs CybTouch, calibrez ensuite les déductions avec vos essais presse.</div>
+      </div>
+
+      <div class="bend-data-card">
+        <h3 style="margin:0 0 10px">Tableau des cotes extérieures</h3>
+        <div class="bend-table-wrap">
+          <table class="bend-table">
+            <thead><tr><th>N°</th><th>Cote ext. (mm)</th><th>Angle intérieur suivant</th><th>Sens</th><th>Déduction</th><th></th></tr></thead>
+            <tbody id="bendSegmentsBody"></tbody>
+          </table>
+        </div>
+        <div class="bend-target-row">
+          <div class="field"><label for="bendTargetPiece">Insérer dans</label><select id="bendTargetPiece"></select></div>
+          <button class="btn-primary" id="bendInsertBtn">Insérer dans le devis</button>
+          <button class="btn-light" id="bendSaveProfileBtn">Mémoriser le profil</button>
+        </div>
+        <div class="bend-calibration-note">
+          Formule : BA = angle de pli × (rayon + K × épaisseur), puis déduction de pli = 2 × retrait extérieur − BA. Les angles saisis sont les angles intérieurs finis.
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2288,6 +2393,221 @@ if(oldPdfBtn){
 if(quotePdfBtn){
   quotePdfBtn.addEventListener("click",()=>generatePdfDocument("devis"));
 }
+
+
+
+/* ===== MODULE RML CALCUL DU DÉVELOPPÉ ===== */
+(function(){
+  const modal=document.getElementById("bendDesignerModal");
+  const openBtn=document.getElementById("bendDesignerBtn");
+  const closeBtn=document.getElementById("closeBendDesignerBtn");
+  const canvas=document.getElementById("bendCanvas");
+  const ctx=canvas.getContext("2d");
+  const body=document.getElementById("bendSegmentsBody");
+  const targetSelect=document.getElementById("bendTargetPiece");
+  const fields={
+    material:document.getElementById("bendMaterial"),
+    thickness:document.getElementById("bendThickness"),
+    vee:document.getElementById("bendVee"),
+    radius:document.getElementById("bendRadius"),
+    k:document.getElementById("bendKFactor"),
+    round:document.getElementById("bendRound")
+  };
+
+  let profile={
+    points:[{x:80,y:210},{x:250,y:210},{x:250,y:110}],
+    lengths:[200,50],
+    angles:[90],
+    directions:["haut"]
+  };
+
+  function syncArrays(){
+    const segmentCount=Math.max(1,profile.points.length-1);
+    while(profile.lengths.length<segmentCount) profile.lengths.push(50);
+    profile.lengths=profile.lengths.slice(0,segmentCount);
+    while(profile.angles.length<segmentCount-1) profile.angles.push(90);
+    profile.angles=profile.angles.slice(0,Math.max(0,segmentCount-1));
+    while(profile.directions.length<segmentCount-1) profile.directions.push("haut");
+    profile.directions=profile.directions.slice(0,Math.max(0,segmentCount-1));
+  }
+
+  function getBendData(i){
+    const interior=Math.min(179.9,Math.max(0.1,Number(profile.angles[i]||90)));
+    const bendDeg=180-interior;
+    const bendRad=bendDeg*Math.PI/180;
+    const t=Math.max(.01,Number(fields.thickness.value)||1);
+    const r=Math.max(0,Number(fields.radius.value)||0);
+    const k=Math.min(.6,Math.max(.1,Number(fields.k.value)||.33));
+    const ba=bendRad*(r+k*t);
+    const setback=(r+t)*Math.tan(bendRad/2);
+    const deduction=Math.max(0,2*setback-ba);
+    return {interior,bendDeg,ba,setback,deduction};
+  }
+
+  function calculate(){
+    syncArrays();
+    const outer=profile.lengths.reduce((s,v)=>s+(Number(v)||0),0);
+    let deduction=0;
+    for(let i=0;i<profile.angles.length;i++) deduction+=getBendData(i).deduction;
+    const raw=Math.max(0,outer-deduction);
+    const step=Math.max(.01,Number(fields.round.value)||.1);
+    const rounded=Math.round(raw/step)*step;
+    document.getElementById("bendOuterSum").textContent=fmtNumber(outer,2)+" mm";
+    document.getElementById("bendTotalDeduction").textContent=fmtNumber(deduction,2)+" mm";
+    document.getElementById("bendFoldCount").textContent=String(profile.angles.length);
+    document.getElementById("bendToolSummary").textContent=`R ${fmtNumber(fields.radius.value,1)} / V ${fmtNumber(fields.vee.value,0)}`;
+    document.getElementById("bendDeveloped").textContent=fmtNumber(rounded,Math.abs(step-.01)<.001?2:1)+" mm";
+    return {outer,deduction,raw,rounded};
+  }
+
+  function rebuildExactGeometry(){
+    syncArrays();
+    const pts=[{x:0,y:0}];
+    let heading=0;
+    for(let i=0;i<profile.lengths.length;i++){
+      const len=Math.max(1,Number(profile.lengths[i])||1);
+      const prev=pts[pts.length-1];
+      pts.push({x:prev.x+Math.cos(heading)*len,y:prev.y+Math.sin(heading)*len});
+      if(i<profile.angles.length){
+        const turn=(180-Number(profile.angles[i]||90))*Math.PI/180;
+        heading+=profile.directions[i]==="haut"?-turn:turn;
+      }
+    }
+    profile.exactPoints=pts;
+  }
+
+  function resizeCanvas(){
+    const rect=canvas.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    canvas.width=Math.max(1,Math.round(rect.width*dpr));
+    canvas.height=Math.max(1,Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+
+  function draw(){
+    rebuildExactGeometry();
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle="#c6deed";ctx.lineWidth=1;
+    for(let x=0;x<w;x+=25){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+    for(let y=0;y<h;y+=25){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+    const pts=profile.exactPoints||[];
+    if(pts.length<2)return;
+    const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const sx=(w-80)/Math.max(1,maxX-minX),sy=(h-80)/Math.max(1,maxY-minY),scale=Math.min(sx,sy);
+    const ox=(w-(maxX-minX)*scale)/2-minX*scale;
+    const oy=(h-(maxY-minY)*scale)/2-minY*scale;
+    const map=p=>({x:ox+p.x*scale,y:oy+p.y*scale});
+    ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#0f62fe";ctx.lineWidth=5;
+    ctx.beginPath();pts.forEach((p,i)=>{const q=map(p);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.stroke();
+    pts.forEach((p,i)=>{const q=map(p);ctx.fillStyle=i===0?"#16a34a":"#fff";ctx.strokeStyle="#0a4ecc";ctx.lineWidth=2;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.fill();ctx.stroke()});
+    ctx.font="700 12px -apple-system,Segoe UI,sans-serif";ctx.fillStyle="#17202a";
+    for(let i=0;i<pts.length-1;i++){
+      const a=map(pts[i]),b=map(pts[i+1]);const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+      const label=`S${i+1}  ${fmtNumber(profile.lengths[i],1)}`;
+      const tw=ctx.measureText(label).width;ctx.fillStyle="rgba(255,255,255,.9)";ctx.fillRect(mx-tw/2-5,my-17,tw+10,20);ctx.fillStyle="#17202a";ctx.fillText(label,mx-tw/2,my-3);
+    }
+  }
+
+  function renderTable(){
+    syncArrays();body.innerHTML="";
+    profile.lengths.forEach((length,i)=>{
+      const tr=document.createElement("tr");
+      const hasBend=i<profile.angles.length;
+      tr.innerHTML=`
+        <td>${i+1}</td>
+        <td><input type="number" min="0.1" step="0.01" data-role="length" data-index="${i}" value="${length}"></td>
+        <td>${hasBend?`<input type="number" min="0.1" max="179.9" step="0.1" data-role="angle" data-index="${i}" value="${profile.angles[i]}">`:'—'}</td>
+        <td>${hasBend?`<select data-role="direction" data-index="${i}"><option value="haut" ${profile.directions[i]==='haut'?'selected':''}>Haut</option><option value="bas" ${profile.directions[i]==='bas'?'selected':''}>Bas</option></select>`:'—'}</td>
+        <td>${hasBend?fmtNumber(getBendData(i).deduction,2)+' mm':'—'}</td>
+        <td><div class="bend-row-actions"><button class="btn-danger" data-remove="${i}" title="Supprimer le segment">×</button></div></td>`;
+      body.appendChild(tr);
+    });
+    body.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",e=>{
+      const i=Number(e.target.dataset.index),role=e.target.dataset.role;
+      if(role==="length")profile.lengths[i]=Number(e.target.value)||0;
+      if(role==="angle")profile.angles[i]=Number(e.target.value)||90;
+      if(role==="direction")profile.directions[i]=e.target.value;
+      renderAll(false);
+    }));
+    body.querySelectorAll("[data-remove]").forEach(btn=>btn.addEventListener("click",()=>removeSegment(Number(btn.dataset.remove))));
+  }
+
+  function renderTargets(){
+    const previous=targetSelect.value;targetSelect.innerHTML="";
+    pieces.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`Pièce ${i+1}${p.developed?` — ${p.developed} mm`:''}`;targetSelect.appendChild(o)});
+    targetSelect.value=previous&&Number(previous)<pieces.length?previous:String(Math.max(0,pieces.length-1));
+  }
+
+  function renderAll(rebuildTable=true){
+    calculate();draw();if(rebuildTable)renderTable();else{
+      body.querySelectorAll("tr").forEach((tr,i)=>{const cell=tr.children[4];if(cell&&i<profile.angles.length)cell.textContent=fmtNumber(getBendData(i).deduction,2)+" mm"});
+    }
+  }
+
+  function addSegment(length=50,angle=90,direction="haut"){
+    profile.lengths.push(length);
+    if(profile.lengths.length>1){profile.angles.push(angle);profile.directions.push(direction)}
+    profile.points.push({x:0,y:0});renderAll();
+  }
+  function removeSegment(i){
+    if(profile.lengths.length<=1)return;
+    profile.lengths.splice(i,1);profile.points.pop();
+    if(i<profile.angles.length){profile.angles.splice(i,1);profile.directions.splice(i,1)}else{profile.angles.pop();profile.directions.pop()}
+    renderAll();
+  }
+  function reset(){profile={points:[{x:0,y:0},{x:1,y:0}],lengths:[200],angles:[],directions:[]};renderAll();}
+
+  function open(){renderTargets();modal.classList.add("open");setTimeout(resizeCanvas,50)}
+  function close(){modal.classList.remove("open")}
+  openBtn?.addEventListener("click",open);closeBtn?.addEventListener("click",close);
+  modal?.addEventListener("click",e=>{if(e.target===modal)close()});
+  document.getElementById("bendAddSegmentBtn")?.addEventListener("click",()=>addSegment());
+  document.getElementById("bendUndoBtn")?.addEventListener("click",()=>removeSegment(profile.lengths.length-1));
+  document.getElementById("bendResetBtn")?.addEventListener("click",reset);
+  document.getElementById("bendMirrorBtn")?.addEventListener("click",()=>{profile.directions=profile.directions.map(d=>d==="haut"?"bas":"haut");renderAll()});
+  Object.values(fields).forEach(f=>f?.addEventListener("input",()=>renderAll(false)));
+  window.addEventListener("resize",()=>{if(modal.classList.contains("open"))resizeCanvas()});
+
+  // Dessin libre : les clics définissent uniquement la topologie et une estimation des cotes/angles.
+  let rough=[];
+  function pointerPos(e){const r=canvas.getBoundingClientRect();const p=e.touches?.[0]||e;return{x:p.clientX-r.left,y:p.clientY-r.top}}
+  canvas.addEventListener("pointerdown",e=>{
+    const p=pointerPos(e);rough.push(p);
+    if(rough.length===1)return;
+    const a=rough[rough.length-2],b=rough[rough.length-1];
+    const pxLen=Math.hypot(b.x-a.x,b.y-a.y);const estimated=Math.max(10,Math.round(pxLen));
+    if(rough.length===2){profile.lengths=[estimated];profile.angles=[];profile.directions=[];profile.points=[{x:0,y:0},{x:1,y:0}]}
+    else{
+      const p0=rough[rough.length-3];
+      const v1={x:a.x-p0.x,y:a.y-p0.y},v2={x:b.x-a.x,y:b.y-a.y};
+      const dot=v1.x*v2.x+v1.y*v2.y,det=v1.x*v2.y-v1.y*v2.x;
+      const turn=Math.atan2(det,dot)*180/Math.PI;
+      const interior=Math.max(.1,Math.min(179.9,180-Math.abs(turn)));
+      profile.angles.push(Math.round(interior*10)/10);profile.directions.push(turn<0?"haut":"bas");profile.lengths.push(estimated);profile.points.push({x:0,y:0});
+    }
+    renderAll();
+  });
+
+  document.getElementById("bendInsertBtn")?.addEventListener("click",()=>{
+    const result=calculate();const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+    if(!pieces[index])return alert("Pièce cible introuvable.");
+    pieces[index].developed=result.rounded;
+    pieces[index].folds=profile.angles.length;
+    pieces[index].bendProfile=JSON.parse(JSON.stringify({profile,settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,round:fields.round.value},result}));
+    savePieces();renderPieces();close();alert(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
+  });
+  document.getElementById("bendSaveProfileBtn")?.addEventListener("click",()=>{
+    const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+    if(!pieces[index])return alert("Pièce cible introuvable.");
+    const result=calculate();pieces[index].bendProfile=JSON.parse(JSON.stringify({profile,settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,round:fields.round.value},result}));
+    savePieces();alert(`Profil mémorisé dans la pièce ${index+1}.`);
+  });
+
+  renderAll();
+})();
 
 </script>
 </body>
