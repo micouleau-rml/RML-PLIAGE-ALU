@@ -578,6 +578,28 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   }
 }
 
+
+/* ===== CYBTOUCH V4 : CANVAS PLEINE LARGEUR ET ZOOM MAÎTRISÉ ===== */
+#bendDesignerModal .bend-canvas-card{min-width:0!important;overflow:hidden!important}
+#bendDesignerModal .bend-canvas-wrap{
+  display:block!important;
+  position:relative!important;
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  background:#178fc4!important;
+}
+#bendDesignerModal #bendCanvas{
+  display:block!important;
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  background:#178fc4!important;
+  touch-action:none!important;
+  cursor:crosshair!important;
+}
+
 </style> 
   </head>
 <body>
@@ -2510,10 +2532,15 @@ if(quotePdfBtn){
   let profile={lengths:[],angles:[],directions:[],exactPoints:[]};
 
   function resizeCanvas(){
-    const box=canvas.getBoundingClientRect();
+    const wrap=canvas.parentElement;
+    const cssWidth=Math.max(320,Math.floor(wrap.getBoundingClientRect().width));
+    const cssHeight=Math.max(320,Math.floor(parseFloat(getComputedStyle(canvas).height)||620));
     const ratio=Math.max(1,window.devicePixelRatio||1);
-    canvas.width=Math.max(320,Math.round(box.width*ratio));
-    canvas.height=Math.max(320,Math.round(box.height*ratio));
+
+    canvas.style.width=cssWidth+"px";
+    canvas.style.height=cssHeight+"px";
+    canvas.width=Math.round(cssWidth*ratio);
+    canvas.height=Math.round(cssHeight*ratio);
     ctx.setTransform(ratio,0,0,ratio,0,0);
     draw();
   }
@@ -2567,7 +2594,10 @@ if(quotePdfBtn){
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
     const spanX=Math.max(1,maxX-minX),spanY=Math.max(1,maxY-minY);
-    const scale=Math.min((w-padding*2)/spanX,(h-padding*2)/spanY);
+    const availableX=Math.max(1,w-padding*2);
+    const availableY=Math.max(1,h-padding*2);
+    const fitScale=Math.min(availableX/spanX,availableY/spanY);
+    const scale=Math.max(.15,Math.min(fitScale,2.35));
     const usedW=spanX*scale,usedH=spanY*scale;
     const ox=(w-usedW)/2-minX*scale,oy=(h-usedH)/2-minY*scale;
     return points.map(p=>({x:ox+p.x*scale,y:oy+p.y*scale}));
@@ -2667,8 +2697,10 @@ if(quotePdfBtn){
       }
 
       roughPoints.forEach((p,i)=>{
-        ctx.fillStyle=i===0?"#22c55e":"#f8fafc";ctx.strokeStyle="#0f172a";ctx.lineWidth=2;
-        ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();ctx.stroke();
+        const isLast=i===roughPoints.length-1 && !previewPoint;
+        ctx.fillStyle=i===0?"#22c55e":isLast?"#facc15":"#f8fafc";
+        ctx.strokeStyle="#0f172a";ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(p.x,p.y,isLast?7:5,0,Math.PI*2);ctx.fill();ctx.stroke();
       });
       if(!roughPoints.length){
         ctx.fillStyle="rgba(255,255,255,.92)";ctx.font="700 18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
@@ -2678,7 +2710,7 @@ if(quotePdfBtn){
     }
 
     buildExactPoints();
-    const mapped=fitPoints(profile.exactPoints,w,h,70);
+    const mapped=fitPoints(profile.exactPoints,w,h,90);
     drawPolyline(mapped,false);
     if(!mapped.length)return;
     drawActiveGeometry(mapped);
@@ -2727,7 +2759,7 @@ if(quotePdfBtn){
 
   function finishDrawing(){
     if(!deriveProfileFromRough())return alert("Tracez au moins un segment avec deux points.");
-    drawingMode=false;previewPoint=null;activeSegment=0;activeBend=-1;
+    drawingMode=false;previewPoint=null;activeSegment=-1;activeBend=-1;
     help.textContent="Saisissez maintenant les cotes et les angles. La ligne en cours devient orange et l’angle en cours est matérialisé en jaune sur le dessin.";
     renderAll(true);
   }
@@ -2809,19 +2841,35 @@ if(quotePdfBtn){
     renderAll(true);
   }
 
-  function pointerPos(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+  function pointerPos(e){
+    const r=canvas.getBoundingClientRect();
+    const x=Math.max(0,Math.min(r.width,e.clientX-r.left));
+    const y=Math.max(0,Math.min(r.height,e.clientY-r.top));
+    return {x,y};
+  }
   canvas.addEventListener("pointerdown",e=>{
     if(!drawingMode)return;
     e.preventDefault();
+    canvas.setPointerCapture?.(e.pointerId);
     const p=pointerPos(e);
     if(roughPoints.length){
       const last=roughPoints[roughPoints.length-1];
-      if(Math.hypot(p.x-last.x,p.y-last.y)<12)return;
+      if(Math.hypot(p.x-last.x,p.y-last.y)<10)return;
     }
-    roughPoints.push(p);previewPoint=null;draw();
+    roughPoints.push(p);
+    previewPoint=p;
+    draw();
   });
-  canvas.addEventListener("pointermove",e=>{if(!drawingMode||!roughPoints.length)return;previewPoint=pointerPos(e);draw()});
-  canvas.addEventListener("pointerleave",()=>{previewPoint=null;draw()});
+  const movePointer=e=>{
+    if(!drawingMode||!roughPoints.length)return;
+    e.preventDefault();
+    previewPoint=pointerPos(e);
+    draw();
+  };
+  canvas.addEventListener("pointermove",movePointer,{passive:false});
+  canvas.addEventListener("pointerrawupdate",movePointer,{passive:false});
+  canvas.addEventListener("pointerup",e=>{canvas.releasePointerCapture?.(e.pointerId)});
+  canvas.addEventListener("pointercancel",e=>{canvas.releasePointerCapture?.(e.pointerId)});
   canvas.addEventListener("dblclick",e=>{e.preventDefault();if(drawingMode)finishDrawing()});
 
   function open(){renderTargets();modal.classList.add("open");setTimeout(()=>{resizeCanvas();reset()},60)}
@@ -2835,6 +2883,10 @@ if(quotePdfBtn){
   document.getElementById("bendMirrorBtn")?.addEventListener("click",()=>{if(drawingMode){roughPoints=roughPoints.map(p=>({x:canvas.clientWidth-p.x,y:p.y}));draw()}else{profile.directions=profile.directions.map(d=>d==="haut"?"bas":"haut");renderAll(false)}});
   Object.values(fields).forEach(f=>f?.addEventListener("input",()=>renderAll(false)));
   window.addEventListener("resize",()=>{if(modal.classList.contains("open"))resizeCanvas()});
+  const bendResizeObserver=new ResizeObserver(()=>{
+    if(modal.classList.contains("open"))resizeCanvas();
+  });
+  bendResizeObserver.observe(canvas.parentElement);
 
   document.getElementById("bendInsertBtn")?.addEventListener("click",()=>{
     if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
