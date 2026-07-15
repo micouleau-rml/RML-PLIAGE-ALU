@@ -600,6 +600,32 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   cursor:crosshair!important;
 }
 
+
+#bendDesignerModal .bend-mini-actions{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:8px!important;
+}
+#bendDesignerModal .bend-mini-actions button{
+  min-width:135px;
+}
+#bendDesignerModal #bendFinishDrawBtn:disabled{
+  opacity:.65;
+  cursor:default;
+  background:#157347!important;
+  color:#fff!important;
+}
+@media(max-width:760px){
+  #bendDesignerModal .bend-mini-actions{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #bendDesignerModal .bend-mini-actions button{
+    min-width:0!important;
+    width:100%!important;
+  }
+}
+
 </style> 
   </head>
 <body>
@@ -806,6 +832,11 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <button class="btn-light" id="bendAddSegmentBtn">+ Segment au tableau</button>
           <button class="btn-light" id="bendUndoBtn">Annuler le dernier</button>
           <button class="btn-light" id="bendMirrorBtn">Miroir</button>
+          <button class="btn-light" id="bendHorizontalBtn">↔ Horizontal</button>
+          <button class="btn-light" id="bendVerticalBtn">↕ Vertical</button>
+          <button class="btn-light" id="bendZoomOutBtn">− Zoom</button>
+          <button class="btn-light" id="bendZoomInBtn">+ Zoom</button>
+          <button class="btn-light" id="bendAutoFitBtn">Centrer</button>
           <button class="btn-danger" id="bendResetBtn">Réinitialiser</button>
         </div>
         <div class="bend-results">
@@ -2529,6 +2560,8 @@ if(quotePdfBtn){
   let drawingMode=true;
   let activeSegment=-1;
   let activeBend=-1;
+  let viewRotation=0;
+  let viewZoom=1;
   let profile={lengths:[],angles:[],directions:[],exactPoints:[]};
 
   function resizeCanvas(){
@@ -2591,16 +2624,45 @@ if(quotePdfBtn){
 
   function fitPoints(points,w,h,padding=54){
     if(!points.length)return [];
-    const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+
+    const cos=Math.cos(viewRotation);
+    const sin=Math.sin(viewRotation);
+    const rotated=points.map(p=>({
+      x:p.x*cos-p.y*sin,
+      y:p.x*sin+p.y*cos
+    }));
+
+    const xs=rotated.map(p=>p.x),ys=rotated.map(p=>p.y);
     const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
     const spanX=Math.max(1,maxX-minX),spanY=Math.max(1,maxY-minY);
     const availableX=Math.max(1,w-padding*2);
     const availableY=Math.max(1,h-padding*2);
-    const fitScale=Math.min(availableX/spanX,availableY/spanY);
-    const scale=Math.max(.15,Math.min(fitScale,2.35));
-    const usedW=spanX*scale,usedH=spanY*scale;
-    const ox=(w-usedW)/2-minX*scale,oy=(h-usedH)/2-minY*scale;
-    return points.map(p=>({x:ox+p.x*scale,y:oy+p.y*scale}));
+    const autoScale=Math.min(availableX/spanX,availableY/spanY);
+    const scale=Math.max(.05,autoScale*viewZoom);
+
+    const centerX=(minX+maxX)/2;
+    const centerY=(minY+maxY)/2;
+
+    return rotated.map(p=>({
+      x:w/2+(p.x-centerX)*scale,
+      y:h/2+(p.y-centerY)*scale
+    }));
+  }
+
+  function setProfileOrientation(vertical=false){
+    buildExactPoints();
+    if(profile.exactPoints.length<2)return;
+    const first=profile.exactPoints[0];
+    const last=profile.exactPoints[profile.exactPoints.length-1];
+    const axis=Math.atan2(last.y-first.y,last.x-first.x);
+    viewRotation=-axis+(vertical?Math.PI/2:0);
+    viewZoom=1;
+    draw();
+  }
+
+  function changeProfileZoom(delta){
+    viewZoom=Math.max(.35,Math.min(3.5,viewZoom+delta));
+    draw();
   }
 
   function drawGrid(w,h){
@@ -2758,9 +2820,28 @@ if(quotePdfBtn){
   }
 
   function finishDrawing(){
-    if(!deriveProfileFromRough())return alert("Tracez au moins un segment avec deux points.");
-    drawingMode=false;previewPoint=null;activeSegment=-1;activeBend=-1;
-    help.textContent="Saisissez maintenant les cotes et les angles. La ligne en cours devient orange et l’angle en cours est matérialisé en jaune sur le dessin.";
+    // Une fois terminé, les valeurs du tableau deviennent la référence.
+    // Un nouveau clic ne doit jamais réinjecter les cotes approximatives du tracé.
+    if(!drawingMode)return;
+
+    if(!deriveProfileFromRough()){
+      return alert("Tracez au moins un segment avec deux points.");
+    }
+
+    drawingMode=false;
+    previewPoint=null;
+    activeSegment=-1;
+    activeBend=-1;
+    viewRotation=0;
+    viewZoom=1;
+
+    const finishBtn=document.getElementById("bendFinishDrawBtn");
+    if(finishBtn){
+      finishBtn.textContent="✓ Dessin terminé";
+      finishBtn.disabled=true;
+    }
+
+    help.textContent="Les cotes et les angles du tableau sont maintenant prioritaires. Toute modification est conservée et visible immédiatement sur le dessin.";
     renderAll(true);
   }
 
@@ -2835,8 +2916,21 @@ if(quotePdfBtn){
     renderAll(true);
   }
   function reset(){
-    roughPoints=[];previewPoint=null;drawingMode=true;activeSegment=-1;activeBend=-1;
+    roughPoints=[];
+    previewPoint=null;
+    drawingMode=true;
+    activeSegment=-1;
+    activeBend=-1;
+    viewRotation=0;
+    viewZoom=1;
     profile={lengths:[],angles:[],directions:[],exactPoints:[]};
+
+    const finishBtn=document.getElementById("bendFinishDrawBtn");
+    if(finishBtn){
+      finishBtn.textContent="Terminer le dessin";
+      finishBtn.disabled=false;
+    }
+
     help.textContent="Touchez ou cliquez pour poser le premier point, puis déplacez le doigt ou la souris : le pointeur jaune reste au bout du trait. Touchez/cliquez à chaque nouveau sommet.";
     renderAll(true);
   }
@@ -2881,6 +2975,32 @@ if(quotePdfBtn){
   document.getElementById("bendUndoBtn")?.addEventListener("click",()=>removeSegment(drawingMode?roughPoints.length-1:profile.lengths.length-1));
   document.getElementById("bendResetBtn")?.addEventListener("click",reset);
   document.getElementById("bendMirrorBtn")?.addEventListener("click",()=>{if(drawingMode){roughPoints=roughPoints.map(p=>({x:canvas.clientWidth-p.x,y:p.y}));draw()}else{profile.directions=profile.directions.map(d=>d==="haut"?"bas":"haut");renderAll(false)}});
+
+  document.getElementById("bendHorizontalBtn")?.addEventListener("click",()=>{
+    if(drawingMode)return alert("Terminez d’abord le dessin.");
+    setProfileOrientation(false);
+  });
+
+  document.getElementById("bendVerticalBtn")?.addEventListener("click",()=>{
+    if(drawingMode)return alert("Terminez d’abord le dessin.");
+    setProfileOrientation(true);
+  });
+
+  document.getElementById("bendZoomOutBtn")?.addEventListener("click",()=>{
+    if(drawingMode)return;
+    changeProfileZoom(-0.15);
+  });
+
+  document.getElementById("bendZoomInBtn")?.addEventListener("click",()=>{
+    if(drawingMode)return;
+    changeProfileZoom(0.15);
+  });
+
+  document.getElementById("bendAutoFitBtn")?.addEventListener("click",()=>{
+    viewZoom=1;
+    draw();
+  });
+
   Object.values(fields).forEach(f=>f?.addEventListener("input",()=>renderAll(false)));
   window.addEventListener("resize",()=>{if(modal.classList.contains("open"))resizeCanvas()});
   const bendResizeObserver=new ResizeObserver(()=>{
