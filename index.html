@@ -626,6 +626,106 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   }
 }
 
+
+/* ===== MODALE DÉVELOPPÉ V8 : DÉFILEMENT + VUE 3D ===== */
+#bendDesignerModal{
+  overflow:hidden!important;
+}
+
+#bendDesignerModal .modal-card{
+  position:relative!important;
+  display:block!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain;
+  scroll-behavior:smooth;
+  padding-top:0!important;
+}
+
+#bendDesignerModal .modal-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:50!important;
+  margin:0 -18px 14px!important;
+  padding:16px 18px 14px!important;
+  background:rgba(255,255,255,.96)!important;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid #d9e1ea;
+  box-shadow:0 8px 18px rgba(15,23,42,.08);
+}
+
+#bendDesignerModal .bend-toolbar{
+  position:relative;
+  z-index:1;
+}
+
+#bendDesignerModal .bend-data-card{
+  scroll-margin-top:105px;
+}
+
+#bendDesignerModal .bend-table thead th{
+  position:sticky!important;
+  top:0!important;
+  z-index:5!important;
+  background:#f7faff!important;
+  box-shadow:0 1px 0 #d9e1ea;
+}
+
+#bendDesignerModal .bend-3d-card{
+  width:100%;
+  padding:16px;
+  border:1px solid #d9e1ea;
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 8px 24px rgba(18,36,56,.07);
+}
+
+#bendDesignerModal .bend-3d-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:10px;
+}
+
+#bendDesignerModal .bend-3d-head h3{
+  margin:0;
+  font-size:1.2rem;
+}
+
+#bendDesignerModal .bend-3d-wrap{
+  width:100%;
+  height:430px;
+  overflow:hidden;
+  border-radius:15px;
+  border:1px solid #b9d7e8;
+  background:linear-gradient(180deg,#eaf6fb 0%,#d6edf7 100%);
+}
+
+#bendDesignerModal #bend3DCanvas{
+  display:block;
+  width:100%;
+  height:430px;
+  touch-action:none;
+}
+
+@media(max-width:760px){
+  #bendDesignerModal .modal-head{
+    margin:0 -12px 12px!important;
+    padding:12px!important;
+  }
+
+  #bendDesignerModal .bend-3d-head{
+    display:block;
+  }
+
+  #bendDesignerModal .bend-3d-wrap,
+  #bendDesignerModal #bend3DCanvas{
+    height:330px;
+  }
+}
+
 </style> 
   </head>
 <body>
@@ -819,6 +919,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <div class="field"><label for="bendRadius">Rayon intérieur (mm)</label><input id="bendRadius" type="number" min="0" step="0.1" value="1"></div>
       <div class="field"><label for="bendKFactor">Facteur K</label><input id="bendKFactor" type="number" min="0.1" max="0.6" step="0.01" value="0.33"></div>
       <div class="field"><label for="bendRound">Arrondi atelier</label><select id="bendRound"><option value="0.01">0,01 mm</option><option value="0.1" selected>0,1 mm</option><option value="0.5">0,5 mm</option><option value="1">1 mm</option></select></div>
+      <div class="field"><label for="bend3DLength">Longueur de la pièce 3D (mm)</label><input id="bend3DLength" type="number" min="10" step="10" value="1000"></div>
     </div>
 
     <div class="bend-workspace">
@@ -847,6 +948,16 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <div class="bend-result main"><span>Développé calculé</span><strong id="bendDeveloped">0,0 mm</strong></div>
         </div>
         <div class="bend-warning" id="bendWarning">Le calcul est théorique (facteur K). Pour retrouver exactement les valeurs CybTouch, calibrez ensuite les déductions avec vos essais presse.</div>
+      </div>
+
+      <div class="bend-3d-card">
+        <div class="bend-3d-head">
+          <h3>Rendu 3D de la pièce</h3>
+          <div class="note">La vue 3D reprend automatiquement le profil coté et la longueur indiquée.</div>
+        </div>
+        <div class="bend-3d-wrap">
+          <canvas id="bend3DCanvas"></canvas>
+        </div>
       </div>
 
       <div class="bend-data-card">
@@ -2543,6 +2654,8 @@ if(quotePdfBtn){
   const closeBtn=document.getElementById("closeBendDesignerBtn");
   const canvas=document.getElementById("bendCanvas");
   const ctx=canvas.getContext("2d");
+  const canvas3D=document.getElementById("bend3DCanvas");
+  const ctx3D=canvas3D?.getContext("2d");
   const body=document.getElementById("bendSegmentsBody");
   const targetSelect=document.getElementById("bendTargetPiece");
   const help=document.getElementById("bendCanvasHelp");
@@ -2552,7 +2665,8 @@ if(quotePdfBtn){
     vee:document.getElementById("bendVee"),
     radius:document.getElementById("bendRadius"),
     k:document.getElementById("bendKFactor"),
-    round:document.getElementById("bendRound")
+    round:document.getElementById("bendRound"),
+    length3D:document.getElementById("bend3DLength")
   };
 
   let roughPoints=[];
@@ -2576,6 +2690,23 @@ if(quotePdfBtn){
     canvas.height=Math.round(cssHeight*ratio);
     ctx.setTransform(ratio,0,0,ratio,0,0);
     draw();
+  }
+
+
+  function resizeCanvas3D(){
+    if(!canvas3D || !ctx3D)return;
+
+    const wrap=canvas3D.parentElement;
+    const cssWidth=Math.max(320,Math.floor(wrap.getBoundingClientRect().width));
+    const cssHeight=Math.max(260,Math.floor(parseFloat(getComputedStyle(canvas3D).height)||430));
+    const ratio=Math.max(1,window.devicePixelRatio||1);
+
+    canvas3D.style.width=cssWidth+"px";
+    canvas3D.style.height=cssHeight+"px";
+    canvas3D.width=Math.round(cssWidth*ratio);
+    canvas3D.height=Math.round(cssHeight*ratio);
+    ctx3D.setTransform(ratio,0,0,ratio,0,0);
+    draw3D();
   }
 
   function getBendData(i){
@@ -2829,22 +2960,246 @@ if(quotePdfBtn){
       ctx.strokeStyle="#0f172a";ctx.lineWidth=2;ctx.beginPath();ctx.arc(q.x,q.y,5,0,Math.PI*2);ctx.fill();ctx.stroke();
     });
 
-    ctx.font="700 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-    ctx.textAlign="center";ctx.textBaseline="middle";
+    // Cotes parallèles aux segments
     for(let i=0;i<mapped.length-1;i++){
-      const a=mapped[i],b=mapped[i+1],dx=b.x-a.x,dy=b.y-a.y,L=Math.max(1,Math.hypot(dx,dy));
-      const nx=-dy/L,ny=dx/L,off=20*(i%2? -1:1);
-      const mx=(a.x+b.x)/2+nx*off,my=(a.y+b.y)/2+ny*off;
+      const a=mapped[i];
+      const b=mapped[i+1];
+      const dx=b.x-a.x;
+      const dy=b.y-a.y;
+      const L=Math.max(1,Math.hypot(dx,dy));
+      const mx=(a.x+b.x)/2;
+      const my=(a.y+b.y)/2;
+      const nx=-dy/L;
+      const ny=dx/L;
+
+      let rotation=Math.atan2(dy,dx);
+      if(rotation>Math.PI/2 || rotation<-Math.PI/2){
+        rotation+=Math.PI;
+      }
+
+      const offset=(i%2===0 ? -24 : 24);
+      const tx=mx+nx*offset;
+      const ty=my+ny*offset;
       const label=`${fmtNumber(profile.lengths[i],1)} mm`;
+
+      ctx.save();
+      ctx.translate(tx,ty);
+      ctx.rotate(rotation);
+      ctx.font="700 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+
       const tw=ctx.measureText(label).width;
-      ctx.fillStyle="rgba(15,23,42,.80)";ctx.beginPath();ctx.roundRect(mx-tw/2-5,my-9,tw+10,18,5);ctx.fill();
-      ctx.fillStyle="#fff";ctx.fillText(label,mx,my);
+      ctx.fillStyle="rgba(15,23,42,.86)";
+      ctx.beginPath();
+      ctx.roundRect(-tw/2-6,-10,tw+12,20,5);
+      ctx.fill();
+
+      ctx.fillStyle="#fff";
+      ctx.fillText(label,0,0);
+      ctx.restore();
     }
+
+    // Angles éloignés des cotes et placés sur la bissectrice
     for(let i=1;i<mapped.length-1;i++){
-      const q=mapped[i];
+      const p0=mapped[i-1];
+      const p1=mapped[i];
+      const p2=mapped[i+1];
+
+      const v1={x:p0.x-p1.x,y:p0.y-p1.y};
+      const v2={x:p2.x-p1.x,y:p2.y-p1.y};
+      const l1=Math.hypot(v1.x,v1.y)||1;
+      const l2=Math.hypot(v2.x,v2.y)||1;
+      const u1={x:v1.x/l1,y:v1.y/l1};
+      const u2={x:v2.x/l2,y:v2.y/l2};
+
+      let bx=u1.x+u2.x;
+      let by=u1.y+u2.y;
+      let bl=Math.hypot(bx,by);
+
+      if(bl<0.001){
+        bx=-u1.y;
+        by=u1.x;
+        bl=1;
+      }
+
+      bx/=bl;
+      by/=bl;
+
+      const angleRadius=30;
+      const textRadius=55;
+      const a1=Math.atan2(u1.y,u1.x);
+      const a2=Math.atan2(u2.y,u2.x);
+
+      let diff=a2-a1;
+      while(diff<=-Math.PI)diff+=Math.PI*2;
+      while(diff>Math.PI)diff-=Math.PI*2;
+
+      ctx.save();
+      ctx.strokeStyle="#facc15";
+      ctx.lineWidth=2.5;
+      ctx.beginPath();
+      ctx.arc(p1.x,p1.y,angleRadius,a1,a1+diff,diff<0);
+      ctx.stroke();
+
       const label=`${fmtNumber(profile.angles[i-1],1)}°`;
-      ctx.fillStyle="#fef08a";ctx.fillText(label,q.x+25,q.y-18);
+      let ax=p1.x+bx*textRadius;
+      let ay=p1.y+by*textRadius;
+
+      ctx.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+
+      const tw=ctx.measureText(label).width;
+      ctx.fillStyle="rgba(15,23,42,.82)";
+      ctx.beginPath();
+      ctx.roundRect(ax-tw/2-6,ay-10,tw+12,20,5);
+      ctx.fill();
+
+      ctx.fillStyle="#facc15";
+      ctx.fillText(label,ax,ay);
+      ctx.restore();
     }
+  }
+
+
+  function project3DPoint(x,y,z,scale,originX,originY){
+    // Projection isométrique simple et stable
+    return {
+      x:originX+(x-z*.42)*scale,
+      y:originY+(y+z*.24)*scale
+    };
+  }
+
+  function draw3D(){
+    if(!canvas3D || !ctx3D)return;
+
+    const w=canvas3D.clientWidth;
+    const h=canvas3D.clientHeight;
+    ctx3D.clearRect(0,0,w,h);
+
+    const gradient=ctx3D.createLinearGradient(0,0,0,h);
+    gradient.addColorStop(0,"#eaf6fb");
+    gradient.addColorStop(1,"#cce6f2");
+    ctx3D.fillStyle=gradient;
+    ctx3D.fillRect(0,0,w,h);
+
+    // Grille de fond discrète
+    ctx3D.strokeStyle="rgba(15,98,254,.08)";
+    ctx3D.lineWidth=1;
+    for(let x=0;x<w;x+=50){
+      ctx3D.beginPath();ctx3D.moveTo(x,0);ctx3D.lineTo(x,h);ctx3D.stroke();
+    }
+    for(let y=0;y<h;y+=50){
+      ctx3D.beginPath();ctx3D.moveTo(0,y);ctx3D.lineTo(w,y);ctx3D.stroke();
+    }
+
+    if(drawingMode || profile.lengths.length<1){
+      ctx3D.fillStyle="#425466";
+      ctx3D.font="700 17px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.textAlign="center";
+      ctx3D.fillText("Terminez le dessin pour afficher la pièce en 3D",w/2,h/2);
+      return;
+    }
+
+    buildExactPoints();
+    const points=profile.exactPoints;
+    if(points.length<2)return;
+
+    const extrusion=Math.max(10,Number(fields.length3D?.value)||1000);
+
+    const xs=points.map(p=>p.x);
+    const ys=points.map(p=>p.y);
+    const minX=Math.min(...xs),maxX=Math.max(...xs);
+    const minY=Math.min(...ys),maxY=Math.max(...ys);
+    const profileW=Math.max(1,maxX-minX);
+    const profileH=Math.max(1,maxY-minY);
+
+    // Profondeur visuelle plafonnée pour garder un rendu exploitable
+    const visualDepth=Math.min(Math.max(profileW,profileH)*1.6,extrusion*.35);
+    const totalW=profileW+visualDepth*.42;
+    const totalH=profileH+visualDepth*.24;
+    const scale=Math.min((w-110)/Math.max(1,totalW),(h-90)/Math.max(1,totalH));
+
+    const originX=w/2-((minX+maxX)/2-visualDepth*.21)*scale;
+    const originY=h/2-((minY+maxY)/2+visualDepth*.12)*scale;
+
+    const front=points.map(p=>project3DPoint(p.x,p.y,0,scale,originX,originY));
+    const back=points.map(p=>project3DPoint(p.x,p.y,visualDepth,scale,originX,originY));
+
+    // Faces latérales extrudées
+    for(let i=0;i<front.length-1;i++){
+      const f1=front[i],f2=front[i+1],b2=back[i+1],b1=back[i];
+      const faceGradient=ctx3D.createLinearGradient(f1.x,f1.y,b1.x,b1.y);
+      faceGradient.addColorStop(0,"rgba(210,225,235,.96)");
+      faceGradient.addColorStop(1,"rgba(121,157,181,.92)");
+      ctx3D.fillStyle=faceGradient;
+      ctx3D.strokeStyle="#29465b";
+      ctx3D.lineWidth=1.2;
+      ctx3D.beginPath();
+      ctx3D.moveTo(f1.x,f1.y);
+      ctx3D.lineTo(f2.x,f2.y);
+      ctx3D.lineTo(b2.x,b2.y);
+      ctx3D.lineTo(b1.x,b1.y);
+      ctx3D.closePath();
+      ctx3D.fill();
+      ctx3D.stroke();
+    }
+
+    // Arrière
+    ctx3D.strokeStyle="rgba(41,70,91,.72)";
+    ctx3D.lineWidth=2;
+    ctx3D.beginPath();
+    back.forEach((p,i)=>i?ctx3D.lineTo(p.x,p.y):ctx3D.moveTo(p.x,p.y));
+    ctx3D.stroke();
+
+    // Avant
+    ctx3D.strokeStyle="#ffffff";
+    ctx3D.lineWidth=5;
+    ctx3D.lineJoin="round";
+    ctx3D.beginPath();
+    front.forEach((p,i)=>i?ctx3D.lineTo(p.x,p.y):ctx3D.moveTo(p.x,p.y));
+    ctx3D.stroke();
+
+    ctx3D.strokeStyle="#17324a";
+    ctx3D.lineWidth=1.5;
+    ctx3D.beginPath();
+    front.forEach((p,i)=>i?ctx3D.lineTo(p.x,p.y):ctx3D.moveTo(p.x,p.y));
+    ctx3D.stroke();
+
+    // Lignes de raccord profondeur
+    ctx3D.strokeStyle="rgba(23,50,74,.65)";
+    ctx3D.lineWidth=1.2;
+    front.forEach((p,i)=>{
+      ctx3D.beginPath();
+      ctx3D.moveTo(p.x,p.y);
+      ctx3D.lineTo(back[i].x,back[i].y);
+      ctx3D.stroke();
+    });
+
+    // Repères des plis
+    for(let i=1;i<front.length-1;i++){
+      ctx3D.fillStyle="#facc15";
+      ctx3D.strokeStyle="#17202a";
+      ctx3D.lineWidth=1.5;
+      ctx3D.beginPath();
+      ctx3D.arc(front[i].x,front[i].y,5,0,Math.PI*2);
+      ctx3D.fill();
+      ctx3D.stroke();
+    }
+
+    // Cartouche longueur
+    const label=`Longueur : ${Math.round(extrusion).toLocaleString("fr-FR")} mm`;
+    ctx3D.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+    const tw=ctx3D.measureText(label).width;
+    ctx3D.fillStyle="rgba(15,23,42,.82)";
+    ctx3D.beginPath();
+    ctx3D.roundRect(w-tw-34,h-42,tw+20,28,7);
+    ctx3D.fill();
+    ctx3D.fillStyle="#fff";
+    ctx3D.textAlign="left";
+    ctx3D.textBaseline="middle";
+    ctx3D.fillText(label,w-tw-24,h-28);
   }
 
   function deriveProfileFromRough(){
@@ -2941,7 +3296,7 @@ if(quotePdfBtn){
   }
 
   function renderAll(rebuildTable=true){
-    calculate();draw();
+    calculate();draw();draw3D();
     if(rebuildTable)renderTable();
     else body.querySelectorAll("tr").forEach((tr,i)=>{const cell=tr.children[4];if(cell&&i<profile.angles.length)cell.textContent=fmtNumber(getBendData(i).deduction,2)+" mm"});
   }
@@ -3013,7 +3368,20 @@ if(quotePdfBtn){
   canvas.addEventListener("pointercancel",e=>{canvas.releasePointerCapture?.(e.pointerId)});
   canvas.addEventListener("dblclick",e=>{e.preventDefault();if(drawingMode)finishDrawing()});
 
-  function open(){renderTargets();modal.classList.add("open");setTimeout(()=>{resizeCanvas();reset()},60)}
+  function open(){
+    renderTargets();
+
+    const targetIndex=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+    const targetLength=Math.max(10,Number(pieces[targetIndex]?.length||1)*1000);
+    if(fields.length3D)fields.length3D.value=Math.round(targetLength);
+
+    modal.classList.add("open");
+    setTimeout(()=>{
+      resizeCanvas();
+      resizeCanvas3D();
+      reset();
+    },80);
+  }
   function close(){modal.classList.remove("open")}
   openBtn?.addEventListener("click",open);closeBtn?.addEventListener("click",close);
   modal?.addEventListener("click",e=>{if(e.target===modal)close()});
@@ -3049,11 +3417,17 @@ if(quotePdfBtn){
   });
 
   Object.values(fields).forEach(f=>f?.addEventListener("input",()=>renderAll(false)));
-  window.addEventListener("resize",()=>{if(modal.classList.contains("open"))resizeCanvas()});
+  window.addEventListener("resize",()=>{
+    if(modal.classList.contains("open")){
+      resizeCanvas();
+      resizeCanvas3D();
+    }
+  });
   const bendResizeObserver=new ResizeObserver(()=>{
     if(modal.classList.contains("open"))resizeCanvas();
   });
   bendResizeObserver.observe(canvas.parentElement);
+  if(canvas3D?.parentElement)bendResizeObserver.observe(canvas3D.parentElement);
 
   document.getElementById("bendInsertBtn")?.addEventListener("click",()=>{
     if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
