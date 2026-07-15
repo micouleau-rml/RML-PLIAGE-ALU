@@ -726,6 +726,15 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   }
 }
 
+
+#bendDesignerModal .bend-3d-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+#bendDesignerModal .bend-3d-actions button{min-height:40px;padding:8px 12px}
+#bendDesignerModal #bend3DCanvas{cursor:grab}
+#bendDesignerModal #bend3DCanvas:active{cursor:grabbing}
+@media(max-width:760px){
+  #bendDesignerModal .bend-3d-actions{margin-top:10px;justify-content:flex-start}
+  #bendDesignerModal .bend-3d-actions button{flex:1 1 auto}
+}
 </style> 
   </head>
 <body>
@@ -952,8 +961,15 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 
       <div class="bend-3d-card">
         <div class="bend-3d-head">
-          <h3>Rendu 3D de la pièce</h3>
-          <div class="note">La vue 3D reprend automatiquement le profil coté et la longueur indiquée.</div>
+          <div>
+            <h3>Rendu 3D interactif de la pièce</h3>
+            <div class="note">Glissez pour tourner, utilisez la molette ou pincez pour zoomer.</div>
+          </div>
+          <div class="bend-3d-actions">
+            <button type="button" class="btn-light" id="bend3DResetBtn">Réinitialiser la vue</button>
+            <button type="button" class="btn-light" id="bend3DFrontBtn">Vue avant</button>
+            <button type="button" class="btn-light" id="bend3DIsoBtn">Vue isométrique</button>
+          </div>
         </div>
         <div class="bend-3d-wrap">
           <canvas id="bend3DCanvas"></canvas>
@@ -3063,11 +3079,25 @@ if(quotePdfBtn){
   }
 
 
-  function project3DPoint(x,y,z,scale,originX,originY){
-    // Projection isométrique simple et stable
+  function rotate3DPoint(x,y,z){
+    const cosY=Math.cos(view3DYaw),sinY=Math.sin(view3DYaw);
+    const x1=x*cosY-z*sinY;
+    const z1=x*sinY+z*cosY;
+
+    const cosP=Math.cos(view3DPitch),sinP=Math.sin(view3DPitch);
     return {
-      x:originX+(x-z*.42)*scale,
-      y:originY+(y+z*.24)*scale
+      x:x1,
+      y:y*cosP-z1*sinP,
+      z:y*sinP+z1*cosP
+    };
+  }
+
+  function project3DPoint(x,y,z,scale,originX,originY){
+    const p=rotate3DPoint(x,y,z);
+    return {
+      x:originX+p.x*scale,
+      y:originY+p.y*scale,
+      depth:p.z
     };
   }
 
@@ -3115,17 +3145,33 @@ if(quotePdfBtn){
     const profileW=Math.max(1,maxX-minX);
     const profileH=Math.max(1,maxY-minY);
 
-    // Profondeur visuelle plafonnée pour garder un rendu exploitable
-    const visualDepth=Math.min(Math.max(profileW,profileH)*1.6,extrusion*.35);
-    const totalW=profileW+visualDepth*.42;
-    const totalH=profileH+visualDepth*.24;
-    const scale=Math.min((w-110)/Math.max(1,totalW),(h-90)/Math.max(1,totalH));
+    const visualDepth=Math.max(40,Math.min(extrusion,Math.max(profileW,profileH)*2.2));
+    const centeredPoints=points.map(p=>({
+      x:p.x-(minX+maxX)/2,
+      y:p.y-(minY+maxY)/2
+    }));
 
-    const originX=w/2-((minX+maxX)/2-visualDepth*.21)*scale;
-    const originY=h/2-((minY+maxY)/2+visualDepth*.12)*scale;
+    const rotatedBounds=[];
+    centeredPoints.forEach(p=>{
+      rotatedBounds.push(rotate3DPoint(p.x,p.y,0));
+      rotatedBounds.push(rotate3DPoint(p.x,p.y,visualDepth));
+    });
 
-    const front=points.map(p=>project3DPoint(p.x,p.y,0,scale,originX,originY));
-    const back=points.map(p=>project3DPoint(p.x,p.y,visualDepth,scale,originX,originY));
+    const minRX=Math.min(...rotatedBounds.map(p=>p.x));
+    const maxRX=Math.max(...rotatedBounds.map(p=>p.x));
+    const minRY=Math.min(...rotatedBounds.map(p=>p.y));
+    const maxRY=Math.max(...rotatedBounds.map(p=>p.y));
+
+    const scale=Math.min(
+      (w-120)/Math.max(1,maxRX-minRX),
+      (h-100)/Math.max(1,maxRY-minRY)
+    )*view3DZoom;
+
+    const originX=w/2;
+    const originY=h/2;
+
+    const front=centeredPoints.map(p=>project3DPoint(p.x,p.y,0,scale,originX,originY));
+    const back=centeredPoints.map(p=>project3DPoint(p.x,p.y,visualDepth,scale,originX,originY));
 
     // Faces latérales extrudées
     for(let i=0;i<front.length-1;i++){
@@ -3294,6 +3340,85 @@ if(quotePdfBtn){
     pieces.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`Pièce ${i+1}${p.developed?` — ${p.developed} mm`:''}`;targetSelect.appendChild(o)});
     targetSelect.value=previous&&Number(previous)<pieces.length?previous:String(Math.max(0,pieces.length-1));
   }
+
+
+  function reset3DView(mode="iso"){
+    if(mode==="front"){
+      view3DYaw=0;
+      view3DPitch=0;
+    }else{
+      view3DYaw=-0.65;
+      view3DPitch=0.42;
+    }
+    view3DZoom=1;
+    draw3D();
+  }
+
+  if(canvas3D){
+    canvas3D.addEventListener("pointerdown",e=>{
+      view3DDragging=true;
+      view3DLastX=e.clientX;
+      view3DLastY=e.clientY;
+      canvas3D.setPointerCapture?.(e.pointerId);
+      e.preventDefault();
+    });
+
+    canvas3D.addEventListener("pointermove",e=>{
+      if(!view3DDragging)return;
+      const dx=e.clientX-view3DLastX;
+      const dy=e.clientY-view3DLastY;
+      view3DLastX=e.clientX;
+      view3DLastY=e.clientY;
+      view3DYaw+=dx*.01;
+      view3DPitch=Math.max(-1.35,Math.min(1.35,view3DPitch+dy*.01));
+      draw3D();
+      e.preventDefault();
+    });
+
+    const stop=e=>{
+      view3DDragging=false;
+      try{canvas3D.releasePointerCapture?.(e.pointerId)}catch{}
+    };
+
+    canvas3D.addEventListener("pointerup",stop);
+    canvas3D.addEventListener("pointercancel",stop);
+
+    canvas3D.addEventListener("wheel",e=>{
+      e.preventDefault();
+      view3DZoom=Math.max(.35,Math.min(4,view3DZoom*(e.deltaY<0?1.1:.9)));
+      draw3D();
+    },{passive:false});
+
+    canvas3D.addEventListener("touchstart",e=>{
+      if(e.touches.length===2){
+        view3DPinchDistance=Math.hypot(
+          e.touches[1].clientX-e.touches[0].clientX,
+          e.touches[1].clientY-e.touches[0].clientY
+        );
+      }
+    },{passive:false});
+
+    canvas3D.addEventListener("touchmove",e=>{
+      if(e.touches.length===2){
+        const d=Math.hypot(
+          e.touches[1].clientX-e.touches[0].clientX,
+          e.touches[1].clientY-e.touches[0].clientY
+        );
+        if(view3DPinchDistance>0){
+          view3DZoom=Math.max(.35,Math.min(4,view3DZoom*(d/view3DPinchDistance)));
+          draw3D();
+        }
+        view3DPinchDistance=d;
+        e.preventDefault();
+      }
+    },{passive:false});
+
+    canvas3D.addEventListener("touchend",()=>{view3DPinchDistance=0},{passive:true});
+  }
+
+  document.getElementById("bend3DResetBtn")?.addEventListener("click",()=>reset3DView("iso"));
+  document.getElementById("bend3DFrontBtn")?.addEventListener("click",()=>reset3DView("front"));
+  document.getElementById("bend3DIsoBtn")?.addEventListener("click",()=>reset3DView("iso"));
 
   function renderAll(rebuildTable=true){
     calculate();draw();draw3D();
