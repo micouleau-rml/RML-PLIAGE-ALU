@@ -735,6 +735,20 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   #bendDesignerModal .bend-3d-actions{margin-top:10px;justify-content:flex-start}
   #bendDesignerModal .bend-3d-actions button{flex:1 1 auto}
 }
+
+#bendDesignerModal .bend-3d-collapsed{
+  display:none!important;
+}
+#bendDesignerModal .bend-data-card{
+  order:2;
+}
+#bendDesignerModal .bend-3d-card{
+  order:3;
+}
+#bendDesignerModal .bend-data-card{
+  margin-top:2px;
+}
+
 </style> 
   </head>
 <body>
@@ -959,23 +973,6 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <div class="bend-warning" id="bendWarning">Le calcul est théorique (facteur K). Pour retrouver exactement les valeurs CybTouch, calibrez ensuite les déductions avec vos essais presse.</div>
       </div>
 
-      <div class="bend-3d-card">
-        <div class="bend-3d-head">
-          <div>
-            <h3>Rendu 3D interactif de la pièce</h3>
-            <div class="note">Glissez pour tourner, utilisez la molette ou pincez pour zoomer.</div>
-          </div>
-          <div class="bend-3d-actions">
-            <button type="button" class="btn-light" id="bend3DResetBtn">Réinitialiser la vue</button>
-            <button type="button" class="btn-light" id="bend3DFrontBtn">Vue avant</button>
-            <button type="button" class="btn-light" id="bend3DIsoBtn">Vue isométrique</button>
-          </div>
-        </div>
-        <div class="bend-3d-wrap">
-          <canvas id="bend3DCanvas"></canvas>
-        </div>
-      </div>
-
       <div class="bend-data-card">
         <h3 style="margin:0 0 10px">Tableau des cotes extérieures</h3>
         <div class="bend-table-wrap">
@@ -993,7 +990,24 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           Formule : BA = angle de pli × (rayon + K × épaisseur), puis déduction de pli = 2 × retrait extérieur − BA. Les angles saisis sont les angles intérieurs finis.
         </div>
       </div>
-    </div>
+
+      <div class="bend-3d-card">
+        <div class="bend-3d-head">
+          <button type="button" class="btn-light" id="bend3DToggleBtn">Afficher la 3D</button>
+          <div>
+            <h3>Rendu 3D interactif de la pièce</h3>
+            <div class="note">Glissez pour tourner, utilisez la molette ou pincez pour zoomer.</div>
+          </div>
+          <div class="bend-3d-actions">
+            <button type="button" class="btn-light" id="bend3DResetBtn">Réinitialiser la vue</button>
+            <button type="button" class="btn-light" id="bend3DFrontBtn">Vue avant</button>
+            <button type="button" class="btn-light" id="bend3DIsoBtn">Vue isométrique</button>
+          </div>
+        </div>
+        <div class="bend-3d-wrap bend-3d-collapsed" id="bend3DWrap">
+          <canvas id="bend3DCanvas"></canvas>
+        </div>
+      </div>    </div>
   </div>
 </div>
 
@@ -3415,6 +3429,23 @@ if(quotePdfBtn){
 
     canvas3D.addEventListener("touchend",()=>{view3DPinchDistance=0},{passive:true});
   }
+
+
+  const bend3DToggleBtn=document.getElementById("bend3DToggleBtn");
+  const bend3DWrap=document.getElementById("bend3DWrap");
+
+  bend3DToggleBtn?.addEventListener("click",()=>{
+    const isHidden=bend3DWrap?.classList.toggle("bend-3d-collapsed");
+    bend3DToggleBtn.textContent=isHidden ? "Afficher la 3D" : "Masquer la 3D";
+
+    if(!isHidden){
+      setTimeout(()=>{
+        resizeCanvas3D();
+        draw3D();
+        bend3DWrap.scrollIntoView({behavior:"smooth",block:"center"});
+      },60);
+    }
+  });
 
   document.getElementById("bend3DResetBtn")?.addEventListener("click",()=>reset3DView("iso"));
   document.getElementById("bend3DFrontBtn")?.addEventListener("click",()=>reset3DView("front"));
