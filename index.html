@@ -736,17 +736,97 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   #bendDesignerModal .bend-3d-actions button{flex:1 1 auto}
 }
 
-#bendDesignerModal .bend-3d-collapsed{
-  display:none!important;
+/* ===== V11 : TABLEAU PRIORITAIRE ET 3D REPLIABLE ===== */
+#bendDesignerModal .bend-workspace{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:14px!important;
 }
+
+#bendDesignerModal .bend-canvas-card,
+#bendDesignerModal .bend-data-card,
+#bendDesignerModal .bend-3d-details{
+  width:100%!important;
+  flex:0 0 auto!important;
+}
+
 #bendDesignerModal .bend-data-card{
-  order:2;
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  position:relative!important;
+  z-index:2!important;
+  order:2!important;
+  min-height:180px!important;
 }
+
+#bendDesignerModal .bend-table-wrap{
+  display:block!important;
+  width:100%!important;
+  min-height:120px!important;
+  max-height:none!important;
+  overflow:auto!important;
+}
+
+#bendDesignerModal .bend-table{
+  display:table!important;
+  width:100%!important;
+  min-width:920px!important;
+}
+
+#bendDesignerModal .bend-table thead{
+  display:table-header-group!important;
+}
+
+#bendDesignerModal .bend-table tbody{
+  display:table-row-group!important;
+}
+
+#bendDesignerModal .bend-3d-details{
+  order:3!important;
+  border:1px solid #d9e1ea;
+  border-radius:16px;
+  background:#fff;
+  overflow:hidden;
+}
+
+#bendDesignerModal .bend-3d-details > summary{
+  cursor:pointer;
+  list-style:none;
+  padding:14px 16px;
+  font-weight:800;
+  color:#0f62fe;
+  background:#eef5ff;
+  border-radius:16px;
+  user-select:none;
+}
+
+#bendDesignerModal .bend-3d-details > summary::-webkit-details-marker{
+  display:none;
+}
+
+#bendDesignerModal .bend-3d-details > summary::before{
+  content:"▶";
+  display:inline-block;
+  margin-right:9px;
+  transition:transform .2s ease;
+}
+
+#bendDesignerModal .bend-3d-details[open] > summary::before{
+  transform:rotate(90deg);
+}
+
 #bendDesignerModal .bend-3d-card{
-  order:3;
+  border:0!important;
+  border-top:1px solid #d9e1ea!important;
+  border-radius:0!important;
+  box-shadow:none!important;
 }
-#bendDesignerModal .bend-data-card{
-  margin-top:2px;
+
+@media(max-width:760px){
+  #bendDesignerModal .bend-table{
+    min-width:850px!important;
+  }
 }
 
 </style> 
@@ -991,23 +1071,27 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         </div>
       </div>
 
-      <div class="bend-3d-card">
-        <div class="bend-3d-head">
-          <button type="button" class="btn-light" id="bend3DToggleBtn">Afficher la 3D</button>
-          <div>
-            <h3>Rendu 3D interactif de la pièce</h3>
-            <div class="note">Glissez pour tourner, utilisez la molette ou pincez pour zoomer.</div>
-          </div>
-          <div class="bend-3d-actions">
+      <details class="bend-3d-details" id="bend3DDetails">
+  <summary>Afficher la 3D interactive</summary>
+  <div class="bend-3d-card">
+    <div class="bend-3d-head">
+      <div>
+        <h3>Rendu 3D interactif de la pièce</h3>
+        <div class="note">Glissez pour tourner, utilisez la molette ou pincez pour zoomer.</div>
+      </div>
+      <div class="bend-3d-actions">
             <button type="button" class="btn-light" id="bend3DResetBtn">Réinitialiser la vue</button>
             <button type="button" class="btn-light" id="bend3DFrontBtn">Vue avant</button>
             <button type="button" class="btn-light" id="bend3DIsoBtn">Vue isométrique</button>
           </div>
-        </div>
-        <div class="bend-3d-wrap bend-3d-collapsed" id="bend3DWrap">
+    </div>
+    <div class="bend-3d-wrap">
           <canvas id="bend3DCanvas"></canvas>
         </div>
-      </div>    </div>
+  </div>
+</details>
+    
+    </div>
   </div>
 </div>
 
@@ -3431,19 +3515,13 @@ if(quotePdfBtn){
   }
 
 
-  const bend3DToggleBtn=document.getElementById("bend3DToggleBtn");
-  const bend3DWrap=document.getElementById("bend3DWrap");
-
-  bend3DToggleBtn?.addEventListener("click",()=>{
-    const isHidden=bend3DWrap?.classList.toggle("bend-3d-collapsed");
-    bend3DToggleBtn.textContent=isHidden ? "Afficher la 3D" : "Masquer la 3D";
-
-    if(!isHidden){
+  const bend3DDetails=document.getElementById("bend3DDetails");
+  bend3DDetails?.addEventListener("toggle",()=>{
+    if(bend3DDetails.open){
       setTimeout(()=>{
         resizeCanvas3D();
         draw3D();
-        bend3DWrap.scrollIntoView({behavior:"smooth",block:"center"});
-      },60);
+      },50);
     }
   });
 
