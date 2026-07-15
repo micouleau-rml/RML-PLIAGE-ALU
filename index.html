@@ -492,6 +492,92 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   .bend-result.main{grid-column:span 1}
 }
 
+
+/* ===== DESSIN CYBTOUCH V3 : GRAND PLAN + TABLEAU LISIBLE ===== */
+#bendDesignerModal .modal-card{
+  width:min(1500px,98vw)!important;
+  max-height:96vh!important;
+  padding:18px!important;
+}
+#bendDesignerModal .bend-workspace{
+  display:flex!important;
+  flex-direction:column!important;
+  gap:14px!important;
+}
+#bendDesignerModal .bend-canvas-card,
+#bendDesignerModal .bend-data-card{
+  width:100%!important;
+}
+#bendDesignerModal .bend-canvas-wrap{
+  width:100%!important;
+  min-height:620px!important;
+}
+#bendDesignerModal #bendCanvas{
+  width:100%!important;
+  height:620px!important;
+}
+#bendDesignerModal .bend-data-card h3{
+  font-size:1.25rem!important;
+}
+#bendDesignerModal .bend-table-wrap{
+  max-height:none!important;
+  overflow:auto!important;
+}
+#bendDesignerModal .bend-table{
+  min-width:920px!important;
+  font-size:1rem!important;
+}
+#bendDesignerModal .bend-table th,
+#bendDesignerModal .bend-table td{
+  padding:12px 10px!important;
+  vertical-align:middle!important;
+}
+#bendDesignerModal .bend-table input,
+#bendDesignerModal .bend-table select{
+  width:100%!important;
+  min-width:130px!important;
+  min-height:48px!important;
+  padding:10px 12px!important;
+  font-size:16px!important;
+  border:2px solid #d9e1ea!important;
+  border-radius:10px!important;
+  background:#fff!important;
+}
+#bendDesignerModal .bend-table tr.bend-active-row{
+  background:#fff7d6!important;
+  box-shadow:inset 5px 0 0 #f59e0b!important;
+}
+#bendDesignerModal .bend-table input:focus,
+#bendDesignerModal .bend-table select:focus{
+  outline:none!important;
+  border-color:#f59e0b!important;
+  box-shadow:0 0 0 3px rgba(245,158,11,.18)!important;
+}
+#bendDesignerModal .bend-canvas-help{
+  max-width:calc(100% - 24px)!important;
+  font-size:.9rem!important;
+}
+@media(max-width:760px){
+  #bendDesignerModal .modal-card{
+    width:100vw!important;
+    max-width:100vw!important;
+    max-height:100vh!important;
+    border-radius:0!important;
+  }
+  #bendDesignerModal .bend-toolbar{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  #bendDesignerModal .bend-canvas-wrap{
+    min-height:440px!important;
+  }
+  #bendDesignerModal #bendCanvas{
+    height:440px!important;
+  }
+  #bendDesignerModal .bend-table{
+    min-width:850px!important;
+  }
+}
+
 </style> 
   </head>
 <body>
@@ -691,7 +777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <div class="bend-canvas-card">
         <div class="bend-canvas-wrap">
           <canvas id="bendCanvas"></canvas>
-          <div class="bend-canvas-help" id="bendCanvasHelp">Cliquez/touchez dans la zone bleue pour tracer grossièrement la pièce, sommet après sommet.</div>
+          <div class="bend-canvas-help" id="bendCanvasHelp">Touchez ou cliquez pour poser le premier point, puis déplacez le doigt ou la souris : le pointeur jaune reste au bout du trait. Touchez/cliquez à chaque nouveau sommet.</div>
         </div>
         <div class="bend-mini-actions">
           <button class="btn-primary" id="bendFinishDrawBtn">Terminer le dessin</button>
@@ -2419,6 +2505,8 @@ if(quotePdfBtn){
   let roughPoints=[];
   let previewPoint=null;
   let drawingMode=true;
+  let activeSegment=-1;
+  let activeBend=-1;
   let profile={lengths:[],angles:[],directions:[],exactPoints:[]};
 
   function resizeCanvas(){
@@ -2496,13 +2584,53 @@ if(quotePdfBtn){
 
   function drawPolyline(points,rough=false){
     if(points.length<2)return;
-    ctx.lineJoin="round";ctx.lineCap="round";
-    ctx.strokeStyle=rough?"rgba(255,255,255,.55)":"#17324a";
-    ctx.lineWidth=rough?3:6;
-    ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+    ctx.lineJoin="round";
+    ctx.lineCap="round";
+    ctx.strokeStyle=rough?"rgba(255,255,255,.88)":"#f8fafc";
+    ctx.lineWidth=rough?2.2:3;
+    ctx.beginPath();
+    points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    ctx.stroke();
     if(!rough){
-      ctx.strokeStyle="#f8fafc";ctx.lineWidth=3;
-      ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();
+      ctx.strokeStyle="#17324a";
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+      ctx.stroke();
+    }
+  }
+
+  function drawActiveGeometry(mapped){
+    if(activeSegment>=0 && activeSegment<mapped.length-1){
+      const a=mapped[activeSegment],b=mapped[activeSegment+1];
+      ctx.strokeStyle="#f59e0b";
+      ctx.lineWidth=7;
+      ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      ctx.strokeStyle="#fff";
+      ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    }
+
+    if(activeBend>=0 && activeBend<mapped.length-2){
+      const p0=mapped[activeBend];
+      const p1=mapped[activeBend+1];
+      const p2=mapped[activeBend+2];
+      const a1=Math.atan2(p0.y-p1.y,p0.x-p1.x);
+      const a2=Math.atan2(p2.y-p1.y,p2.x-p1.x);
+      let diff=a2-a1;
+      while(diff<=-Math.PI)diff+=Math.PI*2;
+      while(diff>Math.PI)diff-=Math.PI*2;
+      const radius=34;
+      ctx.strokeStyle="#facc15";
+      ctx.lineWidth=5;
+      ctx.beginPath();
+      ctx.arc(p1.x,p1.y,radius,a1,a1+diff,diff<0);
+      ctx.stroke();
+      ctx.fillStyle="#facc15";
+      ctx.strokeStyle="#17202a";
+      ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(p1.x,p1.y,8,0,Math.PI*2);ctx.fill();ctx.stroke();
     }
   }
 
@@ -2514,6 +2642,30 @@ if(quotePdfBtn){
       const pts=[...roughPoints];
       if(previewPoint&&pts.length)pts.push(previewPoint);
       drawPolyline(pts,true);
+
+      if(previewPoint && roughPoints.length){
+        const last=roughPoints[roughPoints.length-1];
+        ctx.strokeStyle="rgba(250,204,21,.75)";
+        ctx.lineWidth=1;
+        ctx.setLineDash([5,5]);
+        ctx.beginPath();ctx.moveTo(previewPoint.x,0);ctx.lineTo(previewPoint.x,h);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(0,previewPoint.y);ctx.lineTo(w,previewPoint.y);ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle="#facc15";
+        ctx.strokeStyle="#17202a";
+        ctx.lineWidth=2;
+        ctx.beginPath();ctx.arc(previewPoint.x,previewPoint.y,8,0,Math.PI*2);ctx.fill();ctx.stroke();
+        const distance=Math.hypot(previewPoint.x-last.x,previewPoint.y-last.y);
+        ctx.fillStyle="rgba(15,23,42,.86)";
+        ctx.font="700 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+        ctx.textAlign="center";
+        const txt=`${Math.round(distance)} mm`;
+        const tw=ctx.measureText(txt).width;
+        ctx.beginPath();ctx.roundRect((last.x+previewPoint.x)/2-tw/2-6,(last.y+previewPoint.y)/2-22,tw+12,22,6);ctx.fill();
+        ctx.fillStyle="#fff";
+        ctx.fillText(txt,(last.x+previewPoint.x)/2,(last.y+previewPoint.y)/2-11);
+      }
+
       roughPoints.forEach((p,i)=>{
         ctx.fillStyle=i===0?"#22c55e":"#f8fafc";ctx.strokeStyle="#0f172a";ctx.lineWidth=2;
         ctx.beginPath();ctx.arc(p.x,p.y,5,0,Math.PI*2);ctx.fill();ctx.stroke();
@@ -2529,6 +2681,7 @@ if(quotePdfBtn){
     const mapped=fitPoints(profile.exactPoints,w,h,70);
     drawPolyline(mapped,false);
     if(!mapped.length)return;
+    drawActiveGeometry(mapped);
 
     mapped.forEach((q,i)=>{
       ctx.fillStyle=i===0?"#22c55e":i===mapped.length-1?"#ef4444":"#facc15";
@@ -2574,8 +2727,8 @@ if(quotePdfBtn){
 
   function finishDrawing(){
     if(!deriveProfileFromRough())return alert("Tracez au moins un segment avec deux points.");
-    drawingMode=false;previewPoint=null;
-    help.textContent="Modifiez maintenant les cotes et les angles dans le tableau : le profil se recalcule automatiquement.";
+    drawingMode=false;previewPoint=null;activeSegment=0;activeBend=-1;
+    help.textContent="Saisissez maintenant les cotes et les angles. La ligne en cours devient orange et l’angle en cours est matérialisé en jaune sur le dessin.";
     renderAll(true);
   }
 
@@ -2592,13 +2745,32 @@ if(quotePdfBtn){
         <td><div class="bend-row-actions"><button class="btn-danger" data-remove="${i}" title="Supprimer le segment">×</button></div></td>`;
       body.appendChild(tr);
     });
-    body.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",e=>{
-      const i=Number(e.target.dataset.index),role=e.target.dataset.role;
-      if(role==="length")profile.lengths[i]=Math.max(.1,Number(e.target.value)||.1);
-      if(role==="angle")profile.angles[i]=Math.min(179.9,Math.max(.1,Number(e.target.value)||90));
-      if(role==="direction")profile.directions[i]=e.target.value;
-      renderAll(false);
-    }));
+    body.querySelectorAll("input,select").forEach(el=>{
+      const activate=e=>{
+        const i=Number(e.target.dataset.index);
+        const role=e.target.dataset.role;
+        activeSegment=i;
+        activeBend=(role==="angle" || role==="direction") ? i : -1;
+        body.querySelectorAll("tr").forEach((row,rowIndex)=>{
+          row.classList.toggle("bend-active-row",rowIndex===i);
+        });
+        draw();
+      };
+      el.addEventListener("focus",activate);
+      el.addEventListener("pointerdown",activate);
+      el.addEventListener("input",e=>{
+        activate(e);
+        const i=Number(e.target.dataset.index),role=e.target.dataset.role;
+        if(role==="length")profile.lengths[i]=Math.max(.1,Number(e.target.value)||.1);
+        if(role==="angle")profile.angles[i]=Math.min(179.9,Math.max(.1,Number(e.target.value)||90));
+        if(role==="direction")profile.directions[i]=e.target.value;
+        renderAll(false);
+      });
+    });
+    if(activeSegment>=0){
+      const activeRow=body.querySelectorAll("tr")[activeSegment];
+      activeRow?.classList.add("bend-active-row");
+    }
     body.querySelectorAll("[data-remove]").forEach(btn=>btn.addEventListener("click",()=>removeSegment(Number(btn.dataset.remove))));
   }
 
@@ -2631,9 +2803,9 @@ if(quotePdfBtn){
     renderAll(true);
   }
   function reset(){
-    roughPoints=[];previewPoint=null;drawingMode=true;
+    roughPoints=[];previewPoint=null;drawingMode=true;activeSegment=-1;activeBend=-1;
     profile={lengths:[],angles:[],directions:[],exactPoints:[]};
-    help.textContent="Cliquez/touchez dans la zone bleue pour tracer grossièrement la pièce, sommet après sommet.";
+    help.textContent="Touchez ou cliquez pour poser le premier point, puis déplacez le doigt ou la souris : le pointeur jaune reste au bout du trait. Touchez/cliquez à chaque nouveau sommet.";
     renderAll(true);
   }
 
