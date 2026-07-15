@@ -1,0 +1,2614 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#0f62fe"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="RML Pliage"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+<title>RML PLIAGE ALU</title>
+<style>
+:root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef3f8 0%,#f7f9fc 100%);color:var(--text);padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);overflow-x:hidden}
+.container{width:100%;max-width:1120px;margin:0 auto;padding:16px}
+.hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;margin:0 auto 18px auto;text-align:center}
+.brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;width:100%;margin:0 auto}
+.brand .header-logo{height:95px;width:auto;max-width:100%;object-fit:contain;display:block}
+h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
+.subline{font-size:1rem;color:#1f2937;margin-top:4px;font-weight:700}
+.baseline{color:var(--muted);margin-top:10px;font-size:1rem}
+.install{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;}
+.install button{min-width:180px;}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#eef5ff;color:#1f4ea8;font-size:.9rem;font-weight:700}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.section-title{margin:0 0 14px 0;font-size:1.08rem;font-weight:700}
+.row{display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:.88rem;color:var(--muted);font-weight:600}
+.field input,.field select,.field textarea,button{font:inherit}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;color:var(--text);min-height:46px}
+.field textarea{min-height:90px;resize:vertical}
+#selectedClient:invalid{
+  color:#9ca3af;
+}
+
+#selectedClient option{
+  color:#17202a;
+}
+
+#selectedClient option[value=""]{
+  color:#9ca3af;
+}
+  
+.filebox{border:1px dashed var(--line);border-radius:14px;padding:12px;background:#fafcff;margin-top:10px}
+.col-12{grid-column:span 12}.col-6{grid-column:span 6}.col-4{grid-column:span 4}.col-3{grid-column:span 3}.col-2{grid-column:span 2}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+button{border:none;border-radius:12px;padding:11px 14px;cursor:pointer;font-weight:700;transition:transform .05s ease,background .2s ease}
+button:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:#eaf1ff;color:var(--accent)}.btn-danger{background:#ffe6e6;color:var(--danger)}.btn-light{background:#f3f5f7;color:#233241}
+.btn-new{background:#16a34a;color:#fff;box-shadow:0 4px 12px rgba(22,163,74,.35);}
+.btn-new:hover{background:#15803d;}
+.pieces{display:flex;flex-direction:column;gap:12px;margin-top:8px}
+.piece{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fcfdff}
+.piece-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.piece-title{font-weight:800}.piece-tools{display:flex;gap:8px;align-items:center}.small-btn{min-width:42px;padding:10px 12px;border-radius:10px}
+.result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:8px}
+.result-box{border:1px solid var(--line);border-radius:16px;padding:14px;background:#fbfcfe}
+.result-label{color:var(--muted);font-size:.86rem;font-weight:600;margin-bottom:6px}
+.result-value{font-size:1.45rem;font-weight:800;word-break:break-word}.result-value.small{font-size:1.1rem}
+.table-wrap{overflow-x:auto;overflow-y:hidden;border:1px solid var(--line);border-radius:14px;margin-top:12px}
+table{width:100%;border-collapse:collapse;min-width:100%;background:#fff}
+th,td{border-bottom:1px solid var(--line);padding:11px 10px;text-align:left;font-size:.94rem}
+th{background:#f7faff;color:#425466;position:sticky;top:0;z-index:1}
+tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);margin-top:10px;line-height:1.45}.danger-text{color:var(--danger);font-weight:700}.success-text{color:var(--ok);font-weight:700}
+@media (max-width:960px){.grid{grid-template-columns:1fr}.hero{max-width:100%}}
+@media (max-width:700px){.row{grid-template-columns:repeat(6,1fr)}.col-12,.col-6,.col-4,.col-3,.col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}.container{padding:14px}.card,.hero{padding:14px}.brand .header-logo{height:70px;width:auto}.install{justify-content:center}.piece-tools{width:100%;justify-content:flex-end}}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.42);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000}
+.modal-overlay.open{display:flex}
+.modal-card{background:#fff;width:min(980px,100%);max-height:90vh;overflow:auto;border:1px solid var(--line);border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,.18);padding:20px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.modal-head h2{margin:0;font-size:1.2rem}
+.modal-close{background:#f3f5f7;color:#233241}
+@media (max-width:700px){.modal-card{padding:14px;max-height:92vh}}
+
+  /* ===== FENÊTRE MES PROJETS ===== */
+
+.projects-modal{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:rgba(15,23,42,.55);
+}
+
+.projects-box{
+  width:min(920px,96vw);
+  max-height:82vh;
+  overflow:auto;
+  padding:22px;
+  background:#fff;
+  border:1px solid #d9e1ea;
+  border-radius:22px;
+  box-shadow:0 24px 70px rgba(0,0,0,.28);
+}
+
+.projects-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:18px;
+}
+
+.projects-title h2{
+  margin:0;
+  font-size:1.35rem;
+}
+
+.projects-close-top{
+  padding:9px 15px;
+  min-height:40px;
+  background:#e5e7eb;
+  color:#233241;
+}
+
+.projects-header,
+.project-item{
+  display:grid;
+  grid-template-columns:
+    minmax(100px,1.1fr)
+    minmax(150px,1.8fr)
+    120px
+    145px;
+  gap:12px;
+  align-items:center;
+}
+
+.projects-header{
+  padding:0 12px 9px;
+  color:#687684;
+  font-size:.82rem;
+  font-weight:800;
+}
+
+.project-item{
+  margin-bottom:9px;
+  padding:12px;
+  border:1px solid #dbe3ee;
+  border-radius:14px;
+  background:#f8fafc;
+}
+
+.project-client,
+.project-reference{
+  min-width:0;
+  overflow:hidden;
+  font-weight:700;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.project-reference{
+  color:#334155;
+}
+
+.project-date{
+  color:#64748b;
+  font-size:.9rem;
+  white-space:nowrap;
+}
+
+.project-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.project-actions button{
+  min-height:40px;
+  padding:8px 13px;
+  border-radius:10px;
+}
+
+.project-actions .open-project{
+  background:#0f62fe;
+  color:#fff;
+}
+
+.project-actions .open-project:hover{
+  background:#0a4ecc;
+}
+
+.project-actions .delete-project{
+  width:42px;
+  min-width:42px;
+  padding:8px;
+  background:#fee2e2;
+  color:#b91c1c;
+  font-size:1rem;
+}
+
+.project-actions .delete-project:hover{
+  background:#fecaca;
+}
+
+/* Adaptation iPhone */
+@media(max-width:700px){
+  .projects-modal{
+    align-items:flex-end;
+    padding:0;
+  }
+
+  .projects-box{
+    width:100%;
+    max-height:90vh;
+    padding:14px;
+    border-radius:22px 22px 0 0;
+  }
+
+  .projects-header,
+  .project-item{
+    grid-template-columns:
+      minmax(62px,.9fr)
+      minmax(88px,1.3fr)
+      76px
+      104px;
+    gap:6px;
+  }
+
+  .projects-header{
+    padding:0 7px 7px;
+    font-size:.66rem;
+  }
+
+  .project-item{
+    padding:9px 7px;
+  }
+
+  .project-client,
+  .project-reference,
+  .project-date{
+    font-size:.73rem;
+  }
+
+  .project-actions{
+    gap:4px;
+  }
+
+  .project-actions button{
+    min-height:36px;
+    padding:6px 9px;
+    font-size:.74rem;
+  }
+
+  .project-actions .delete-project{
+    width:36px;
+    min-width:36px;
+  }
+}
+/* ===== CORRECTIF IPHONE FINAL ===== */
+#mobileSettingsBtn{display:none}
+@media (max-width:760px){
+html,body{width:100%;min-height:100%;overflow-x:hidden;background:#eef3f8;-webkit-text-size-adjust:100%}
+body{padding-top:env(safe-area-inset-top);padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+.container{width:100vw;max-width:none;margin:0;padding:8px}
+.hero{width:100%;max-width:none;margin:0 0 10px 0;padding:12px;border-radius:18px;text-align:center}
+.brand{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:5px}
+.brand .header-logo{height:54px;width:auto;max-width:90%;display:block;margin:0 auto;object-fit:contain}
+h1{font-size:1.42rem;line-height:1.05;margin:0;text-align:center}.subline{font-size:.78rem;margin-top:2px;text-align:center}.baseline{display:none}
+.install{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px;width:100%}.pill,#installHelpBtn{display:none!important}
+#openSettingsBtn,#mobileSettingsBtn{display:block!important;width:100%;min-height:50px;font-size:1rem;border-radius:16px;background:var(--accent);color:#fff}
+#mobileSettingsBtn{margin:0 0 10px 0}.grid{display:grid;grid-template-columns:1fr!important;gap:10px;width:100%}
+.card{width:100%;padding:12px;border-radius:18px;box-shadow:0 8px 22px rgba(18,36,56,.07)}.section-title{font-size:1rem;margin-bottom:10px}
+.row{grid-template-columns:repeat(6,1fr);gap:9px}.col-12,.col-6,.col-4,.col-3,.col-2{grid-column:span 6}.card>.row>.col-3{grid-column:span 3}
+.field label{font-size:.78rem;line-height:1.15}.field input,.field select,.field textarea{min-height:48px;padding:11px;font-size:16px;border-radius:14px}
+button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap:8px}.actions button{flex:1 1 auto}
+.piece{padding:12px;border-radius:18px}.piece-head{align-items:center;gap:8px;margin-bottom:10px}.piece-title{font-size:1rem}.piece-tools{width:auto;margin-left:auto;justify-content:flex-end}.piece .col-2{grid-column:span 3}.piece .field:nth-last-child(1){grid-column:span 6}
+.result-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.result-box{padding:10px;border-radius:16px}.result-label{font-size:.72rem;line-height:1.1}.result-value{font-size:1.1rem;line-height:1.05}.result-value.small{font-size:.95rem}.note{font-size:.78rem;line-height:1.35}
+.modal-overlay{align-items:flex-end;padding:0}.modal-card{width:100%;max-height:92vh;overflow:auto;border-radius:22px 22px 0 0;padding:14px;padding-bottom:calc(18px + env(safe-area-inset-bottom))}.modal-head{position:sticky;top:0;background:#fff;z-index:2;padding-bottom:10px}.modal-head h2{font-size:1.05rem}.modal-close{min-width:92px}
+}
+@media (max-width:380px){h1{font-size:1.18rem}.piece .col-2{grid-column:span 6}.result-grid{grid-template-columns:1fr}}
+
+@media(max-width:760px){
+  html,
+  body{
+    width:100vw!important;
+    max-width:100vw!important;
+    overflow-x:hidden!important;
+  }
+
+  .container{
+    width:100vw!important;
+    max-width:100vw!important;
+    padding:8px!important;
+    margin:0!important;
+    overflow:hidden!important;
+  }
+
+  .hero,
+  .card{
+    width:calc(100vw - 16px)!important;
+    max-width:calc(100vw - 16px)!important;
+    margin-left:0!important;
+    margin-right:0!important;
+    overflow:hidden!important;
+  }
+
+  .grid,
+  .piece,
+  .row{
+    width:100%!important;
+    max-width:100%!important;
+    overflow:hidden!important;
+  }
+
+  .field,
+  .field input,
+  .field select,
+  .field textarea{
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+  }
+
+  .actions{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+    width:100%!important;
+  }
+
+  .actions button{
+    width:100%!important;
+    max-width:100%!important;
+    white-space:normal!important;
+    overflow:visible!important;
+    text-align:center!important;
+  }
+
+  .btn-primary{
+    color:#fff!important;
+  }
+
+  .btn-light{
+    color:#233241!important;
+  }
+
+  .btn-danger{
+    color:#c62828!important;
+  }
+
+  @media(max-width:760px){
+  .container{
+    width:100vw!important;
+    max-width:100vw!important;
+    padding-left:0!important;
+    padding-right:0!important;
+    margin:0!important;
+  }
+
+  .hero{
+    width:100vw!important;
+    max-width:100vw!important;
+    margin:0 0 10px 0!important;
+    border-radius:0!important;
+    padding-left:16px!important;
+    padding-right:16px!important;
+    box-sizing:border-box!important;
+  }
+
+  .brand{
+    width:100%!important;
+  }
+}
+  .pdf-sheet{
+  font-family:Arial,sans-serif;
+  padding:24px;
+  color:#111;
+}
+.pdf-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:2px solid #111;
+  padding-bottom:12px;
+  margin-bottom:18px;
+}
+.pdf-logo{
+  height:70px;
+  max-width:220px;
+  object-fit:contain;
+}
+.pdf-title{
+  font-size:28px;
+  font-weight:800;
+}
+.pdf-meta{
+  margin:14px 0;
+  line-height:1.6;
+  font-size:14px;
+}
+.pdf-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:14px;
+}
+.pdf-table th,.pdf-table td{
+  border:1px solid #333;
+  padding:8px;
+  font-size:12px;
+  text-align:center;
+}
+.pdf-table th{
+  background:#f2f2f2;
+}
+.pdf-total{
+  margin-top:20px;
+  text-align:right;
+  font-size:22px;
+  font-weight:800;
+}
+#pdfPrintZone{
+  display:none;
+}
+
+@media print{
+  body > *{
+    display:none!important;
+  }
+
+  #pdfPrintZone{
+    display:block!important;
+    position:static!important;
+    width:100%!important;
+    background:#fff!important;
+  }
+
+  #pdfPrintZone *{
+    visibility:visible!important;
+  }
+
+  .pdf-sheet{
+    width:190mm!important;
+    min-height:277mm!important;
+    margin:0 auto!important;
+    padding:10mm!important;
+    box-sizing:border-box!important;
+  }
+
+  @page{
+    size:A4 portrait;
+    margin:8mm;
+  }
+}
+  
+
+/* ===== MODULE RML CALCUL DU DÉVELOPPÉ ===== */
+#bendDesignerModal{z-index:120000}
+#bendDesignerModal .modal-card{width:min(1180px,100%);max-height:94vh}
+.bend-toolbar{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:10px;margin-bottom:14px}
+.bend-workspace{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(330px,.8fr);gap:16px;align-items:start}
+.bend-canvas-card,.bend-data-card{border:1px solid var(--line);border-radius:16px;background:#f8fafc;padding:12px}
+.bend-canvas-wrap{position:relative;background:#dff2ff;border:1px solid #b8d5ea;border-radius:14px;overflow:hidden;min-height:420px;touch-action:none}
+#bendCanvas{display:block;width:100%;height:420px;cursor:crosshair;touch-action:none}
+.bend-canvas-help{position:absolute;left:12px;top:10px;background:rgba(255,255,255,.9);padding:7px 10px;border-radius:10px;font-size:.78rem;color:#475569;pointer-events:none}
+.bend-mini-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.bend-results{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.bend-result{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.bend-result span{display:block;color:var(--muted);font-size:.78rem;font-weight:700;margin-bottom:5px}
+.bend-result strong{font-size:1.25rem}
+.bend-result.main{grid-column:span 2;border:2px solid var(--accent);background:#eef5ff}
+.bend-result.main strong{font-size:1.7rem;color:#0a4ecc}
+.bend-table-wrap{overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.bend-table{min-width:700px}
+.bend-table input,.bend-table select{width:100%;min-height:38px;border:1px solid var(--line);border-radius:8px;padding:7px;font-size:.9rem;background:#fff}
+.bend-table td,.bend-table th{padding:7px 6px;font-size:.82rem}
+.bend-row-actions{display:flex;gap:5px}
+.bend-row-actions button{min-height:36px;padding:6px 8px;border-radius:8px}
+.bend-warning{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:.82rem;line-height:1.35}
+.bend-calibration-note{font-size:.78rem;color:#64748b;line-height:1.4;margin-top:10px}
+.bend-target-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:12px}
+.bend-target-row .field{min-width:190px;flex:1}
+@media(max-width:900px){.bend-toolbar{grid-template-columns:repeat(3,1fr)}.bend-workspace{grid-template-columns:1fr}}
+@media(max-width:700px){
+  #bendDesignerModal{align-items:flex-end;padding:0}
+  #bendDesignerModal .modal-card{width:100%;height:96vh;max-height:96vh;border-radius:22px 22px 0 0;padding:12px}
+  .bend-toolbar{grid-template-columns:repeat(2,1fr);gap:8px}
+  .bend-workspace{grid-template-columns:1fr}
+  .bend-canvas-wrap{min-height:300px}
+  #bendCanvas{height:300px}
+  .bend-results{grid-template-columns:1fr}
+  .bend-result.main{grid-column:span 1}
+}
+
+</style> 
+  </head>
+<body>
+<div class="container">
+  <div class="hero">
+    <div class="brand">
+      <img src="header-logo.png" alt="RML PLIAGE ALU" class="header-logo">
+      <div class="brand-text">
+        <h1>RML PLIAGE ALU</h1>
+        <div class="subline">by Micouleau &amp; Lhérisson</div>
+        <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
+      </div>
+    </div>
+    <div class="install">
+  <button class="btn-new" id="newProjectBtn">Nouveau devis</button>
+  <button class="btn-primary" id="openSettingsBtn">Réglages</button>
+  <button class="btn-light" id="calpinageBtn">📐 Calepinage</button>
+  <button class="btn-secondary" id="bendDesignerBtn">📐 Calcul du développé</button>
+  <button class="btn-secondary" id="devisPdfBtn">Devis PDF numéroté</button>
+  <button class="btn-secondary" id="clientPdfBtn">Bon client avec prix</button>
+  <button class="btn-light" id="atelierPdfBtn">Bon atelier sans prix</button>
+  </div>
+</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2 class="section-title">1. Saisie des pièces</h2>
+      <div class="row">
+        <div class="field col-12">
+          <label for="selectedClient">Client / mémo tarifaire</label>
+          <select id="selectedClient" required></select>
+       </div>
+    </div>       
+        
+      <div class="row"> 
+        <div class="field col-6">
+  <label for="projectColor">Couleur</label>
+  <input id="projectColor" type="text" placeholder="Ex : RAL 7016, Blanc, Noir sablé..." />
+</div>   
+        
+        <div class="field col-6">
+        <label for="projectName">Nom du projet / chantier</label>
+        <input id="projectName" type="text" placeholder="Ex. Villa Dupont Bordeaux" />
+      </div>
+    </div>
+
+        <div class="row">       
+        <div class="field col-4">
+          <label for="globalPriceDisplay">Tarif matière €/m²</label>
+          <input id="globalPriceDisplay" type="text" readonly />
+        </div>
+        
+        <div class="field col-4">
+          <label for="selectedThickness">Épaisseur métal</label>
+          <select id="selectedThickness">
+            <option value="7/10">Alu 7/10</option>
+            <option value="10/10">Alu 10/10</option>
+            <option value="15/10">Alu 15/10</option>
+          </select>
+        </div>
+       
+        <div class="field col-4">
+  <label for="sheetFormat">Format feuille</label>
+  <select id="sheetFormat">
+    <option value="1500x3000">1500 x 3000 mm</option>
+    <option value="1250x3000">1250 x 3000 mm</option>
+    <option value="1000x2000">1000 x 2000 mm</option>
+  </select>
+</div>        
+</div>
+      <div class="actions">
+        <button class="btn-primary" id="addPieceBtn">+ Ajouter une pièce</button>
+        <button class="btn-light" id="duplicateLastBtn">Dupliquer la dernière</button>
+        <button class="btn-danger" id="clearPiecesBtn">Vider les pièces</button>
+      </div>
+
+      <div id="pieces" class="pieces"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Développé (mm)</th>
+              <th>Longueur (m)</th>
+              <th>Qté</th>
+              <th>Plis</th>
+              <th>Coupes</th>
+              <th>Temps (min)</th>
+              <th>Chute (%)</th>
+              <th>Surface brute (m²)</th>
+              <th>Surface facturée (m²)</th>
+              <th>Matière</th>
+              <th>Plis</th>
+              <th>Coupes</th>
+              <th>Temps</th>
+              <th>Total ligne</th>
+            </tr>
+          </thead>
+          <tbody id="resultTableBody"></tbody>
+        </table>
+      </div>
+      <div class="note"><strong>Formule matière :</strong> surface brute = (développé mm / 1000) × longueur m × quantité. Surface facturée = surface brute × (1 + chute %).</div>
+    </div>
+
+    <div class="card">
+      <h2 class="section-title">2. Résultat du calcul</h2>
+      <div class="result-grid">
+        <div class="result-box"><div class="result-label">Client sélectionné</div><div class="result-value small" id="summaryClient">—</div></div>
+        <div class="result-box"><div class="result-label">Épaisseur</div><div class="result-value small" id="summaryThickness">—</div></div>
+        <div class="result-box"><div class="result-label">Surface totale facturée</div><div class="result-value" id="summaryArea">0,000 m²</div></div>
+        <div class="result-box"><div class="result-label">Tarif matière</div><div class="result-value" id="summaryPricePerM2">0,00 €/m²</div></div>
+        <div class="result-box"><div class="result-label">Montant total à facturer</div><div class="result-value" id="summaryAmount">0,00 €</div></div>
+        <div class="result-box"><div class="result-label">Nombre de lignes</div><div class="result-value" id="summaryLines">0</div></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn-secondary" id="printBtn">Imprimer / PDF</button>
+        <button class="btn-danger" id="quotePdfBtn">Visualiser PDF</button>  
+        <button class="btn-primary" id="saveProjectBtn">Enregistrer projet</button>
+        <button class="btn-secondary" id="loadProjectBtn">Mes projets</button>             
+        <button class="btn-light" id="exportJsonBtn">Sauvegarde clients</button>
+        <button class="btn-light" id="exportFullBackupBtn">Sauvegarde complète</button>
+        <button class="btn-light" id="exportProjectBackupBtn">Sauvegarde projet</button>
+      </div>
+
+      <div class="filebox">
+        <div class="field col-12">
+          <label for="importJsonFile">Restaurer une sauvegarde</label>
+          <input id="importJsonFile" type="file" accept=".json,application/json" />
+        </div>
+        <div class="note">Choisissez directement votre fichier JSON de sauvegarde.</div>
+      </div>
+
+      <div class="note" style="margin-top:18px">La gestion des clients et des tarifs se fait désormais dans <strong>Réglages</strong>.</div><div id="status"></div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Réglages clients et tarifs</h2>
+      <button class="modal-close" id="closeSettingsBtn">Fermer</button>
+    </div>
+    <div class="row">
+      <div class="field col-12">
+  <label for="settingsClientSelect">Client à modifier</label>
+  <select id="settingsClientSelect"></select>
+</div>
+
+<div class="field col-12">
+  <label for="clientName">Nouveau nom / renommer</label>
+  <input id="clientName" type="text" placeholder="À remplir uniquement pour créer ou renommer un client" />
+</div>
+      <div class="field col-4"><label for="price710">Tarif Alu 7/10 (€/m²)</label><input id="price710" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="price1010">Tarif Alu 10/10 (€/m²)</label><input id="price1010" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="price1510">Tarif Alu 15/10 (€/m²)</label><input id="price1510" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="costFold">Tarif pli (€)</label><input id="costFold" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="costCut">Tarif coupe (€)</label><input id="costCut" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="hourlyRate">Tx horaire (€ / h)</label><input id="hourlyRate" type="number" step="0.01" min="0" placeholder="0,00" /></div>
+      <div class="field col-4"><label for="defaultWaste">Chute par défaut (%)</label><input id="defaultWaste" type="number" step="0.1" min="0" placeholder="0,0" /></div>
+      <div class="field col-12"><label for="clientNote">Mémo / remarque</label><textarea id="clientNote" placeholder="Ex. Tarif spécifique chantier, remise habituelle, conditions particulières..."></textarea></div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" id="saveClientBtn">Enregistrer / mettre à jour</button>
+      <button class="btn-danger" id="deleteClientBtn">Supprimer le client</button>
+      <button class="btn-light" id="newClientBtn">Nouveau client</button>
+    </div>
+    <div class="note">Les coûts de fabrication sont modulables par client : tarif pli, tarif coupe, taux horaire et chute par défaut.</div>
+  </div>
+</div>
+
+
+<!-- ===== MODULE CALCUL DU DÉVELOPPÉ ===== -->
+<div class="modal-overlay" id="bendDesignerModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2>Calcul du développé — dessin de profil</h2>
+        <div class="note">Dessinez la forme approximative, puis saisissez les cotes extérieures et les angles exacts.</div>
+      </div>
+      <button class="modal-close" id="closeBendDesignerBtn">Fermer</button>
+    </div>
+
+    <div class="bend-toolbar">
+      <div class="field"><label for="bendMaterial">Matière</label><select id="bendMaterial"><option value="alu">Aluminium</option><option value="steel">Acier</option><option value="inox">Inox</option></select></div>
+      <div class="field"><label for="bendThickness">Épaisseur (mm)</label><input id="bendThickness" type="number" min="0.1" step="0.1" value="1"></div>
+      <div class="field"><label for="bendVee">Vé (mm)</label><input id="bendVee" type="number" min="1" step="1" value="16"></div>
+      <div class="field"><label for="bendRadius">Rayon intérieur (mm)</label><input id="bendRadius" type="number" min="0" step="0.1" value="1"></div>
+      <div class="field"><label for="bendKFactor">Facteur K</label><input id="bendKFactor" type="number" min="0.1" max="0.6" step="0.01" value="0.33"></div>
+      <div class="field"><label for="bendRound">Arrondi atelier</label><select id="bendRound"><option value="0.01">0,01 mm</option><option value="0.1" selected>0,1 mm</option><option value="0.5">0,5 mm</option><option value="1">1 mm</option></select></div>
+    </div>
+
+    <div class="bend-workspace">
+      <div class="bend-canvas-card">
+        <div class="bend-canvas-wrap">
+          <canvas id="bendCanvas"></canvas>
+          <div class="bend-canvas-help">Touchez/click pour ajouter des sommets. Le tracé sert uniquement à définir la forme.</div>
+        </div>
+        <div class="bend-mini-actions">
+          <button class="btn-primary" id="bendAddSegmentBtn">+ Segment</button>
+          <button class="btn-light" id="bendUndoBtn">Annuler le dernier</button>
+          <button class="btn-light" id="bendMirrorBtn">Miroir</button>
+          <button class="btn-danger" id="bendResetBtn">Réinitialiser</button>
+        </div>
+        <div class="bend-results">
+          <div class="bend-result"><span>Somme des cotes extérieures</span><strong id="bendOuterSum">0,00 mm</strong></div>
+          <div class="bend-result"><span>Déduction totale des plis</span><strong id="bendTotalDeduction">0,00 mm</strong></div>
+          <div class="bend-result"><span>Nombre de plis</span><strong id="bendFoldCount">0</strong></div>
+          <div class="bend-result"><span>Rayon / Vé</span><strong id="bendToolSummary">R 1 / V 16</strong></div>
+          <div class="bend-result main"><span>Développé calculé</span><strong id="bendDeveloped">0,0 mm</strong></div>
+        </div>
+        <div class="bend-warning" id="bendWarning">Le calcul est théorique (facteur K). Pour retrouver exactement les valeurs CybTouch, calibrez ensuite les déductions avec vos essais presse.</div>
+      </div>
+
+      <div class="bend-data-card">
+        <h3 style="margin:0 0 10px">Tableau des cotes extérieures</h3>
+        <div class="bend-table-wrap">
+          <table class="bend-table">
+            <thead><tr><th>N°</th><th>Cote ext. (mm)</th><th>Angle intérieur suivant</th><th>Sens</th><th>Déduction</th><th></th></tr></thead>
+            <tbody id="bendSegmentsBody"></tbody>
+          </table>
+        </div>
+        <div class="bend-target-row">
+          <div class="field"><label for="bendTargetPiece">Insérer dans</label><select id="bendTargetPiece"></select></div>
+          <button class="btn-primary" id="bendInsertBtn">Insérer dans le devis</button>
+          <button class="btn-light" id="bendSaveProfileBtn">Mémoriser le profil</button>
+        </div>
+        <div class="bend-calibration-note">
+          Formule : BA = angle de pli × (rayon + K × épaisseur), puis déduction de pli = 2 × retrait extérieur − BA. Les angles saisis sont les angles intérieurs finis.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {})); }
+
+const STORAGE_KEY_CLIENTS="pliage_clients_v7";
+const STORAGE_KEY_PIECES="pliage_pieces_v7";
+
+const defaultClients=[{
+  id:crypto.randomUUID(),
+  name:"Client standard",
+  prices:{"7/10":48,"10/10":59,"15/10":74},
+  costs:{fold:1.70,cut:1.00,hourly:48.00,defaultWaste:0},
+  note:"Tarifs standards modifiables avec coûts de fabrication."
+}];
+
+let clients=loadClients();
+let pieces=loadPieces();
+
+const selectedClient=document.getElementById("selectedClient");
+const selectedThickness=document.getElementById("selectedThickness");
+const globalPriceDisplay=document.getElementById("globalPriceDisplay");
+const projectName=document.getElementById("projectName");
+const projectColor=document.getElementById("projectColor");
+const piecesEl=document.getElementById("pieces");
+const resultTableBody=document.getElementById("resultTableBody");
+const statusEl=document.getElementById("status");
+const clientName=document.getElementById("clientName");
+const settingsClientSelect=document.getElementById("settingsClientSelect");
+const price710=document.getElementById("price710");
+const price1010=document.getElementById("price1010");
+const price1510=document.getElementById("price1510");
+const costFold=document.getElementById("costFold");
+const costCut=document.getElementById("costCut");
+const hourlyRate=document.getElementById("hourlyRate");
+const defaultWaste=document.getElementById("defaultWaste");
+const clientNote=document.getElementById("clientNote");
+
+function fmtNumber(n,d=2){return Number(n||0).toLocaleString("fr-FR",{minimumFractionDigits:d,maximumFractionDigits:d})}
+function fmtArea(n){return fmtNumber(n,3)+" m²"}
+function fmtEuro(n){return fmtNumber(n,2)+" €"}
+function setStatus(msg,ok=true){statusEl.textContent=msg;statusEl.className=ok?"success-text":"danger-text";}
+const STORAGE_KEY_CURRENT_PROJECT="rml_pliage_current_project_v1";
+function loadClients(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY_CLIENTS);
+    if(!raw) return structuredClone(defaultClients);
+    const parsed=JSON.parse(raw);
+    return Array.isArray(parsed)&&parsed.length ? parsed.map(normalizeClient) : structuredClone(defaultClients);
+  }catch{return structuredClone(defaultClients)}
+}
+function normalizeClient(c){
+  return {
+    id:c.id||crypto.randomUUID(),
+    name:c.name||"Client sans nom",
+    prices:{"7/10":Number(c.prices?.["7/10"]||0),"10/10":Number(c.prices?.["10/10"]||0),"15/10":Number(c.prices?.["15/10"]||0)},
+    costs:{fold:Number(c.costs?.fold ?? 1.70),cut:Number(c.costs?.cut ?? 1.00),hourly:Number(c.costs?.hourly ?? 48.00),defaultWaste:Number(c.costs?.defaultWaste ?? 0)},
+    note:c.note||""
+  };
+}
+function saveClients(){localStorage.setItem(STORAGE_KEY_CLIENTS,JSON.stringify(clients))}
+
+function loadPieces(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY_PIECES);
+    if(!raw) return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+    const parsed=JSON.parse(raw);
+    return Array.isArray(parsed)&&parsed.length ? parsed : [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+  }catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}]}
+}
+function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
+function saveCurrentProjectState(){
+  const state={
+    clientId:selectedClient.value || "",
+    projectColor:document.getElementById("projectColor")?.value || "",
+    projectName:document.getElementById("projectName")?.value || "",
+    thickness:selectedThickness.value || "7/10",
+    sheetFormat:document.getElementById("sheetFormat")?.value || "1500x3000"
+  };
+
+  localStorage.setItem(
+    STORAGE_KEY_CURRENT_PROJECT,
+    JSON.stringify(state)
+  );
+}
+
+function restoreCurrentProjectState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT);
+    if(!raw) return;
+
+    const state=JSON.parse(raw);
+    const sheetFormatField=document.getElementById("sheetFormat");
+
+    if(state.clientId && clients.some(c=>c.id===state.clientId)){
+      selectedClient.value=state.clientId;
+    }else{
+      selectedClient.value="";
+    }
+
+    if(state.thickness){
+      selectedThickness.value=state.thickness;
+    }
+
+    if(sheetFormatField && state.sheetFormat){
+      sheetFormatField.value=state.sheetFormat;
+    }
+
+    renderClientForm();
+    updatePriceDisplay();
+
+    const projectNameField=document.getElementById("projectName");
+    if(projectNameField){
+      projectNameField.value=state.projectName || "";
+    }
+
+    const projectColorField=document.getElementById("projectColor");
+    if(projectColorField){
+      projectColorField.value=state.projectColor || "";
+    }
+
+  }catch(error){
+    console.error("Erreur restauration projet courant :",error);
+  }
+}
+  
+function getCurrentClient(){
+  return clients.find(c=>c.id===selectedClient.value) || null;
+}
+function getCurrentPricePerM2(){const c=getCurrentClient();return Number(c?.prices?.[selectedThickness.value]||0)}
+
+function renderClientSelect(){
+  const previous=selectedClient.value;
+
+  selectedClient.innerHTML=`
+    <option value="" disabled>Choisir un client</option>
+  `;
+
+  if(settingsClientSelect){
+    settingsClientSelect.innerHTML="";
+  }
+
+  clients
+    .slice()
+    .sort((a,b)=>
+      String(a.name||"").localeCompare(
+        String(b.name||""),
+        "fr",
+        {sensitivity:"base"}
+      )
+    )
+    .forEach(c=>{
+      const option=document.createElement("option");
+      option.value=c.id;
+      option.textContent=c.name;
+      selectedClient.appendChild(option);
+
+      if(settingsClientSelect){
+        const settingsOption=document.createElement("option");
+        settingsOption.value=c.id;
+        settingsOption.textContent=c.name;
+        settingsClientSelect.appendChild(settingsOption);
+      }
+    });
+
+  if(previous && clients.some(c=>c.id===previous)){
+    selectedClient.value=previous;
+  }else{
+    selectedClient.value="";
+  }
+
+  renderClientForm();
+  updatePriceDisplay();
+}
+function renderClientForm(){
+  const c=getCurrentClient(); if(!c)return;
+  if(settingsClientSelect) settingsClientSelect.value=c.id;  
+  clientName.value=c.name||"";
+  price710.value=c.prices?.["7/10"]??"";
+  price1010.value=c.prices?.["10/10"]??"";
+  price1510.value=c.prices?.["15/10"]??"";
+  costFold.value=c.costs?.fold??1.70;
+  costCut.value=c.costs?.cut??1.00;
+  hourlyRate.value=c.costs?.hourly??48.00;
+  defaultWaste.value=c.costs?.defaultWaste??0;
+  clientNote.value=c.note||"";
+  document.getElementById("summaryClient").textContent=c.name||"—";
+}
+function updatePriceDisplay(){
+  const p=getCurrentPricePerM2();
+  globalPriceDisplay.value=fmtNumber(p,2);
+  document.getElementById("summaryThickness").textContent=selectedThickness.value||"—";
+  document.getElementById("summaryPricePerM2").textContent=fmtEuro(p)+"/m²";
+  recalcAll();
+}
+function createPieceRow(piece,index){
+  const wrap=document.createElement("div");
+  wrap.className="piece";
+  wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools"><button class="btn-light small-btn" data-action="minus">−</button><button class="btn-light small-btn" data-action="plus">+</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
+  <div class="row">
+    <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
+    <div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
+    <div class="field col-2"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div>
+    <div class="field col-2"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div>
+    <div class="field col-2"><label>Nombre de coupes</label><input type="number" min="0" step="1" value="${piece.cuts??0}" data-field="cuts" placeholder="0"/></div>
+    <div class="field col-2"><label>Temps (min)</label><input type="number" min="0" step="1" value="${piece.time??0}" data-field="time" placeholder="0"/></div>
+    <div class="field col-2"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste ?? ""}" data-field="waste" placeholder="défaut client"/></div>
+  </div>`;
+  wrap.querySelectorAll("input").forEach(input=>input.addEventListener("input",e=>{pieces[index][e.target.dataset.field]=e.target.value;savePieces();recalcAll();}));
+  wrap.querySelector('[data-action="plus"]').addEventListener("click",()=>{pieces[index].qty=Number(pieces[index].qty||1)+1;savePieces();renderPieces();});
+  wrap.querySelector('[data-action="minus"]').addEventListener("click",()=>{pieces[index].qty=Math.max(1,Number(pieces[index].qty||1)-1);savePieces();renderPieces();});
+  wrap.querySelector('[data-action="delete"]').addEventListener("click",()=>{pieces.splice(index,1); if(!pieces.length) pieces.push({id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}); savePieces(); renderPieces();});
+  return wrap;
+}
+function renderPieces(){
+  piecesEl.innerHTML="";
+  [...pieces].reverse().forEach((piece,index)=>{
+    const realIndex = pieces.length - 1 - index;
+    piecesEl.appendChild(createPieceRow(piece,realIndex));
+  });
+  recalcAll();
+}
+function recalcAll(){
+  const pricePerM2=getCurrentPricePerM2();
+  const client=getCurrentClient();
+  const foldUnit=Number(client?.costs?.fold||0);
+  const cutUnit=Number(client?.costs?.cut||0);
+  const hourly=Number(client?.costs?.hourly||0);
+  const minuteUnit=hourly/60;
+  let totalArea=0,totalAmount=0;
+  resultTableBody.innerHTML="";
+  [...pieces].reverse().forEach((piece,index)=>{
+    const developedMm=Number(piece.developed||0);
+    const lengthM=Number(piece.length||0);
+    const qty=Number(piece.qty||0);
+    const folds=Number(piece.folds||0);
+    const cuts=Number(piece.cuts||0);
+    const time=Number(piece.time||0);
+    const waste=(piece.waste===undefined||piece.waste==="") ? Number(client?.costs?.defaultWaste||0) : Number(piece.waste||0);
+    const surfaceBrute=(developedMm/1000)*lengthM*qty;
+    const surfaceFacturee=surfaceBrute*(1+waste/100);
+    const matiere=surfaceFacturee*pricePerM2;
+    const foldsCost=folds*qty*foldUnit;
+    const cutsCost=cuts*qty*cutUnit;
+    const timeCost=time*minuteUnit;
+    const totalLigne=matiere+foldsCost+cutsCost+timeCost;
+    totalArea+=surfaceFacturee; totalAmount+=totalLigne;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${index+1}</td><td>${fmtNumber(developedMm,0)}</td><td>${fmtNumber(lengthM,2)}</td><td>${fmtNumber(qty,0)}</td><td>${fmtNumber(folds*qty,0)}</td><td>${fmtNumber(cuts*qty,0)}</td><td>${fmtNumber(time,0)}</td><td>${fmtNumber(waste,2)}</td><td>${fmtNumber(surfaceBrute,3)}</td><td>${fmtNumber(surfaceFacturee,3)}</td><td>${fmtEuro(matiere)}</td><td>${fmtEuro(foldsCost)}</td><td>${fmtEuro(cutsCost)}</td><td>${fmtEuro(timeCost)}</td><td>${fmtEuro(totalLigne)}</td>`;
+    resultTableBody.appendChild(tr);
+  });
+  document.getElementById("summaryArea").textContent=fmtArea(totalArea);
+  
+  const minimumOrder=45;
+const hasValidPiece=pieces.some(p =>
+  Number(p.developed||0)>0 &&
+  Number(p.length||0)>0 &&
+  Number(p.qty||0)>0
+);
+
+if(hasValidPiece && totalAmount<minimumOrder){
+  totalAmount=minimumOrder;
+}
+  document.getElementById("summaryAmount").textContent=fmtEuro(totalAmount);
+  document.getElementById("summaryLines").textContent=String(pieces.length);
+}
+function addPiece(data=null){pieces.push(data||{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""});savePieces();renderPieces();}
+function duplicateLastPiece(){const last=pieces[pieces.length-1]; addPiece(last?{...last,id:crypto.randomUUID()}:null);}
+function saveOrUpdateClient(){
+  const name=clientName.value.trim();
+  if(!name){setStatus("Le nom du client est obligatoire.",false);return;}
+  const currentId=selectedClient.value;
+  const existing=clients.find(c=>c.id===currentId);
+  const payload=normalizeClient({
+    id:existing?.id||crypto.randomUUID(),
+    name,
+    prices:{"7/10":Number(price710.value||0),"10/10":Number(price1010.value||0),"15/10":Number(price1510.value||0)},
+    costs:{fold:Number(costFold.value||0),cut:Number(costCut.value||0),hourly:Number(hourlyRate.value||0),defaultWaste:Number(defaultWaste.value||0)},
+    note:clientNote.value.trim()
+  });
+  if(existing) Object.assign(existing,payload); else clients.push(payload);
+  saveClients(); renderClientSelect(); selectedClient.value=payload.id; renderClientForm(); updatePriceDisplay(); setStatus("Client enregistré.");
+}
+function deleteCurrentClient(){
+  if(clients.length===1){setStatus("Impossible de supprimer le dernier client.",false);return;}
+  const current=getCurrentClient(); if(!current) return;
+  if(!confirm(`Supprimer le client "${current.name}" ?`)) return;
+  clients=clients.filter(c=>c.id!==current.id); saveClients(); renderClientSelect(); updatePriceDisplay(); setStatus("Client supprimé.");
+}
+function newClientForm(){
+  selectedClient.value=""; clientName.value=""; price710.value=""; price1010.value=""; price1510.value="";
+  costFold.value="1.70"; costCut.value="1.00"; hourlyRate.value="48.00"; defaultWaste.value="0"; clientNote.value="";
+  setStatus("Formulaire prêt pour un nouveau client.");
+}
+function downloadJson(data,filename){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url);}
+function exportClients(){downloadJson({app:"Calcul pliage - clients",version:7,exportedAt:new Date().toISOString(),clients},"sauvegarde-clients-pliage.json"); setStatus("Sauvegarde clients créée.");}
+function exportFullBackup(){
+  const projects=JSON.parse(
+    localStorage.getItem(PROJECTS_KEY) || "[]"
+  );
+
+  const backup={
+    app:"Calcul pliage - sauvegarde complète",
+    version:8,
+    exportedAt:new Date().toISOString(),
+
+    clients:JSON.parse(JSON.stringify(clients)),
+
+    projects:JSON.parse(JSON.stringify(projects)),
+
+    pieces:JSON.parse(JSON.stringify(pieces)),
+
+    selectedClientId:selectedClient.value || "",
+    selectedThickness:selectedThickness.value || "7/10",
+
+    sheetFormat:document.getElementById("sheetFormat")?.value || "",
+
+    projectName:document.getElementById("projectName")?.value || "",
+
+    projectColor:document.getElementById("projectColor")?.value || ""
+  };
+
+  downloadJson(
+    backup,
+    `sauvegarde-complete-rml-pliage-${new Date()
+      .toLocaleDateString("fr-FR")
+      .replaceAll("/","-")}.json`
+  );
+
+  setStatus("Sauvegarde complète créée.");
+}
+function exportProjectBackup(){
+  const client=getCurrentClient();
+  const project=(projectName?.value || "projet-sans-nom").trim();
+
+  const backup={
+    app:"RML Pliage - sauvegarde projet",
+    version:8,
+    exportedAt:new Date().toISOString(),
+    projectName:project,
+    projectColor: projectColor ? projectColor.value : "",
+    client,
+    selectedClientId:selectedClient.value,
+    selectedThickness:selectedThickness.value,
+    pieces,
+    sheetFormat: sheetFormat.value    
+  };
+
+  const safeClient=(client?.name || "client").replace(/[^a-z0-9]/gi,"-").toLowerCase();
+  const safeProject=project.replace(/[^a-z0-9]/gi,"-").toLowerCase();
+
+  downloadJson(
+    backup,
+    `sauvegarde-${safeClient}-${safeProject}.json`
+  );
+
+  setStatus("Sauvegarde projet créée.");
+}
+function normalizeClients(input){const incoming=Array.isArray(input)?input:input?.clients; if(!Array.isArray(incoming)||!incoming.length) throw new Error("Aucun client trouvé dans la sauvegarde."); return incoming.map(normalizeClient);}
+function importBackupFromText(text){
+  const parsed=JSON.parse(text);
+  clients=normalizeClients(parsed);
+  if(Array.isArray(parsed.pieces)){
+    pieces=parsed.pieces.map(p=>({id:p.id||crypto.randomUUID(),developed:p.developed??"",length:p.length??"",qty:p.qty??1,folds:p.folds??0,cuts:p.cuts??0,time:p.time??0,waste:p.waste??""}));
+    if(!pieces.length) pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+    savePieces();
+  }
+if(projectName){
+    projectName.value = parsed.projectName || "";
+}
+
+if(typeof projectColor !== "undefined" && projectColor){
+    projectColor.value = parsed.projectColor || parsed.color || "";
+}
+  
+  saveClients();
+renderClientSelect();
+
+if(
+  parsed.selectedClientId &&
+  clients.some(c=>c.id===parsed.selectedClientId)
+){
+  selectedClient.value=parsed.selectedClientId;
+}
+
+if(
+  parsed.selectedThickness &&
+  ["7/10","10/10","15/10"].includes(parsed.selectedThickness)
+){
+  selectedThickness.value=parsed.selectedThickness;
+}
+
+if(parsed.sheetFormat){
+  sheetFormat.value=parsed.sheetFormat;
+}
+
+if(projectName){
+  projectName.value=parsed.projectName || "";
+}
+
+renderClientForm();
+renderPieces();
+updatePriceDisplay();
+
+/* Restaurer la couleur après tous les rendus */
+if(typeof projectColor!=="undefined" && projectColor){
+  projectColor.value=parsed.projectColor || parsed.color || "";
+  projectColor.dispatchEvent(new Event("input",{bubbles:true}));
+  projectColor.dispatchEvent(new Event("change",{bubbles:true}));
+}
+
+setStatus("Sauvegarde restaurée.");
+alert("Restauration terminée.");
+}
+function generatePdfDocument(type){
+  const client=getCurrentClient();
+  const project=(projectName?.value || "Projet sans nom").trim();
+  const today=new Date().toLocaleDateString("fr-FR");
+
+  const showPrices = type==="devis" || type==="client";
+  const title =
+    type==="devis" ? "DEVIS PLIAGE" :
+    type==="client" ? "BON CLIENT AVEC PRIX" :
+    "BON DE FABRICATION ATELIER";
+
+  let rows="";
+  let total=0;
+
+  pieces.forEach((piece,i)=>{
+    const dev=Number(piece.developed||0);
+    const long=Number(piece.length||0);
+    const qty=Number(piece.qty||0);
+    const plis=Number(piece.folds||0);
+    const coupes=Number(piece.cuts||0);
+    const temps=Number(piece.time||0);
+    const chute=(piece.waste===""||piece.waste===undefined)
+      ? Number(client?.costs?.defaultWaste||0)
+      : Number(piece.waste||0);
+
+    const surface=((dev/1000)*long*qty)*(1+chute/100);
+    const matiere=surface*getCurrentPricePerM2();
+    const prixPlis=plis*qty*Number(client?.costs?.fold||0);
+    const prixCoupes=coupes*qty*Number(client?.costs?.cut||0);
+    const prixTemps=temps*(Number(client?.costs?.hourly||0)/60);
+    const ligne=matiere+prixPlis+prixCoupes+prixTemps;
+
+    total+=ligne;
+
+    rows+=`
+      <tr>
+        <td>${i+1}</td>
+        <td>${dev}</td>
+        <td>${long.toFixed(2)}</td>
+        <td>${qty}</td>
+        <td>${plis*qty}</td>
+        <td>${coupes*qty}</td>
+        <td>${temps} min</td>
+        <td>${surface.toFixed(3)} m²</td>
+        ${showPrices ? `<td>${fmtEuro(ligne)}</td>` : ""}
+      </tr>
+    `;
+  });
+
+  const html=`
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>
+  @page{size:A4 portrait;margin:10mm;}
+  body{font-family:Arial,sans-serif;color:#111;margin:0;background:#fff;}
+  .sheet{width:190mm;margin:0 auto;padding:8mm;box-sizing:border-box;}
+  .head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:16px;}
+  .logo{height:55px;max-width:180px;object-fit:contain;}
+  .title{font-size:24px;font-weight:800;text-align:right;}
+  .meta{font-size:14px;line-height:1.6;margin-bottom:14px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th,td{border:1px solid #333;padding:6px;text-align:center;}
+  th{background:#f2f2f2;}
+  .total{text-align:right;font-size:20px;font-weight:800;margin-top:18px;}
+  .footer{margin-top:30px;font-size:11px;color:#555;border-top:1px solid #ccc;padding-top:8px;}
+</style>
+</head>
+<body>
+  <div class="sheet">
+    <div class="head">
+      <img src="header-logo.png" class="logo">
+      <div>
+        <div class="title">${title}</div>
+        <div>Date : ${today}</div>
+      </div>
+    </div>
+
+    <div class="meta">
+      <strong>Client :</strong> ${client?.name || "-"}<br>
+      <strong>Projet / chantier :</strong> ${project}<br>
+      <strong>Épaisseur :</strong> ${selectedThickness.value}
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Dév. mm</th>
+          <th>Long. m</th>
+          <th>Qté</th>
+          <th>Plis total</th>
+          <th>Coupes total</th>
+          <th>Temps total</th>
+          <th>Surface</th>
+          ${showPrices ? "<th>Total ligne</th>" : ""}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    ${showPrices ? `<div class="total">TOTAL : ${fmtEuro(total)}</div>` : ""}
+
+    <div class="footer">
+      RML PLIAGE ALU - Document généré automatiquement.
+    </div>
+  </div>
+
+<div style="text-align:center;margin-top:25px;">
+  <button onclick="window.print()" style="padding:12px 22px;font-size:16px;border:none;border-radius:8px;background:#0f62fe;color:white;margin-right:10px;">
+    Imprimer / Enregistrer en PDF
+  </button>
+
+  <button onclick="window.close()" style="padding:12px 22px;font-size:16px;border:none;border-radius:8px;background:#0f62fe;color:white;">
+  Retour à l'application
+</button>
+</div>
+</body>
+</html>`;
+
+ const win=window.open("", "_blank");
+win.document.open();
+win.document.write(html);
+win.document.close();
+}
+
+  function generateCalpinageDocument(){
+  const client=getCurrentClient();
+  const project=(projectName?.value || "Projet sans nom").trim();
+  const today=new Date().toLocaleDateString("fr-FR");
+
+  const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
+  const scale=0.24;
+
+  let allParts=[];
+
+  pieces.forEach((piece,index)=>{
+    const dev=Number(piece.developed||0);
+    const long=Number(piece.length||0)*1000;
+    const qty=Number(piece.qty||0);
+
+    if(!dev || !long || !qty) return;
+
+    for(let i=0;i<qty;i++){
+      allParts.push({
+        pieceNo:index+1,
+        dev,
+        long,
+        w:long,
+        h:dev,
+        label:`P${index+1} - ${dev} x ${long}`
+      });
+    }
+  });
+
+  // On trie les pièces les plus larges en premier
+  allParts.sort((a,b)=>{
+  const maxA=Math.max(a.w,a.h);
+  const maxB=Math.max(b.w,b.h);
+
+  if(maxB!==maxA) return maxB-maxA;
+
+  return (b.w*b.h)-(a.w*a.h);
+});
+
+  const sheets=[];
+
+// MOTEUR CALEPINAGE PRO — MaxRects avec rotation + zéro chevauchement
+allParts.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+
+allParts.forEach(part=>{
+  let placed=false;
+
+  for(const sheet of sheets){
+    if(placePartPro(sheet,part)){
+      placed=true;
+      break;
+    }
+  }
+
+  if(!placed){
+    const newSheet={
+      parts:[],
+      rows:[],
+      freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]
+    };
+
+    if(placePartPro(newSheet,part)){
+      sheets.push(newSheet);
+      placed=true;
+    }
+  }
+
+  if(!placed){
+    alert(`Pièce impossible à placer : P${part.pieceNo} - ${part.dev} x ${part.long}`);
+  }
+});
+
+sheets.forEach(sheet=>{
+  sheet.freeRects=cleanFreeRects(sheet.freeRects);
+  sheet.rows=buildRowsFromParts(sheet.parts);
+});
+
+function placePartPro(sheet,part){
+  sheet.freeRects=cleanFreeRects(sheet.freeRects);
+
+  let best=null;
+
+  sheet.freeRects.forEach((zone,zoneIndex)=>{
+    const tests=[
+      {w:part.w,h:part.h,rotated:false},
+      {w:part.h,h:part.w,rotated:true}
+    ];
+
+    tests.forEach(t=>{
+      if(t.w<=zone.w && t.h<=zone.h){
+        const remainingW=zone.w-t.w;
+        const remainingH=zone.h-t.h;
+        const shortSide=Math.min(remainingW,remainingH);
+        const longSide=Math.max(remainingW,remainingH);
+        const waste=zone.w*zone.h-t.w*t.h;
+
+        const score=waste*10 + shortSide*3 + longSide;
+
+        if(!best || score<best.score){
+          best={
+            zone,
+            zoneIndex,
+            w:t.w,
+            h:t.h,
+            rotated:t.rotated,
+            score
+          };
+        }
+      }
+    });
+  });
+
+  if(!best) return false;
+
+  const placed={
+    ...part,
+    x:best.zone.x,
+    y:best.zone.y,
+    w:best.w,
+    h:best.h,
+    rotated:best.rotated
+  };
+
+  sheet.parts.push(placed);
+
+  const used={x:placed.x,y:placed.y,w:placed.w,h:placed.h};
+  const newFree=[];
+
+  sheet.freeRects.forEach(rect=>{
+    if(!rectOverlap(rect,used)){
+      newFree.push(rect);
+    }else{
+      splitFreeRect(rect,used).forEach(r=>newFree.push(r));
+    }
+  });
+
+  sheet.freeRects=cleanFreeRects(newFree);
+
+  return true;
+}
+
+function rectOverlap(a,b){
+  return !(
+    b.x>=a.x+a.w ||
+    b.x+b.w<=a.x ||
+    b.y>=a.y+a.h ||
+    b.y+b.h<=a.y
+  );
+}
+
+function splitFreeRect(free,used){
+  const result=[];
+
+  const fx1=free.x;
+  const fy1=free.y;
+  const fx2=free.x+free.w;
+  const fy2=free.y+free.h;
+
+  const ux1=used.x;
+  const uy1=used.y;
+  const ux2=used.x+used.w;
+  const uy2=used.y+used.h;
+
+  if(uy1>fy1){
+    result.push({x:fx1,y:fy1,w:free.w,h:uy1-fy1});
+  }
+
+  if(uy2<fy2){
+    result.push({x:fx1,y:uy2,w:free.w,h:fy2-uy2});
+  }
+
+  if(ux1>fx1){
+    result.push({x:fx1,y:Math.max(fy1,uy1),w:ux1-fx1,h:Math.min(fy2,uy2)-Math.max(fy1,uy1)});
+  }
+
+  if(ux2<fx2){
+    result.push({x:ux2,y:Math.max(fy1,uy1),w:fx2-ux2,h:Math.min(fy2,uy2)-Math.max(fy1,uy1)});
+  }
+
+  return result.filter(r=>r.w>0 && r.h>0);
+}
+
+function cleanFreeRects(rects){
+  let clean=rects
+    .map(r=>({
+      x:Math.round(r.x),
+      y:Math.round(r.y),
+      w:Math.round(r.w),
+      h:Math.round(r.h)
+    }))
+    .filter(r=>r.w>0 && r.h>0);
+
+  clean=clean.filter((r,i,arr)=>{
+    return !arr.some((o,j)=>
+      i!==j &&
+      r.x>=o.x &&
+      r.y>=o.y &&
+      r.x+r.w<=o.x+o.w &&
+      r.y+r.h<=o.y+o.h
+    );
+  });
+
+  const seen=new Set();
+  clean=clean.filter(r=>{
+    const key=`${r.x}-${r.y}-${r.w}-${r.h}`;
+    if(seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return mergeAdjacentRects(clean);
+}
+
+function mergeAdjacentRects(rects){
+  let merged=[...rects];
+  let changed=true;
+
+  while(changed){
+    changed=false;
+
+    outer:
+    for(let i=0;i<merged.length;i++){
+      for(let j=i+1;j<merged.length;j++){
+        const a=merged[i];
+        const b=merged[j];
+
+        if(a.x===b.x && a.w===b.w && a.y+a.h===b.y){
+          a.h+=b.h;
+          merged.splice(j,1);
+          changed=true;
+          break outer;
+        }
+
+        if(a.y===b.y && a.h===b.h && a.x+a.w===b.x){
+          a.w+=b.w;
+          merged.splice(j,1);
+          changed=true;
+          break outer;
+        }
+      }
+    }
+  }
+
+  return merged;
+}
+
+function buildRowsFromParts(parts){
+  const rows=[];
+
+  parts.forEach(p=>{
+    let row=rows.find(r=>Math.abs(r.y-p.y)<2);
+
+    if(!row){
+      rows.push({
+        y:p.y,
+        height:p.h,
+        usedLength:p.x+p.w
+      });
+    }else{
+      row.height=Math.max(row.height,p.h);
+      row.usedLength=Math.max(row.usedLength,p.x+p.w);
+    }
+  });
+
+  return rows.sort((a,b)=>a.y-b.y);
+}
+
+const placedCount=sheets.reduce((sum,s)=>sum+s.parts.length,0);
+
+if(placedCount!==allParts.length){
+  alert(`Attention : ${allParts.length-placedCount} pièce(s) non placée(s).`);
+}
+  
+  let summaryRows="";
+  let drawings="";
+  let totalParts=allParts.length;
+  let totalSheetArea=sheets.length*(sheetW*sheetL/1000000);
+
+  sheets.forEach((sheet,sheetIndex)=>{
+
+  if(!sheet.parts || sheet.parts.length===0){
+    return;
+  }
+
+  const counts={};
+
+    sheet.parts.forEach(p=>{
+      counts[p.pieceNo]=(counts[p.pieceNo]||0)+1;
+    });
+
+    const detail=Object.entries(counts)
+      .map(([pieceNo,count])=>`P${pieceNo} : ${count} u`)
+      .join(" / ");
+
+    summaryRows+=`
+      <tr>
+        <td>${sheetIndex+1}</td>
+        <td>${detail}</td>
+        <td>${sheet.parts.length}</td>
+      </tr>
+    `;
+
+    const svgW=sheetL*scale;
+    const svgH=sheetW*scale;
+
+    let rects="";
+
+    sheet.parts.forEach(p=>{
+      const displayH=p.h*scale;      
+      
+     rects +=`
+  <rect x="${p.x*scale}" y="${p.y*scale}"
+        width="${p.w*scale}" height="${displayH}"
+        fill="#dff3df" stroke="#111"/>
+
+  ${(()=>{
+    const pw=p.w*scale;
+    const ph=p.h*scale;
+    const cx=(p.x*scale)+(pw/2);
+    const cy=(p.y*scale)+(ph/2);
+    const fontSize=Math.max(6, Math.min(12, Math.min(pw,ph)/2.8));
+
+    if(pw>=ph){
+      return `
+        <text x="${cx}" y="${cy}"
+              font-size="${fontSize}"
+              text-anchor="middle"
+              dominant-baseline="middle"
+              fill="#111">
+${(p.w*scale>80 && p.h*scale>14)
+  ? `P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`
+  : `P${p.pieceNo} - ${Math.round(p.h)}x${Math.round(p.w)}`
+}
+         </text>
+         `;
+    }
+
+    return `
+      <text x="${cx}" y="${cy}"
+            font-size="${fontSize}"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            transform="rotate(-90 ${cx} ${cy})"
+            fill="#111">
+${(p.h*scale>80 && p.w*scale>8)
+  ? `P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`
+  : `P${p.pieceNo} - ${Math.round(p.h)}x${Math.round(p.w)}`
+}
+      </text>
+    `;
+  })()}
+`;
+});
+    let chuteInfos=[];
+const chuteColors=[
+  "#f8c8dc",
+  "#fca5a5",
+  "#dbeafe",
+  "#fde68a",
+  "#e9d5ff",
+  "#fed7aa",
+  "#fbcfe8",
+  "#c7d2fe",
+  "#e5e7eb"
+];
+
+let chuteIndex=0;
+
+function buildFreeZonesFromPlacedParts(sheet){
+  const zones=[];
+  const parts=(sheet.parts || []).map(p=>({
+    x:Math.round(p.x),
+    y:Math.round(p.y),
+    w:Math.round(p.w),
+    h:Math.round(p.h)
+  }));
+
+  const yCuts=[0,sheetW];
+  parts.forEach(p=>{
+    yCuts.push(p.y);
+    yCuts.push(p.y+p.h);
+  });
+
+  const ys=[...new Set(yCuts)].sort((a,b)=>a-b);
+
+  for(let i=0;i<ys.length-1;i++){
+    const y1=ys[i];
+    const y2=ys[i+1];
+    const h=y2-y1;
+    if(h<=0) continue;
+
+    const occupied=parts
+      .filter(p=>!(p.y+p.h<=y1 || p.y>=y2))
+      .map(p=>({x:p.x,w:p.w}))
+      .sort((a,b)=>a.x-b.x);
+
+    let x=0;
+
+    occupied.forEach(o=>{
+      if(o.x>x){
+        zones.push({x:x,y:y1,w:o.x-x,h:h});
+      }
+      x=Math.max(x,o.x+o.w);
+    });
+
+    if(x<sheetL){
+      zones.push({x:x,y:y1,w:sheetL-x,h:h});
+    }
+  }
+
+  return mergeFreeZones(zones);
+}
+
+function mergeFreeZones(zones){
+  let merged=zones
+    .filter(z=>z.w>0 && z.h>0)
+    .map(z=>({
+      x:Math.round(z.x),
+      y:Math.round(z.y),
+      w:Math.round(z.w),
+      h:Math.round(z.h)
+    }));
+
+  let changed=true;
+
+  while(changed){
+    changed=false;
+
+    outer:
+    for(let i=0;i<merged.length;i++){
+      for(let j=i+1;j<merged.length;j++){
+        const a=merged[i];
+        const b=merged[j];
+
+        if(a.x===b.x && a.w===b.w && a.y+a.h===b.y){
+          a.h+=b.h;
+          merged.splice(j,1);
+          changed=true;
+          break outer;
+        }
+
+        if(a.y===b.y && a.h===b.h && a.x+a.w===b.x){
+          a.w+=b.w;
+          merged.splice(j,1);
+          changed=true;
+          break outer;
+        }
+      }
+    }
+  }
+
+  return merged;
+}    
+
+// Affichage direct des vraies zones libres du moteur
+const zones=buildFreeZonesFromPlacedParts(sheet)
+  .filter(z=>z.w>0 && z.h>0)
+  .sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+    
+zones.forEach(zone=>{
+  const chuteNo="Z"+(chuteIndex+1);
+  const chuteColor=chuteColors[chuteIndex % chuteColors.length];
+
+  chuteInfos.push(
+    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${Math.round(zone.w)} x ${Math.round(zone.h)} mm`
+  );
+
+  rects+=`
+    <rect x="${zone.x*scale}" y="${zone.y*scale}"
+          width="${zone.w*scale}" height="${zone.h*scale}"
+          fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
+  `;
+
+  if(zone.w*scale>18 && zone.h*scale>10){
+    rects+=`
+      <text x="${(zone.x*scale)+(zone.w*scale/2)}"
+            y="${(zone.y*scale)+(zone.h*scale/2)}"
+            font-size="8"
+            text-anchor="middle"
+            dominant-baseline="middle"
+            fill="#111">${chuteNo}</text>
+    `;
+  }
+
+  chuteIndex++;
+});
+    
+    if(!sheet.parts || sheet.parts.length===0){
+  return;
+}
+
+drawings+=`
+  <div class="drawing-block">
+    <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
+    <p><strong>Contenu :</strong> ${detail}</p>
+    <p style="margin:3px 0 5px 0;font-size:11px;line-height:1.15">
+      <strong>Zones exploitables :</strong> ${chuteInfos.join(" / ")}
+    </p>
+    <svg width="100%" viewBox="0 0 ${svgW} ${svgH}" style="display:block;margin-top:4px">
+      <rect x="0" y="0" width="${svgW}" height="${svgH}"
+            fill="#fff" stroke="#111" stroke-width="2"/>
+      ${rects}
+    </svg>
+  </div>
+`;
+  });
+
+  const html=`
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Calpinage atelier</title>
+<style>
+@page{size:A4 portrait;margin:8mm;}
+body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;}
+.sheet{width:190mm;margin:auto;padding:8mm;box-sizing:border-box;}
+h1{text-align:center;font-size:24px;margin:0;}
+h2{text-align:center;font-size:15px;font-weight:400;margin:4px 0 18px;}
+.top{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.box{border:1px solid #333;padding:10px;font-size:13px;}
+.summary{margin-top:14px;border:2px solid #111;padding:10px;font-size:14px;background:#f7f7f7;}
+table{width:100%;border-collapse:collapse;font-size:11px;margin-top:14px;}
+th,td{border:1px solid #333;padding:6px;text-align:center;}
+th{background:#f2f2f2;}
+.drawing-block{
+  border:1px solid #333;
+  padding:10px;
+  margin-top:18px;
+  page-break-inside:avoid;
+  break-inside:avoid;
+}
+
+@media print{
+  @page{
+    size:A4 portrait;
+    margin:8mm;
+  }
+
+  .actions{
+    display:none!important;
+  }
+
+  .sheet{
+    width:100%!important;
+    margin:0!important;
+    padding:0!important;
+  }
+
+  .drawing-block{
+  width:190mm!important;
+  height:132mm!important;
+  margin:0 auto!important;
+  padding:8mm 0 0 3mm!important;
+  box-sizing:border-box!important;
+  overflow:hidden!important;
+  display:inline-block!important;
+  vertical-align:top!important;
+  page-break-inside:avoid!important;
+}
+
+.drawing-block:nth-of-type(2n){
+  page-break-after:always!important;
+}
+
+#pdfPrintZone{
+  display:block!important;
+  width:194mm!important;
+  margin:0 auto!important;
+  padding:0!important;
+}
+
+svg{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  height:auto!important;
+  max-height:77mm!important;
+  margin:0 auto!important;
+}
+}
+.drawing-block h3{margin:0 0 8px;font-size:15px;}
+svg{max-width:100%;height:auto;margin:0 auto;}
+.actions{text-align:center;margin-top:20px;}
+button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;margin:4px;}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<h1>FEUILLE DE CALPINAGE ATELIER</h1>
+<h2>Optimisation globale du projet — feuille ${sheetW} x ${sheetL} mm</h2>
+
+<div class="top">
+  <div class="box">
+    <strong>Client :</strong> ${client?.name || "-"}<br>
+    <strong>Projet :</strong> ${project}<br>
+    <strong>Épaisseur :</strong> ${selectedThickness.value}
+  </div>
+
+  <div class="box">
+    <strong>Date :</strong> ${today}<br>
+    <strong>Format feuille :</strong> ${sheetW} x ${sheetL} mm<br>
+    <strong>Surface feuille :</strong> ${((sheetW*sheetL)/1000000).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+  </div>
+</div>
+
+<div class="summary">
+  <strong>Total projet :</strong><br>
+  Pièces totales à fabriquer : ${totalParts}<br>
+  Feuilles nécessaires : ${sheets.length}<br>
+  Surface matière consommée : ${totalSheetArea.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+</div>
+
+<table>
+<thead>
+<tr>
+  <th>Feuille</th>
+  <th>Pièces placées</th>
+  <th>Total pièces</th>
+</tr>
+</thead>
+<tbody>
+${summaryRows}
+</tbody>
+</table>
+
+${drawings}
+
+ <div class="actions">
+  <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
+  <button onclick="window.close()">Retour à l’application</button>
+</div>
+</body>
+</html>`;
+
+  const win=window.open("", "_blank");
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  }
+
+document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
+document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
+document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];savePieces();renderPieces();setStatus("Pièces réinitialisées.");});
+document.getElementById("saveClientBtn").addEventListener("click",saveOrUpdateClient);
+document.getElementById("deleteClientBtn").addEventListener("click",deleteCurrentClient);
+document.getElementById("newClientBtn").addEventListener("click",newClientForm);
+
+selectedClient.addEventListener("change",()=>{renderClientForm(); updatePriceDisplay();});
+selectedThickness.addEventListener("change",updatePriceDisplay);
+
+document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
+document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
+document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
+document.getElementById("importJsonFile").addEventListener("change",async e=>{alert("Fichier détecté par l’application");
+                                                                              
+    const file=e.target.files?.[0];
+  if(!file) return;
+
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+
+    if(data.projects){
+      localStorage.setItem(PROJECTS_KEY,JSON.stringify(data.projects));
+      alert("Liste des projets restaurée.");
+      return;
+    }
+
+    if((data.name || data.projectName) && (data.pieces || data.lines || data.items)){
+    const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+    const importedProject={
+  id:data.id || crypto.randomUUID(),
+  name:data.name || data.projectName || "Projet importé",
+  color:data.projectColor || data.color || "",      
+  clientId:data.clientId || data.selectedClientId || data.client?.id || selectedClient.value,
+  thickness:data.thickness || data.selectedThickness || selectedThickness.value,
+  sheetFormat:data.sheetFormat || data.selectedSheetFormat || sheetFormat.value,
+  pieces:data.pieces || data.lines || data.items || data.project?.pieces || data.data?.pieces || data.payload?.pieces || [],
+  date:data.date || data.exportedAt || new Date().toISOString()
+};
+
+projects.push(importedProject);
+localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+
+if(data.client){
+  const exists=clients.some(c=>c.id===data.client.id);
+  if(!exists){
+    clients.push(data.client);
+    saveClients();
+  }
+}
+
+projectNameInput.value=importedProject.name;
+renderClientSelect();
+
+selectedClient.value=importedProject.clientId;
+selectedThickness.value=importedProject.thickness;
+sheetFormat.value=importedProject.sheetFormat;
+pieces=Array.isArray(importedProject.pieces) && importedProject.pieces.length
+  ? importedProject.pieces
+  : [{
+      id:crypto.randomUUID(),
+      developed:"",
+      length:"",
+      qty:1,
+      folds:0,
+      cuts:0,
+      time:0,
+      waste:""
+    }];
+
+renderClientForm();
+renderPieces();
+updatePriceDisplay();
+savePieces();
+
+const colorField=document.getElementById("projectColor");
+if(colorField){
+  colorField.value=importedProject.color || "";
+}
+
+alert("Projet restauré et ouvert : " + importedProject.name);
+e.target.value="";
+return;
+    }
+
+    if(data.clients && data.pieces){
+      clients=data.clients;
+      pieces=data.pieces;
+      saveClients();
+      savePieces();
+      renderClientSelect();
+      renderPieces();
+      updatePriceDisplay();
+      alert("Sauvegarde complète restaurée.");
+      return;
+    }
+
+    alert("Format de sauvegarde non reconnu.");
+  }catch(err){
+    alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l'application.");
+  }
+});
+
+const saveProjectBtn=document.getElementById("saveProjectBtn");
+const newProjectBtn=document.getElementById("newProjectBtn");
+const projectNameInput=document.getElementById("projectName");
+const PROJECTS_KEY="rml_pliage_projects_v1";
+
+function saveCurrentProject(){
+  const projectName=(projectNameInput.value || "Projet sans nom").trim();
+
+  const projectData={
+    id:crypto.randomUUID(),
+    name:projectName,
+    color: projectColor ? projectColor.value : "",
+    clientId:selectedClient.value,
+    thickness:selectedThickness.value,
+    sheetFormat:sheetFormat.value,
+    pieces:JSON.parse(JSON.stringify(pieces)),
+    date:new Date().toISOString()
+  };
+
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+  projects.push(projectData);
+  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+
+  alert("Projet enregistré : " + projectName);
+}
+
+function newProject(){
+
+  // Nom et couleur du projet
+  projectNameInput.value="";
+
+  if(typeof projectColor!=="undefined" && projectColor){
+    projectColor.value="";
+  }
+
+  // Aucun client sélectionné
+  selectedClient.value="";
+
+  // Remise aux valeurs initiales
+  selectedThickness.selectedIndex=0;
+  sheetFormat.selectedIndex=0;
+
+  // Une seule pièce entièrement vide
+  pieces=[{
+    id:crypto.randomUUID(),
+    developed:"",
+    length:"",
+    qty:1,
+    folds:0,
+    cuts:0,
+    time:0,
+    waste:""
+  }];
+
+  // Réinitialisation de l’affichage
+  renderClientForm();
+  renderPieces();
+  updatePriceDisplay();
+  savePieces();
+
+  alert("Nouveau devis prêt.");
+}
+  function loadProjects(){
+  let projects=JSON.parse(
+    localStorage.getItem(PROJECTS_KEY) || "[]"
+  );
+
+  projects.sort((a,b)=>
+    new Date(b.date || b.exportedAt || 0) -
+    new Date(a.date || a.exportedAt || 0)
+  );
+
+  if(!projects.length){
+    alert("Aucun projet enregistré.");
+    return;
+  }
+
+  // Évite d’ouvrir plusieurs fenêtres simultanément
+  document.getElementById("projectsModal")?.remove();
+
+  const modal=document.createElement("div");
+  modal.id="projectsModal";
+  modal.className="projects-modal";
+
+  const box=document.createElement("div");
+  box.className="projects-box";
+
+  const header=document.createElement("div");
+  header.className="projects-title";
+
+  const title=document.createElement("h2");
+  title.textContent="Mes projets";
+
+  const closeTop=document.createElement("button");
+  closeTop.type="button";
+  closeTop.className="projects-close-top";
+  closeTop.textContent="Fermer";
+  closeTop.addEventListener("click",()=>modal.remove());
+
+  header.appendChild(title);
+  header.appendChild(closeTop);
+  box.appendChild(header);
+
+  const tableHeader=document.createElement("div");
+  tableHeader.className="projects-header";
+  tableHeader.innerHTML=`
+    <span>Client</span>
+    <span>Référence</span>
+    <span>Date de création</span>
+    <span>Actions</span>
+  `;
+  box.appendChild(tableHeader);
+
+  projects.forEach((project,index)=>{
+    const client=
+      clients.find(c=>c.id===project.clientId);
+
+    const clientName=
+      client?.name ||
+      project.client?.name ||
+      project.clientName ||
+      "Client non renseigné";
+
+    const projectReference=
+      project.name ||
+      project.projectName ||
+      "Projet sans référence";
+
+    const rawDate=
+      project.date ||
+      project.exportedAt ||
+      project.createdAt;
+
+    const projectDate=rawDate
+      ? new Date(rawDate).toLocaleDateString("fr-FR")
+      : "—";
+
+    const row=document.createElement("div");
+    row.className="project-item";
+
+    const clientCell=document.createElement("div");
+    clientCell.className="project-client";
+    clientCell.textContent=clientName;
+    clientCell.title=clientName;
+
+    const referenceCell=document.createElement("div");
+    referenceCell.className="project-reference";
+    referenceCell.textContent=projectReference;
+    referenceCell.title=projectReference;
+
+    const dateCell=document.createElement("div");
+    dateCell.className="project-date";
+    dateCell.textContent=projectDate;
+
+    const actions=document.createElement("div");
+    actions.className="project-actions";
+
+    const openButton=document.createElement("button");
+    openButton.type="button";
+    openButton.className="open-project";
+    openButton.textContent="Ouvrir";
+
+    openButton.addEventListener("click",()=>{
+      const selected=projects[index];
+
+      if(!selected){
+        alert("Projet invalide.");
+        return;
+      }
+
+      projectNameInput.value=
+        selected.name ||
+        selected.projectName ||
+        "";
+
+      // Reconstruit d’abord la liste des clients
+      renderClientSelect();
+
+      selectedClient.value=
+        selected.clientId ||
+        selected.selectedClientId ||
+        selected.client?.id ||
+        "";
+
+      selectedThickness.value=
+        selected.thickness ||
+        selected.selectedThickness ||
+        "7/10";
+
+      if(sheetFormat){
+        sheetFormat.value=
+          selected.sheetFormat ||
+          selected.selectedSheetFormat ||
+          sheetFormat.value;
+      }
+
+      pieces=
+        Array.isArray(selected.pieces) && selected.pieces.length
+          ? JSON.parse(JSON.stringify(selected.pieces))
+          : [{
+              id:crypto.randomUUID(),
+              developed:"",
+              length:"",
+              qty:1,
+              folds:0,
+              cuts:0,
+              time:0,
+              waste:""
+            }];
+
+      renderClientForm();
+      renderPieces();
+      updatePriceDisplay();
+      savePieces();
+
+      // La couleur est remise après les fonctions d’affichage
+      const colorField=document.getElementById("projectColor");
+
+      if(colorField){
+        colorField.value=
+          selected.color ||
+          selected.projectColor ||
+          "";
+      }
+
+      if(typeof saveCurrentProjectState==="function"){
+        saveCurrentProjectState();
+      }
+
+      modal.remove();
+      alert("Projet chargé : " + projectReference);
+    });
+
+    const deleteButton=document.createElement("button");
+    deleteButton.type="button";
+    deleteButton.className="delete-project";
+    deleteButton.setAttribute(
+      "aria-label",
+      "Supprimer le projet " + projectReference
+    );
+    deleteButton.title="Supprimer";
+    deleteButton.textContent="🗑";
+
+    deleteButton.addEventListener("click",()=>{
+      const confirmation=confirm(
+        `Supprimer définitivement ce projet ?\n\n${projectReference}`
+      );
+
+      if(!confirmation) return;
+
+      projects.splice(index,1);
+
+      localStorage.setItem(
+        PROJECTS_KEY,
+        JSON.stringify(projects)
+      );
+
+      modal.remove();
+
+      if(projects.length){
+        loadProjects();
+      }else{
+        alert("Projet supprimé. Il ne reste aucun projet enregistré.");
+      }
+    });
+
+    actions.appendChild(deleteButton);
+    actions.appendChild(openButton);
+
+    row.appendChild(clientCell);
+    row.appendChild(referenceCell);
+    row.appendChild(dateCell);
+    row.appendChild(actions);
+
+    box.appendChild(row);
+  });
+
+  modal.appendChild(box);
+  document.body.appendChild(modal);
+
+  // Fermer en cliquant en dehors de la fenêtre
+  modal.addEventListener("click",event=>{
+    if(event.target===modal){
+      modal.remove();
+    }
+  });
+}
+if(saveProjectBtn){
+  saveProjectBtn.addEventListener("click",saveCurrentProject);
+}
+const loadProjectBtn=document.getElementById("loadProjectBtn");
+
+if(loadProjectBtn){
+  loadProjectBtn.addEventListener("click",loadProjects);
+}
+if(newProjectBtn){
+  newProjectBtn.addEventListener("click",newProject);
+}  
+const settingsModal=document.getElementById("settingsModal");
+const openSettingsBtn=document.getElementById("openSettingsBtn");
+const closeSettingsBtn=document.getElementById("closeSettingsBtn");
+  if(settingsClientSelect){
+  settingsClientSelect.addEventListener("change",()=>{
+    selectedClient.value=settingsClientSelect.value;
+    renderClientForm();
+    updatePriceDisplay();
+  });
+}
+const mobileSettingsBtn=document.getElementById("mobileSettingsBtn");
+function openSettings(){settingsModal.classList.add("open");}
+function closeSettings(){settingsModal.classList.remove("open");}
+openSettingsBtn.addEventListener("click",openSettings);
+if(mobileSettingsBtn){mobileSettingsBtn.addEventListener("click",openSettings);}
+closeSettingsBtn.addEventListener("click",closeSettings);
+settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
+renderClientSelect();
+restoreCurrentProjectState();
+renderPieces();
+updatePriceDisplay();
+
+const projectNameField=document.getElementById("projectName");
+const projectColorField=document.getElementById("projectColor");
+const sheetFormatField=document.getElementById("sheetFormat");
+
+if(projectNameField){
+  projectNameField.addEventListener("input",saveCurrentProjectState);
+}
+
+if(projectColorField){
+  projectColorField.addEventListener("input",saveCurrentProjectState);
+}
+
+if(selectedClient){
+  selectedClient.addEventListener("change",saveCurrentProjectState);
+}
+
+if(selectedThickness){
+  selectedThickness.addEventListener("change",saveCurrentProjectState);
+}
+
+if(sheetFormatField){
+  sheetFormatField.addEventListener("change",saveCurrentProjectState);
+}
+
+window.addEventListener("beforeunload",saveCurrentProjectState);
+
+const devisBtn=document.getElementById("devisPdfBtn");
+const sheetFormat=document.getElementById("sheetFormat");
+const clientBtn=document.getElementById("clientPdfBtn");
+const atelierBtn=document.getElementById("atelierPdfBtn");
+const oldPdfBtn=document.getElementById("pdfBtn");
+const quotePdfBtn=document.getElementById("quotePdfBtn");
+const calpinageBtn=document.getElementById("calpinageBtn");
+
+if(calpinageBtn){
+  calpinageBtn.addEventListener("click",generateCalpinageDocument);
+}
+if(devisBtn){
+  devisBtn.addEventListener("click",()=>generatePdfDocument("devis"));
+}
+
+if(clientBtn){
+  clientBtn.addEventListener("click",()=>generatePdfDocument("client"));
+}
+
+if(atelierBtn){
+  atelierBtn.addEventListener("click",()=>generatePdfDocument("atelier"));
+}
+
+if(oldPdfBtn){
+  oldPdfBtn.addEventListener("click",()=>generatePdfDocument("client"));
+}
+
+if(quotePdfBtn){
+  quotePdfBtn.addEventListener("click",()=>generatePdfDocument("devis"));
+}
+
+
+
+/* ===== MODULE RML CALCUL DU DÉVELOPPÉ ===== */
+(function(){
+  const modal=document.getElementById("bendDesignerModal");
+  const openBtn=document.getElementById("bendDesignerBtn");
+  const closeBtn=document.getElementById("closeBendDesignerBtn");
+  const canvas=document.getElementById("bendCanvas");
+  const ctx=canvas.getContext("2d");
+  const body=document.getElementById("bendSegmentsBody");
+  const targetSelect=document.getElementById("bendTargetPiece");
+  const fields={
+    material:document.getElementById("bendMaterial"),
+    thickness:document.getElementById("bendThickness"),
+    vee:document.getElementById("bendVee"),
+    radius:document.getElementById("bendRadius"),
+    k:document.getElementById("bendKFactor"),
+    round:document.getElementById("bendRound")
+  };
+
+  let profile={
+    points:[{x:80,y:210},{x:250,y:210},{x:250,y:110}],
+    lengths:[200,50],
+    angles:[90],
+    directions:["haut"]
+  };
+
+  function syncArrays(){
+    const segmentCount=Math.max(1,profile.points.length-1);
+    while(profile.lengths.length<segmentCount) profile.lengths.push(50);
+    profile.lengths=profile.lengths.slice(0,segmentCount);
+    while(profile.angles.length<segmentCount-1) profile.angles.push(90);
+    profile.angles=profile.angles.slice(0,Math.max(0,segmentCount-1));
+    while(profile.directions.length<segmentCount-1) profile.directions.push("haut");
+    profile.directions=profile.directions.slice(0,Math.max(0,segmentCount-1));
+  }
+
+  function getBendData(i){
+    const interior=Math.min(179.9,Math.max(0.1,Number(profile.angles[i]||90)));
+    const bendDeg=180-interior;
+    const bendRad=bendDeg*Math.PI/180;
+    const t=Math.max(.01,Number(fields.thickness.value)||1);
+    const r=Math.max(0,Number(fields.radius.value)||0);
+    const k=Math.min(.6,Math.max(.1,Number(fields.k.value)||.33));
+    const ba=bendRad*(r+k*t);
+    const setback=(r+t)*Math.tan(bendRad/2);
+    const deduction=Math.max(0,2*setback-ba);
+    return {interior,bendDeg,ba,setback,deduction};
+  }
+
+  function calculate(){
+    syncArrays();
+    const outer=profile.lengths.reduce((s,v)=>s+(Number(v)||0),0);
+    let deduction=0;
+    for(let i=0;i<profile.angles.length;i++) deduction+=getBendData(i).deduction;
+    const raw=Math.max(0,outer-deduction);
+    const step=Math.max(.01,Number(fields.round.value)||.1);
+    const rounded=Math.round(raw/step)*step;
+    document.getElementById("bendOuterSum").textContent=fmtNumber(outer,2)+" mm";
+    document.getElementById("bendTotalDeduction").textContent=fmtNumber(deduction,2)+" mm";
+    document.getElementById("bendFoldCount").textContent=String(profile.angles.length);
+    document.getElementById("bendToolSummary").textContent=`R ${fmtNumber(fields.radius.value,1)} / V ${fmtNumber(fields.vee.value,0)}`;
+    document.getElementById("bendDeveloped").textContent=fmtNumber(rounded,Math.abs(step-.01)<.001?2:1)+" mm";
+    return {outer,deduction,raw,rounded};
+  }
+
+  function rebuildExactGeometry(){
+    syncArrays();
+    const pts=[{x:0,y:0}];
+    let heading=0;
+    for(let i=0;i<profile.lengths.length;i++){
+      const len=Math.max(1,Number(profile.lengths[i])||1);
+      const prev=pts[pts.length-1];
+      pts.push({x:prev.x+Math.cos(heading)*len,y:prev.y+Math.sin(heading)*len});
+      if(i<profile.angles.length){
+        const turn=(180-Number(profile.angles[i]||90))*Math.PI/180;
+        heading+=profile.directions[i]==="haut"?-turn:turn;
+      }
+    }
+    profile.exactPoints=pts;
+  }
+
+  function resizeCanvas(){
+    const rect=canvas.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    canvas.width=Math.max(1,Math.round(rect.width*dpr));
+    canvas.height=Math.max(1,Math.round(rect.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+
+  function draw(){
+    rebuildExactGeometry();
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    ctx.strokeStyle="#c6deed";ctx.lineWidth=1;
+    for(let x=0;x<w;x+=25){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+    for(let y=0;y<h;y+=25){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+    const pts=profile.exactPoints||[];
+    if(pts.length<2)return;
+    const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const sx=(w-80)/Math.max(1,maxX-minX),sy=(h-80)/Math.max(1,maxY-minY),scale=Math.min(sx,sy);
+    const ox=(w-(maxX-minX)*scale)/2-minX*scale;
+    const oy=(h-(maxY-minY)*scale)/2-minY*scale;
+    const map=p=>({x:ox+p.x*scale,y:oy+p.y*scale});
+    ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#0f62fe";ctx.lineWidth=5;
+    ctx.beginPath();pts.forEach((p,i)=>{const q=map(p);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)});ctx.stroke();
+    pts.forEach((p,i)=>{const q=map(p);ctx.fillStyle=i===0?"#16a34a":"#fff";ctx.strokeStyle="#0a4ecc";ctx.lineWidth=2;ctx.beginPath();ctx.arc(q.x,q.y,6,0,Math.PI*2);ctx.fill();ctx.stroke()});
+    ctx.font="700 12px -apple-system,Segoe UI,sans-serif";ctx.fillStyle="#17202a";
+    for(let i=0;i<pts.length-1;i++){
+      const a=map(pts[i]),b=map(pts[i+1]);const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+      const label=`S${i+1}  ${fmtNumber(profile.lengths[i],1)}`;
+      const tw=ctx.measureText(label).width;ctx.fillStyle="rgba(255,255,255,.9)";ctx.fillRect(mx-tw/2-5,my-17,tw+10,20);ctx.fillStyle="#17202a";ctx.fillText(label,mx-tw/2,my-3);
+    }
+  }
+
+  function renderTable(){
+    syncArrays();body.innerHTML="";
+    profile.lengths.forEach((length,i)=>{
+      const tr=document.createElement("tr");
+      const hasBend=i<profile.angles.length;
+      tr.innerHTML=`
+        <td>${i+1}</td>
+        <td><input type="number" min="0.1" step="0.01" data-role="length" data-index="${i}" value="${length}"></td>
+        <td>${hasBend?`<input type="number" min="0.1" max="179.9" step="0.1" data-role="angle" data-index="${i}" value="${profile.angles[i]}">`:'—'}</td>
+        <td>${hasBend?`<select data-role="direction" data-index="${i}"><option value="haut" ${profile.directions[i]==='haut'?'selected':''}>Haut</option><option value="bas" ${profile.directions[i]==='bas'?'selected':''}>Bas</option></select>`:'—'}</td>
+        <td>${hasBend?fmtNumber(getBendData(i).deduction,2)+' mm':'—'}</td>
+        <td><div class="bend-row-actions"><button class="btn-danger" data-remove="${i}" title="Supprimer le segment">×</button></div></td>`;
+      body.appendChild(tr);
+    });
+    body.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",e=>{
+      const i=Number(e.target.dataset.index),role=e.target.dataset.role;
+      if(role==="length")profile.lengths[i]=Number(e.target.value)||0;
+      if(role==="angle")profile.angles[i]=Number(e.target.value)||90;
+      if(role==="direction")profile.directions[i]=e.target.value;
+      renderAll(false);
+    }));
+    body.querySelectorAll("[data-remove]").forEach(btn=>btn.addEventListener("click",()=>removeSegment(Number(btn.dataset.remove))));
+  }
+
+  function renderTargets(){
+    const previous=targetSelect.value;targetSelect.innerHTML="";
+    pieces.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`Pièce ${i+1}${p.developed?` — ${p.developed} mm`:''}`;targetSelect.appendChild(o)});
+    targetSelect.value=previous&&Number(previous)<pieces.length?previous:String(Math.max(0,pieces.length-1));
+  }
+
+  function renderAll(rebuildTable=true){
+    calculate();draw();if(rebuildTable)renderTable();else{
+      body.querySelectorAll("tr").forEach((tr,i)=>{const cell=tr.children[4];if(cell&&i<profile.angles.length)cell.textContent=fmtNumber(getBendData(i).deduction,2)+" mm"});
+    }
+  }
+
+  function addSegment(length=50,angle=90,direction="haut"){
+    profile.lengths.push(length);
+    if(profile.lengths.length>1){profile.angles.push(angle);profile.directions.push(direction)}
+    profile.points.push({x:0,y:0});renderAll();
+  }
+  function removeSegment(i){
+    if(profile.lengths.length<=1)return;
+    profile.lengths.splice(i,1);profile.points.pop();
+    if(i<profile.angles.length){profile.angles.splice(i,1);profile.directions.splice(i,1)}else{profile.angles.pop();profile.directions.pop()}
+    renderAll();
+  }
+  function reset(){profile={points:[{x:0,y:0},{x:1,y:0}],lengths:[200],angles:[],directions:[]};renderAll();}
+
+  function open(){renderTargets();modal.classList.add("open");setTimeout(resizeCanvas,50)}
+  function close(){modal.classList.remove("open")}
+  openBtn?.addEventListener("click",open);closeBtn?.addEventListener("click",close);
+  modal?.addEventListener("click",e=>{if(e.target===modal)close()});
+  document.getElementById("bendAddSegmentBtn")?.addEventListener("click",()=>addSegment());
+  document.getElementById("bendUndoBtn")?.addEventListener("click",()=>removeSegment(profile.lengths.length-1));
+  document.getElementById("bendResetBtn")?.addEventListener("click",reset);
+  document.getElementById("bendMirrorBtn")?.addEventListener("click",()=>{profile.directions=profile.directions.map(d=>d==="haut"?"bas":"haut");renderAll()});
+  Object.values(fields).forEach(f=>f?.addEventListener("input",()=>renderAll(false)));
+  window.addEventListener("resize",()=>{if(modal.classList.contains("open"))resizeCanvas()});
+
+  // Dessin libre : les clics définissent uniquement la topologie et une estimation des cotes/angles.
+  let rough=[];
+  function pointerPos(e){const r=canvas.getBoundingClientRect();const p=e.touches?.[0]||e;return{x:p.clientX-r.left,y:p.clientY-r.top}}
+  canvas.addEventListener("pointerdown",e=>{
+    const p=pointerPos(e);rough.push(p);
+    if(rough.length===1)return;
+    const a=rough[rough.length-2],b=rough[rough.length-1];
+    const pxLen=Math.hypot(b.x-a.x,b.y-a.y);const estimated=Math.max(10,Math.round(pxLen));
+    if(rough.length===2){profile.lengths=[estimated];profile.angles=[];profile.directions=[];profile.points=[{x:0,y:0},{x:1,y:0}]}
+    else{
+      const p0=rough[rough.length-3];
+      const v1={x:a.x-p0.x,y:a.y-p0.y},v2={x:b.x-a.x,y:b.y-a.y};
+      const dot=v1.x*v2.x+v1.y*v2.y,det=v1.x*v2.y-v1.y*v2.x;
+      const turn=Math.atan2(det,dot)*180/Math.PI;
+      const interior=Math.max(.1,Math.min(179.9,180-Math.abs(turn)));
+      profile.angles.push(Math.round(interior*10)/10);profile.directions.push(turn<0?"haut":"bas");profile.lengths.push(estimated);profile.points.push({x:0,y:0});
+    }
+    renderAll();
+  });
+
+  document.getElementById("bendInsertBtn")?.addEventListener("click",()=>{
+    const result=calculate();const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+    if(!pieces[index])return alert("Pièce cible introuvable.");
+    pieces[index].developed=result.rounded;
+    pieces[index].folds=profile.angles.length;
+    pieces[index].bendProfile=JSON.parse(JSON.stringify({profile,settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,round:fields.round.value},result}));
+    savePieces();renderPieces();close();alert(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
+  });
+  document.getElementById("bendSaveProfileBtn")?.addEventListener("click",()=>{
+    const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+    if(!pieces[index])return alert("Pièce cible introuvable.");
+    const result=calculate();pieces[index].bendProfile=JSON.parse(JSON.stringify({profile,settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,round:fields.round.value},result}));
+    savePieces();alert(`Profil mémorisé dans la pièce ${index+1}.`);
+  });
+
+  renderAll();
+})();
+
+</script>
+</body>
+</html>
