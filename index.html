@@ -803,6 +803,34 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   }
 }
 
+
+/* ===== V13 : TABLEAU EXPLICITE ET 3D FERMÉE AU DÉMARRAGE ===== */
+#bendDesignerModal #bend3DCard[hidden]{
+  display:none!important;
+}
+
+#bendDesignerModal #bend3DCard.bend-3d-visible{
+  display:block!important;
+}
+
+#bendDesignerModal .bend-data-card{
+  order:2!important;
+}
+
+#bendDesignerModal #bend3DCard{
+  order:3!important;
+}
+
+#bendDesignerModal .bend-table-empty-row td{
+  padding:24px 16px!important;
+  text-align:center!important;
+  color:#425466!important;
+  font-weight:700!important;
+  background:#f8fafc!important;
+  white-space:normal!important;
+  line-height:1.45!important;
+}
+
 </style> 
   </head>
 <body>
@@ -1027,7 +1055,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <div class="bend-warning" id="bendWarning">Le calcul est théorique (facteur K). Pour retrouver exactement les valeurs CybTouch, calibrez ensuite les déductions avec vos essais presse.</div>
       </div>
 
-      <div class="bend-3d-card">
+      <div class="bend-3d-card" id="bend3DCard" hidden style="display:none!important;">
         <div class="bend-3d-head">
           <div>
             <h3>Rendu 3D interactif de la pièce</h3>
@@ -3364,6 +3392,21 @@ if(quotePdfBtn){
 
   function renderTable(){
     body.innerHTML="";
+
+    if(!profile.lengths.length){
+      const emptyRow=document.createElement("tr");
+      emptyRow.className="bend-table-empty-row";
+      emptyRow.innerHTML=`
+        <td colspan="6">
+          Dessinez la forme de la pièce puis cliquez sur
+          <strong>Terminer le dessin</strong> :
+          les lignes de saisie des cotes et des angles apparaîtront ici.
+        </td>
+      `;
+      body.appendChild(emptyRow);
+      return;
+    }
+
     profile.lengths.forEach((length,i)=>{
       const hasBend=i<profile.angles.length;
       const tr=document.createElement("tr");
@@ -3487,14 +3530,23 @@ if(quotePdfBtn){
 
 
   const bendShow3DBtn=document.getElementById("bendShow3DBtn");
-  const bend3DCard=document.querySelector("#bendDesignerModal .bend-3d-card");
+  const bend3DCard=document.getElementById("bend3DCard");
 
   bendShow3DBtn?.addEventListener("click",()=>{
-    const visible=bend3DCard?.classList.toggle("bend-3d-visible");
+    if(!bend3DCard)return;
 
-    bendShow3DBtn.textContent=visible ? "Masquer la 3D" : "Afficher la 3D";
+    const mustOpen=bend3DCard.hidden;
 
-    if(visible){
+    bend3DCard.hidden=!mustOpen;
+    bend3DCard.style.setProperty(
+      "display",
+      mustOpen ? "block" : "none",
+      "important"
+    );
+    bend3DCard.classList.toggle("bend-3d-visible",mustOpen);
+    bendShow3DBtn.textContent=mustOpen ? "Masquer la 3D" : "Afficher la 3D";
+
+    if(mustOpen){
       setTimeout(()=>{
         resizeCanvas3D();
         draw3D();
@@ -3533,10 +3585,18 @@ if(quotePdfBtn){
     renderAll(true);
   }
   function hide3DPanel(){
-    const card=document.querySelector("#bendDesignerModal .bend-3d-card");
+    const card=document.getElementById("bend3DCard");
     const button=document.getElementById("bendShow3DBtn");
-    card?.classList.remove("bend-3d-visible");
-    if(button)button.textContent="Afficher la 3D";
+
+    if(card){
+      card.hidden=true;
+      card.classList.remove("bend-3d-visible");
+      card.style.setProperty("display","none","important");
+    }
+
+    if(button){
+      button.textContent="Afficher la 3D";
+    }
   }
 
   function reset(){
