@@ -837,6 +837,187 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   color:#0f62fe;
 }
 
+
+/* ===== V15 : GRAND DESSINATEUR PLEIN ÉCRAN ===== */
+#bendDesignerModal .bend-head-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+#bendDesignerModal.bend-drawing-stage{
+  padding:0!important;
+  align-items:stretch!important;
+  justify-content:stretch!important;
+  background:#0f172a!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .modal-card{
+  position:fixed!important;
+  inset:0!important;
+  width:100vw!important;
+  max-width:none!important;
+  height:100vh!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  overflow:hidden!important;
+  background:#eef3f8!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .modal-head{
+  position:absolute!important;
+  top:0!important;
+  left:0!important;
+  right:0!important;
+  z-index:100!important;
+  height:74px!important;
+  margin:0!important;
+  padding:10px 16px!important;
+  background:rgba(255,255,255,.96)!important;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid #d9e1ea!important;
+  box-shadow:0 8px 24px rgba(15,23,42,.12)!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .modal-head h2{
+  font-size:1.2rem!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .modal-head .note{
+  display:none!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .bend-toolbar,
+#bendDesignerModal.bend-drawing-stage .bend-data-card,
+#bendDesignerModal.bend-drawing-stage .bend-3d-card,
+#bendDesignerModal.bend-drawing-stage .bend-results,
+#bendDesignerModal.bend-drawing-stage .bend-warning{
+  display:none!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .bend-workspace{
+  display:block!important;
+  width:100vw!important;
+  height:100vh!important;
+  padding:0!important;
+  margin:0!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .bend-canvas-card{
+  position:fixed!important;
+  inset:74px 0 0 0!important;
+  width:100vw!important;
+  height:calc(100vh - 74px)!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:#1593c5!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .bend-canvas-wrap{
+  position:absolute!important;
+  inset:0 0 86px 0!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  border:0!important;
+  border-radius:0!important;
+}
+
+#bendDesignerModal.bend-drawing-stage #bendCanvas{
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .bend-canvas-help{
+  position:absolute!important;
+  left:18px!important;
+  right:18px!important;
+  bottom:12px!important;
+  z-index:20!important;
+  width:auto!important;
+  max-width:none!important;
+  padding:10px 14px!important;
+  border-radius:12px!important;
+  background:rgba(15,23,42,.82)!important;
+  color:#fff!important;
+  font-size:.95rem!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .bend-mini-actions{
+  position:absolute!important;
+  left:0!important;
+  right:0!important;
+  bottom:0!important;
+  z-index:30!important;
+  height:86px!important;
+  padding:12px 16px!important;
+  margin:0!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  overflow-x:auto!important;
+  flex-wrap:nowrap!important;
+  background:rgba(255,255,255,.97)!important;
+  border-top:1px solid #d9e1ea!important;
+  box-shadow:0 -8px 24px rgba(15,23,42,.12)!important;
+}
+
+#bendDesignerModal.bend-drawing-stage .bend-mini-actions button{
+  flex:0 0 auto!important;
+  min-width:150px!important;
+  min-height:52px!important;
+  font-size:1rem!important;
+}
+
+#bendDesignerModal.bend-drawing-stage #bendAddSegmentBtn,
+#bendDesignerModal.bend-drawing-stage #bendHorizontalBtn,
+#bendDesignerModal.bend-drawing-stage #bendVerticalBtn,
+#bendDesignerModal.bend-drawing-stage #bendZoomOutBtn,
+#bendDesignerModal.bend-drawing-stage #bendZoomInBtn,
+#bendDesignerModal.bend-drawing-stage #bendAutoFitBtn{
+  display:none!important;
+}
+
+@media(max-width:760px){
+  #bendDesignerModal.bend-drawing-stage .modal-head{
+    height:68px!important;
+    padding:8px!important;
+  }
+
+  #bendDesignerModal.bend-drawing-stage .modal-head h2{
+    font-size:1rem!important;
+  }
+
+  #bendDesignerModal.bend-drawing-stage .bend-canvas-card{
+    inset:68px 0 0 0!important;
+    height:calc(100vh - 68px)!important;
+  }
+
+  #bendDesignerModal.bend-drawing-stage .bend-canvas-wrap{
+    inset:0 0 82px 0!important;
+  }
+
+  #bendDesignerModal.bend-drawing-stage .bend-mini-actions{
+    height:82px!important;
+    padding:10px!important;
+  }
+
+  #bendDesignerModal.bend-drawing-stage .bend-mini-actions button{
+    min-width:138px!important;
+    min-height:48px!important;
+  }
+}
+
 </style> 
   </head>
 <body>
@@ -1020,7 +1201,10 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h2>Calcul du développé — dessin de profil</h2>
         <div class="note">Dessinez la forme approximative, puis saisissez les cotes extérieures et les angles exacts.</div>
       </div>
-      <button class="modal-close" id="closeBendDesignerBtn">Fermer</button>
+      <div class="bend-head-actions">
+        <button class="btn-primary" id="bendFullscreenDrawBtn">✏️ Ouvrir le grand dessinateur</button>
+        <button class="modal-close" id="closeBendDesignerBtn">Fermer</button>
+      </div>
     </div>
 
     <div class="bend-toolbar">
@@ -2779,6 +2963,7 @@ if(quotePdfBtn){
   const modal=document.getElementById("bendDesignerModal");
   const openBtn=document.getElementById("bendDesignerBtn");
   const closeBtn=document.getElementById("closeBendDesignerBtn");
+  const fullscreenDrawBtn=document.getElementById("bendFullscreenDrawBtn");
   const canvas=document.getElementById("bendCanvas");
   const ctx=canvas.getContext("2d");
   const canvas3D=document.getElementById("bend3DCanvas");
@@ -3442,6 +3627,29 @@ if(quotePdfBtn){
     return true;
   }
 
+
+  function setLargeDrawingMode(enabled){
+    modal.classList.toggle("bend-drawing-stage",enabled);
+
+    if(fullscreenDrawBtn){
+      fullscreenDrawBtn.textContent=enabled
+        ? "↩ Revenir au calcul"
+        : "✏️ Ouvrir le grand dessinateur";
+    }
+
+    document.body.style.overflow=enabled ? "hidden" : "";
+
+    setTimeout(()=>{
+      resizeCanvas();
+      draw();
+    },80);
+  }
+
+  fullscreenDrawBtn?.addEventListener("click",()=>{
+    const enabled=!modal.classList.contains("bend-drawing-stage");
+    setLargeDrawingMode(enabled);
+  });
+
   function finishDrawing(){
     // Une fois terminé, les valeurs du tableau deviennent la référence.
     // Un nouveau clic ne doit jamais réinjecter les cotes approximatives du tracé.
@@ -3466,6 +3674,18 @@ if(quotePdfBtn){
 
     help.textContent="Les cotes et les angles du tableau sont maintenant prioritaires. Toute modification est conservée et visible immédiatement sur le dessin.";
     renderAll(true);
+
+    // Après le dessin grossier, retour automatique à l'écran des cotes.
+    if(modal.classList.contains("bend-drawing-stage")){
+      setLargeDrawingMode(false);
+
+      setTimeout(()=>{
+        document.querySelector("#bendDesignerModal .bend-data-card")?.scrollIntoView({
+          behavior:"smooth",
+          block:"start"
+        });
+      },120);
+    }
   }
 
   function renderTable(){
@@ -3730,6 +3950,7 @@ if(quotePdfBtn){
   canvas.addEventListener("dblclick",e=>{e.preventDefault();if(drawingMode)finishDrawing()});
 
   function open(){
+    setLargeDrawingMode(false);
     renderTargets();
 
     const targetIndex=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
@@ -3743,7 +3964,10 @@ if(quotePdfBtn){
       reset();
     },80);
   }
-  function close(){modal.classList.remove("open")}
+  function close(){
+    setLargeDrawingMode(false);
+    modal.classList.remove("open");
+  }
   openBtn?.addEventListener("click",open);closeBtn?.addEventListener("click",close);
   modal?.addEventListener("click",e=>{if(e.target===modal)close()});
   document.getElementById("bendFinishDrawBtn")?.addEventListener("click",finishDrawing);
