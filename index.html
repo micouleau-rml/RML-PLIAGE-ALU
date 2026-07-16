@@ -831,6 +831,12 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   line-height:1.45!important;
 }
 
+
+#bendDesignerModal #bendCalcMode{
+  font-weight:800;
+  color:#0f62fe;
+}
+
 </style> 
   </head>
 <body>
@@ -1022,7 +1028,15 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <div class="field"><label for="bendThickness">Épaisseur (mm)</label><input id="bendThickness" type="number" min="0.1" step="0.1" value="1"></div>
       <div class="field"><label for="bendVee">Vé (mm)</label><input id="bendVee" type="number" min="1" step="1" value="16"></div>
       <div class="field"><label for="bendRadius">Rayon intérieur (mm)</label><input id="bendRadius" type="number" min="0" step="0.1" value="1"></div>
-      <div class="field"><label for="bendKFactor">Facteur K</label><input id="bendKFactor" type="number" min="0.1" max="0.6" step="0.01" value="0.33"></div>
+      <div class="field">
+        <label for="bendCalcMode">Mode de calcul</label>
+        <select id="bendCalcMode">
+          <option value="cybtouch" selected>CybTouch RML calibré</option>
+          <option value="theoretical">Théorique facteur K</option>
+        </select>
+      </div>
+      <div class="field"><label for="bendKFactor">Facteur K théorique</label><input id="bendKFactor" type="number" min="0.1" max="0.6" step="0.01" value="0.33"></div>
+      <div class="field"><label for="bendCybFactor">Facteur CybTouch</label><input id="bendCybFactor" type="number" min="0.1" max="2" step="0.01" value="1.03"></div>
       <div class="field"><label for="bendRound">Arrondi atelier</label><select id="bendRound"><option value="0.01">0,01 mm</option><option value="0.1" selected>0,1 mm</option><option value="0.5">0,5 mm</option><option value="1">1 mm</option></select></div>
       <div class="field"><label for="bend3DLength">Longueur de la pièce 3D (mm)</label><input id="bend3DLength" type="number" min="10" step="10" value="1000"></div>
     </div>
@@ -1052,7 +1066,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <div class="bend-result"><span>Rayon / Vé</span><strong id="bendToolSummary">R 1 / V 16</strong></div>
           <div class="bend-result main"><span>Développé calculé</span><strong id="bendDeveloped">0,0 mm</strong></div>
         </div>
-        <div class="bend-warning" id="bendWarning">Le calcul est théorique (facteur K). Pour retrouver exactement les valeurs CybTouch, calibrez ensuite les déductions avec vos essais presse.</div>
+        <div class="bend-warning" id="bendWarning">Mode CybTouch RML calibré sur Alu 1 mm, rayon 1 mm, Vé 16 et facteur machine 1,03. Pour les autres configurations, une calibration complémentaire sera nécessaire.</div>
       </div>
 
       <div class="bend-3d-card" id="bend3DCard" hidden style="display:none!important;">
@@ -2777,7 +2791,9 @@ if(quotePdfBtn){
     thickness:document.getElementById("bendThickness"),
     vee:document.getElementById("bendVee"),
     radius:document.getElementById("bendRadius"),
+    calcMode:document.getElementById("bendCalcMode"),
     k:document.getElementById("bendKFactor"),
+    cybFactor:document.getElementById("bendCybFactor"),
     round:document.getElementById("bendRound"),
     length3D:document.getElementById("bend3DLength")
   };
@@ -2822,17 +2838,78 @@ if(quotePdfBtn){
     draw3D();
   }
 
+  function interpolateCalibration(angle){
+    // Calibration issue des valeurs CybTouch fournies :
+    // Alu 1 mm, R1, V16, facteur machine 1,03
+    // 55°  -> déduction 1,06 mm
+    // 90°  -> déduction 1,91 mm
+    // 105° -> déduction 1,565 mm
+    const points=[
+      {angle:55,deduction:1.06},
+      {angle:90,deduction:1.91},
+      {angle:105,deduction:1.565}
+    ];
+
+    if(angle<=points[0].angle){
+      const a=points[0],b=points[1];
+      return a.deduction+(angle-a.angle)*(b.deduction-a.deduction)/(b.angle-a.angle);
+    }
+
+    if(angle>=points[points.length-1].angle){
+      const a=points[points.length-2],b=points[points.length-1];
+      return a.deduction+(angle-a.angle)*(b.deduction-a.deduction)/(b.angle-a.angle);
+    }
+
+    for(let j=0;j<points.length-1;j++){
+      const a=points[j],b=points[j+1];
+      if(angle>=a.angle && angle<=b.angle){
+        return a.deduction+(angle-a.angle)*(b.deduction-a.deduction)/(b.angle-a.angle);
+      }
+    }
+
+    return 0;
+  }
+
   function getBendData(i){
     const t=Math.max(.01,Number(fields.thickness.value)||1);
     const r=Math.max(0,Number(fields.radius.value)||0);
-    const k=Math.max(.01,Number(fields.k.value)||.33);
     const interior=Math.min(179.9,Math.max(.1,Number(profile.angles[i])||90));
     const bendAngle=180-interior;
     const rad=bendAngle*Math.PI/180;
+
+    const mode=fields.calcMode?.value || "cybtouch";
+
+    if(mode==="cybtouch"){
+      const machineFactor=Math.max(.01,Number(fields.cybFactor?.value)||1.03);
+
+      // Base calibrée pour Alu 1 mm / R1 / V16 / facteur 1,03.
+      // Mise à l'échelle prudente selon rayon + épaisseur.
+      const base=interpolateCalibration(interior);
+      const geometryScale=(r+t)/2;
+      const factorScale=machineFactor/1.03;
+      const deduction=Math.max(0,base*geometryScale*factorScale);
+
+      return {
+        bendAngle,
+        ba:0,
+        setback:0,
+        deduction,
+        mode:"cybtouch"
+      };
+    }
+
+    const k=Math.max(.01,Number(fields.k.value)||.33);
     const ba=rad*(r+k*t);
     const setback=(r+t)*Math.tan(rad/2);
     const deduction=Math.max(0,2*setback-ba);
-    return {bendAngle,ba,setback,deduction};
+
+    return {
+      bendAngle,
+      ba,
+      setback,
+      deduction,
+      mode:"theoretical"
+    };
   }
 
   function calculate(){
@@ -2845,7 +2922,8 @@ if(quotePdfBtn){
     document.getElementById("bendOuterSum").textContent=fmtNumber(outer,2)+" mm";
     document.getElementById("bendTotalDeduction").textContent=fmtNumber(deduction,2)+" mm";
     document.getElementById("bendFoldCount").textContent=String(profile.angles.length);
-    document.getElementById("bendToolSummary").textContent=`R ${fmtNumber(fields.radius.value,1)} / V ${fmtNumber(fields.vee.value,0)}`;
+    const modeLabel=(fields.calcMode?.value==="cybtouch") ? "CybTouch RML" : "Théorique K";
+    document.getElementById("bendToolSummary").textContent=`R ${fmtNumber(fields.radius.value,1)} / V ${fmtNumber(fields.vee.value,0)} / ${modeLabel}`;
     document.getElementById("bendDeveloped").textContent=fmtNumber(rounded,Math.abs(increment-.01)<.001?2:1)+" mm";
     return {outer,deduction,developed,rounded};
   }
