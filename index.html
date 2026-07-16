@@ -736,34 +736,30 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   #bendDesignerModal .bend-3d-actions button{flex:1 1 auto}
 }
 
-/* ===== V11 : TABLEAU PRIORITAIRE ET 3D REPLIABLE ===== */
+/* ===== V12 : TABLEAU TOUJOURS VISIBLE, 3D REPLIABLE ===== */
 #bendDesignerModal .bend-workspace{
   display:flex!important;
   flex-direction:column!important;
   gap:14px!important;
 }
 
-#bendDesignerModal .bend-canvas-card,
-#bendDesignerModal .bend-data-card,
-#bendDesignerModal .bend-3d-details{
-  width:100%!important;
-  flex:0 0 auto!important;
+#bendDesignerModal .bend-canvas-card{
+  order:1!important;
 }
 
 #bendDesignerModal .bend-data-card{
+  order:2!important;
   display:block!important;
   visibility:visible!important;
   opacity:1!important;
-  position:relative!important;
-  z-index:2!important;
-  order:2!important;
-  min-height:180px!important;
+  width:100%!important;
+  min-height:220px!important;
 }
 
 #bendDesignerModal .bend-table-wrap{
   display:block!important;
   width:100%!important;
-  min-height:120px!important;
+  min-height:160px!important;
   max-height:none!important;
   overflow:auto!important;
 }
@@ -782,45 +778,23 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   display:table-row-group!important;
 }
 
-#bendDesignerModal .bend-3d-details{
-  order:3!important;
-  border:1px solid #d9e1ea;
-  border-radius:16px;
-  background:#fff;
-  overflow:hidden;
+#bendDesignerModal .bend-table tr{
+  display:table-row!important;
 }
 
-#bendDesignerModal .bend-3d-details > summary{
-  cursor:pointer;
-  list-style:none;
-  padding:14px 16px;
-  font-weight:800;
-  color:#0f62fe;
-  background:#eef5ff;
-  border-radius:16px;
-  user-select:none;
-}
-
-#bendDesignerModal .bend-3d-details > summary::-webkit-details-marker{
-  display:none;
-}
-
-#bendDesignerModal .bend-3d-details > summary::before{
-  content:"▶";
-  display:inline-block;
-  margin-right:9px;
-  transition:transform .2s ease;
-}
-
-#bendDesignerModal .bend-3d-details[open] > summary::before{
-  transform:rotate(90deg);
+#bendDesignerModal .bend-table th,
+#bendDesignerModal .bend-table td{
+  display:table-cell!important;
 }
 
 #bendDesignerModal .bend-3d-card{
-  border:0!important;
-  border-top:1px solid #d9e1ea!important;
-  border-radius:0!important;
-  box-shadow:none!important;
+  order:3!important;
+  display:none!important;
+  width:100%!important;
+}
+
+#bendDesignerModal .bend-3d-card.bend-3d-visible{
+  display:block!important;
 }
 
 @media(max-width:760px){
@@ -1053,6 +1027,23 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <div class="bend-warning" id="bendWarning">Le calcul est théorique (facteur K). Pour retrouver exactement les valeurs CybTouch, calibrez ensuite les déductions avec vos essais presse.</div>
       </div>
 
+      <div class="bend-3d-card">
+        <div class="bend-3d-head">
+          <div>
+            <h3>Rendu 3D interactif de la pièce</h3>
+            <div class="note">Glissez pour tourner, utilisez la molette ou pincez pour zoomer.</div>
+          </div>
+          <div class="bend-3d-actions">
+            <button type="button" class="btn-light" id="bend3DResetBtn">Réinitialiser la vue</button>
+            <button type="button" class="btn-light" id="bend3DFrontBtn">Vue avant</button>
+            <button type="button" class="btn-light" id="bend3DIsoBtn">Vue isométrique</button>
+          </div>
+        </div>
+        <div class="bend-3d-wrap">
+          <canvas id="bend3DCanvas"></canvas>
+        </div>
+      </div>
+
       <div class="bend-data-card">
         <h3 style="margin:0 0 10px">Tableau des cotes extérieures</h3>
         <div class="bend-table-wrap">
@@ -1065,32 +1056,12 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <div class="field"><label for="bendTargetPiece">Insérer dans</label><select id="bendTargetPiece"></select></div>
           <button class="btn-primary" id="bendInsertBtn">Insérer dans le devis</button>
           <button class="btn-light" id="bendSaveProfileBtn">Mémoriser le profil</button>
+          <button class="btn-light" id="bendShow3DBtn">Afficher la 3D</button>
         </div>
         <div class="bend-calibration-note">
           Formule : BA = angle de pli × (rayon + K × épaisseur), puis déduction de pli = 2 × retrait extérieur − BA. Les angles saisis sont les angles intérieurs finis.
         </div>
       </div>
-
-      <details class="bend-3d-details" id="bend3DDetails">
-  <summary>Afficher la 3D interactive</summary>
-  <div class="bend-3d-card">
-    <div class="bend-3d-head">
-      <div>
-        <h3>Rendu 3D interactif de la pièce</h3>
-        <div class="note">Glissez pour tourner, utilisez la molette ou pincez pour zoomer.</div>
-      </div>
-      <div class="bend-3d-actions">
-            <button type="button" class="btn-light" id="bend3DResetBtn">Réinitialiser la vue</button>
-            <button type="button" class="btn-light" id="bend3DFrontBtn">Vue avant</button>
-            <button type="button" class="btn-light" id="bend3DIsoBtn">Vue isométrique</button>
-          </div>
-    </div>
-    <div class="bend-3d-wrap">
-          <canvas id="bend3DCanvas"></canvas>
-        </div>
-  </div>
-</details>
-    
     </div>
   </div>
 </div>
@@ -3515,13 +3486,23 @@ if(quotePdfBtn){
   }
 
 
-  const bend3DDetails=document.getElementById("bend3DDetails");
-  bend3DDetails?.addEventListener("toggle",()=>{
-    if(bend3DDetails.open){
+  const bendShow3DBtn=document.getElementById("bendShow3DBtn");
+  const bend3DCard=document.querySelector("#bendDesignerModal .bend-3d-card");
+
+  bendShow3DBtn?.addEventListener("click",()=>{
+    const visible=bend3DCard?.classList.toggle("bend-3d-visible");
+
+    bendShow3DBtn.textContent=visible ? "Masquer la 3D" : "Afficher la 3D";
+
+    if(visible){
       setTimeout(()=>{
         resizeCanvas3D();
         draw3D();
-      },50);
+        bend3DCard.scrollIntoView({
+          behavior:"smooth",
+          block:"start"
+        });
+      },80);
     }
   });
 
@@ -3551,7 +3532,15 @@ if(quotePdfBtn){
     else{profile.angles.pop();profile.directions.pop()}
     renderAll(true);
   }
+  function hide3DPanel(){
+    const card=document.querySelector("#bendDesignerModal .bend-3d-card");
+    const button=document.getElementById("bendShow3DBtn");
+    card?.classList.remove("bend-3d-visible");
+    if(button)button.textContent="Afficher la 3D";
+  }
+
   function reset(){
+    hide3DPanel();
     roughPoints=[];
     previewPoint=null;
     drawingMode=true;
