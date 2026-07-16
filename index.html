@@ -1199,6 +1199,49 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   }
 }
 
+
+/* ===== V18 : TABLEAU DES COTES RÉTABLI ===== */
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-data-card{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  position:relative!important;
+  width:100%!important;
+  min-height:220px!important;
+  order:2!important;
+}
+
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-table-wrap{
+  display:block!important;
+  visibility:visible!important;
+  width:100%!important;
+  min-height:160px!important;
+  overflow:auto!important;
+}
+
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-table{
+  display:table!important;
+  width:100%!important;
+  min-width:920px!important;
+}
+
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-table thead{
+  display:table-header-group!important;
+}
+
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-table tbody{
+  display:table-row-group!important;
+}
+
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-table tr{
+  display:table-row!important;
+}
+
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-table th,
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-table td{
+  display:table-cell!important;
+}
+
 </style> 
   </head>
 <body>
@@ -1384,6 +1427,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       </div>
       <div class="bend-head-actions">
         <button type="button" class="btn-primary" id="bendFullscreenDrawBtn">✏️ Ouvrir le grand dessinateur</button>
+        <button type="button" class="btn-secondary" id="bendShowTableBtn">📋 Tableau des cotes</button>
         <button class="modal-close" id="closeBendDesignerBtn">Fermer</button>
       </div>
     </div>
@@ -3145,6 +3189,7 @@ if(quotePdfBtn){
   const openBtn=document.getElementById("bendDesignerBtn");
   const closeBtn=document.getElementById("closeBendDesignerBtn");
   const fullscreenDrawBtn=document.getElementById("bendFullscreenDrawBtn");
+  const showTableBtn=document.getElementById("bendShowTableBtn");
   const canvas=document.getElementById("bendCanvas");
   const ctx=canvas.getContext("2d");
   const canvas3D=document.getElementById("bend3DCanvas");
@@ -4027,6 +4072,98 @@ if(quotePdfBtn){
     fullscreenDrawBtn.onclick=toggleLargeDrawingMode;
   }
 
+
+  function showDimensionsTable(){
+    // Quitte proprement le grand dessinateur.
+    if(modal.classList.contains("bend-drawing-stage")){
+      setLargeDrawingMode(false);
+    }
+
+    const toolbar=modal.querySelector(".bend-toolbar");
+    const workspace=modal.querySelector(".bend-workspace");
+    const canvasCard=modal.querySelector(".bend-canvas-card");
+    const dataCard=modal.querySelector(".bend-data-card");
+    const tableWrap=modal.querySelector(".bend-table-wrap");
+    const table=modal.querySelector(".bend-table");
+    const card3D=document.getElementById("bend3DCard");
+
+    // Réaffiche explicitement les éléments du mode calcul.
+    [toolbar,workspace,canvasCard,dataCard,tableWrap,table].forEach(element=>{
+      if(!element)return;
+      element.style.removeProperty("display");
+      element.style.removeProperty("visibility");
+      element.style.removeProperty("opacity");
+      element.hidden=false;
+    });
+
+    if(toolbar)toolbar.style.setProperty("display","grid","important");
+
+    if(workspace){
+      workspace.style.setProperty("display","flex","important");
+      workspace.style.setProperty("flex-direction","column","important");
+      workspace.style.setProperty("overflow","visible","important");
+      workspace.style.setProperty("height","auto","important");
+      workspace.style.setProperty("position","static","important");
+    }
+
+    if(canvasCard){
+      canvasCard.style.setProperty("display","block","important");
+      canvasCard.style.setProperty("position","relative","important");
+      canvasCard.style.setProperty("height","auto","important");
+      canvasCard.style.setProperty("width","100%","important");
+    }
+
+    if(dataCard){
+      dataCard.style.setProperty("display","block","important");
+      dataCard.style.setProperty("visibility","visible","important");
+      dataCard.style.setProperty("opacity","1","important");
+      dataCard.style.setProperty("position","relative","important");
+      dataCard.style.setProperty("width","100%","important");
+      dataCard.style.setProperty("min-height","220px","important");
+      dataCard.style.setProperty("order","2","important");
+    }
+
+    if(tableWrap){
+      tableWrap.style.setProperty("display","block","important");
+      tableWrap.style.setProperty("visibility","visible","important");
+      tableWrap.style.setProperty("min-height","160px","important");
+      tableWrap.style.setProperty("overflow","auto","important");
+    }
+
+    if(table){
+      table.style.setProperty("display","table","important");
+      table.style.setProperty("width","100%","important");
+      table.style.setProperty("min-width","920px","important");
+    }
+
+    // La 3D reste fermée pendant la saisie.
+    if(card3D){
+      card3D.hidden=true;
+      card3D.classList.remove("bend-3d-visible");
+      card3D.style.setProperty("display","none","important");
+    }
+
+    const button=document.getElementById("bendShow3DBtn");
+    if(button)button.textContent="Afficher la 3D";
+
+    // Reconstruit systématiquement les lignes.
+    renderTable();
+    calculate();
+    draw();
+
+    setTimeout(()=>{
+      dataCard?.scrollIntoView({
+        behavior:"smooth",
+        block:"start"
+      });
+    },100);
+  }
+
+  showTableBtn?.addEventListener("click",event=>{
+    event.preventDefault();
+    showDimensionsTable();
+  });
+
   function finishDrawing(){
     // Une fois terminé, les valeurs du tableau deviennent la référence.
     // Un nouveau clic ne doit jamais réinjecter les cotes approximatives du tracé.
@@ -4052,17 +4189,8 @@ if(quotePdfBtn){
     help.textContent="Les cotes et les angles du tableau sont maintenant prioritaires. Toute modification est conservée et visible immédiatement sur le dessin.";
     renderAll(true);
 
-    // Après le dessin grossier, retour automatique à l'écran des cotes.
-    if(modal.classList.contains("bend-drawing-stage")){
-      setLargeDrawingMode(false);
-
-      setTimeout(()=>{
-        document.querySelector("#bendDesignerModal .bend-data-card")?.scrollIntoView({
-          behavior:"smooth",
-          block:"start"
-        });
-      },120);
-    }
+    // Après le dessin grossier, retour automatique au tableau des cotes.
+    showDimensionsTable();
   }
 
   function renderTable(){
