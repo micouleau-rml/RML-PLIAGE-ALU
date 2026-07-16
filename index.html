@@ -3809,35 +3809,204 @@ if(quotePdfBtn){
   }
 
 
+  const largeDrawingSavedStyles=new Map();
+
+  function saveInlineStyle(element){
+    if(element && !largeDrawingSavedStyles.has(element)){
+      largeDrawingSavedStyles.set(element,element.getAttribute("style") || "");
+    }
+  }
+
+  function restoreInlineStyles(){
+    largeDrawingSavedStyles.forEach((style,element)=>{
+      if(style){
+        element.setAttribute("style",style);
+      }else{
+        element.removeAttribute("style");
+      }
+    });
+    largeDrawingSavedStyles.clear();
+  }
+
+  function forceStyle(element,styles){
+    if(!element)return;
+    saveInlineStyle(element);
+    Object.entries(styles).forEach(([property,value])=>{
+      element.style.setProperty(property,value,"important");
+    });
+  }
+
   function setLargeDrawingMode(enabled){
     if(!modal)return;
+
+    const card=modal.querySelector(".modal-card");
+    const head=modal.querySelector(".modal-head");
+    const toolbar=modal.querySelector(".bend-toolbar");
+    const workspace=modal.querySelector(".bend-workspace");
+    const canvasCard=modal.querySelector(".bend-canvas-card");
+    const canvasWrap=modal.querySelector(".bend-canvas-wrap");
+    const canvasHelp=modal.querySelector(".bend-canvas-help");
+    const miniActions=modal.querySelector(".bend-mini-actions");
+    const dataCard=modal.querySelector(".bend-data-card");
+    const card3D=document.getElementById("bend3DCard");
+    const results=modal.querySelector(".bend-results");
+    const warning=modal.querySelector(".bend-warning");
 
     modal.classList.toggle("bend-drawing-stage",enabled);
     modal.setAttribute("data-large-drawing",enabled ? "true" : "false");
 
-    const card=modal.querySelector(".modal-card");
-    card?.classList.toggle("bend-large-card",enabled);
+    if(enabled){
+      forceStyle(modal,{
+        display:"block",
+        position:"fixed",
+        inset:"0",
+        width:"100vw",
+        height:"100vh",
+        padding:"0",
+        margin:"0",
+        overflow:"hidden",
+        background:"#0f172a",
+        zIndex:"2147483000"
+      });
+
+      forceStyle(card,{
+        display:"block",
+        position:"fixed",
+        inset:"0",
+        width:"100vw",
+        maxWidth:"100vw",
+        height:"100vh",
+        maxHeight:"100vh",
+        margin:"0",
+        padding:"0",
+        overflow:"hidden",
+        border:"0",
+        borderRadius:"0"
+      });
+
+      forceStyle(head,{
+        display:"flex",
+        position:"fixed",
+        top:"0",
+        left:"0",
+        right:"0",
+        height:"72px",
+        margin:"0",
+        padding:"10px 16px",
+        zIndex:"1000",
+        background:"#ffffff"
+      });
+
+      [toolbar,dataCard,card3D,results,warning].forEach(element=>{
+        forceStyle(element,{display:"none"});
+      });
+
+      forceStyle(workspace,{
+        display:"block",
+        position:"fixed",
+        top:"72px",
+        left:"0",
+        right:"0",
+        bottom:"0",
+        width:"auto",
+        height:"auto",
+        margin:"0",
+        padding:"0",
+        overflow:"hidden"
+      });
+
+      forceStyle(canvasCard,{
+        display:"block",
+        position:"absolute",
+        inset:"0",
+        width:"100%",
+        height:"100%",
+        margin:"0",
+        padding:"0",
+        border:"0",
+        borderRadius:"0",
+        background:"#1593c5"
+      });
+
+      forceStyle(canvasWrap,{
+        display:"block",
+        position:"absolute",
+        top:"0",
+        left:"0",
+        right:"0",
+        bottom:"92px",
+        width:"auto",
+        height:"auto",
+        minHeight:"0",
+        margin:"0",
+        padding:"0",
+        overflow:"hidden",
+        border:"0",
+        borderRadius:"0"
+      });
+
+      forceStyle(canvas,{
+        display:"block",
+        width:"100%",
+        height:"100%",
+        minHeight:"0"
+      });
+
+      forceStyle(canvasHelp,{
+        position:"absolute",
+        left:"16px",
+        right:"16px",
+        bottom:"104px",
+        zIndex:"30",
+        maxWidth:"none",
+        margin:"0",
+        padding:"10px 14px",
+        color:"#ffffff",
+        background:"rgba(15,23,42,.82)"
+      });
+
+      forceStyle(miniActions,{
+        display:"flex",
+        position:"absolute",
+        left:"0",
+        right:"0",
+        bottom:"0",
+        height:"92px",
+        margin:"0",
+        padding:"14px 16px",
+        zIndex:"40",
+        flexWrap:"nowrap",
+        alignItems:"center",
+        gap:"10px",
+        overflowX:"auto",
+        background:"#ffffff"
+      });
+
+      if(document.documentElement.requestFullscreen){
+        document.documentElement.requestFullscreen().catch(()=>{});
+      }
+    }else{
+      restoreInlineStyles();
+
+      if(document.fullscreenElement && document.exitFullscreen){
+        document.exitFullscreen().catch(()=>{});
+      }
+    }
 
     if(fullscreenDrawBtn){
       fullscreenDrawBtn.textContent=enabled
         ? "↩ Revenir au calcul"
         : "✏️ Ouvrir le grand dessinateur";
-
-      fullscreenDrawBtn.setAttribute(
-        "aria-pressed",
-        enabled ? "true" : "false"
-      );
+      fullscreenDrawBtn.setAttribute("aria-pressed",enabled ? "true" : "false");
     }
 
     document.documentElement.style.overflow=enabled ? "hidden" : "";
     document.body.style.overflow=enabled ? "hidden" : "";
 
-    requestAnimationFrame(()=>{
-      requestAnimationFrame(()=>{
-        resizeCanvas();
-        draw();
-      });
-    });
+    setTimeout(()=>{
+      resizeCanvas();
+      draw();
+    },120);
   }
 
   function toggleLargeDrawingMode(event){
@@ -3845,7 +4014,13 @@ if(quotePdfBtn){
     event?.stopPropagation();
 
     const enabled=!modal.classList.contains("bend-drawing-stage");
-    setLargeDrawingMode(enabled);
+
+    try{
+      setLargeDrawingMode(enabled);
+    }catch(error){
+      console.error("Erreur grand dessinateur :",error);
+      alert("Le grand dessinateur n’a pas pu s’ouvrir : " + error.message);
+    }
   }
 
   if(fullscreenDrawBtn){
