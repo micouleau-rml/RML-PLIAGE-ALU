@@ -1242,6 +1242,70 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   display:table-cell!important;
 }
 
+
+
+/* ===== V18 : ÉCRAN CYBTOUCH — TABLEAU À GAUCHE, DESSIN À DROITE ===== */
+@media (min-width:1050px){
+  #bendDesignerModal[data-large-drawing="true"] .bend-data-card{
+    box-sizing:border-box!important;
+    background:#f8fafc!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-data-card h3{
+    margin:0 0 10px!important;
+    font-size:1rem!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table-wrap{
+    width:100%!important;
+    max-height:calc(100vh - 310px)!important;
+    overflow:auto!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table{
+    width:100%!important;
+    min-width:0!important;
+    table-layout:fixed!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th,
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td{
+    padding:6px 4px!important;
+    font-size:.74rem!important;
+    overflow:hidden!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th:nth-child(1),
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td:nth-child(1){width:34px!important;}
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th:nth-child(2),
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td:nth-child(2){width:92px!important;}
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th:nth-child(3),
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td:nth-child(3){width:104px!important;}
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th:nth-child(4),
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td:nth-child(4){width:64px!important;}
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th:nth-child(5),
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td:nth-child(5){width:72px!important;}
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th:nth-child(6),
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td:nth-child(6){width:38px!important;}
+  #bendDesignerModal[data-large-drawing="true"] .bend-table input,
+  #bendDesignerModal[data-large-drawing="true"] .bend-table select{
+    min-width:0!important;
+    width:100%!important;
+    min-height:38px!important;
+    padding:5px!important;
+    font-size:14px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:7px!important;
+    margin-top:10px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row .field,
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row button{
+    width:100%!important;
+    min-width:0!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-calibration-note{
+    font-size:.72rem!important;
+  }
+}
+
 </style> 
   </head>
 <body>
@@ -3822,7 +3886,7 @@ if(quotePdfBtn){
 
       forceStyle(workspace,{
         display:largeDesktop ? "grid" : "block",
-        gridTemplateColumns:largeDesktop ? "minmax(0,1fr) 460px" : "none",
+        gridTemplateColumns:largeDesktop ? "410px minmax(0,1fr)" : "none",
         gap:"0",
         position:"fixed",
         top:"72px",
@@ -3856,15 +3920,17 @@ if(quotePdfBtn){
           visibility:"visible",
           opacity:"1",
           position:"relative",
-          width:"460px",
-          minWidth:"460px",
+          width:"410px",
+          minWidth:"410px",
+          gridColumn:"1",
+          gridRow:"1",
           height:"100%",
           minHeight:"0",
           margin:"0",
           padding:"12px",
           overflow:"auto",
           border:"0",
-          borderLeft:"1px solid #d9e1ea",
+          borderRight:"1px solid #d9e1ea",
           borderRadius:"0",
           background:"#f8fafc"
         });
@@ -3881,7 +3947,7 @@ if(quotePdfBtn){
         forceStyle(table,{
           display:"table",
           width:"100%",
-          minWidth:"760px"
+          minWidth:"0"
         });
       }else{
         forceStyle(dataCard,{display:"none"});
