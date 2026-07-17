@@ -3924,12 +3924,14 @@ if(quotePdfBtn){
       renderTable();
       calculate();
 
-      // Le grand dessinateur utilise déjà toute la fenêtre de l’application.
-      // L’API Fullscreen native est volontairement désactivée pour éviter
-      // l’écran blanc observé sur Safari lors de la fermeture du module.
+      if(document.documentElement.requestFullscreen){
+        document.documentElement.requestFullscreen().catch(()=>{});
+      }
     }else{
       restoreInlineStyles();
-      // Aucun appel à exitFullscreen : le mode plein écran est géré en CSS.
+      if(document.fullscreenElement && document.exitFullscreen){
+        document.exitFullscreen().catch(()=>{});
+      }
     }
 
     if(fullscreenDrawBtn){
@@ -4372,26 +4374,8 @@ if(quotePdfBtn){
     },80);
   }
   function close(){
-    // Nettoyage complet et synchrone du grand dessinateur.
-    // Cette séquence évite que Safari conserve un calque plein écran blanc.
     setLargeDrawingMode(false);
-    modal.classList.remove("bend-drawing-stage");
-    modal.removeAttribute("data-large-drawing");
     modal.classList.remove("open");
-
-    document.documentElement.style.removeProperty("overflow");
-    document.body.style.removeProperty("overflow");
-    document.body.style.removeProperty("position");
-    document.body.style.removeProperty("width");
-    document.body.style.removeProperty("height");
-
-    // Force Safari à recalculer l’affichage de l’application principale.
-    void document.body.offsetHeight;
-    window.requestAnimationFrame(()=>{
-      window.scrollTo({top:0,left:0,behavior:"auto"});
-      renderPieces();
-      updatePriceDisplay();
-    });
   }
   openBtn?.addEventListener("click",open);closeBtn?.addEventListener("click",close);
   modal?.addEventListener("click",e=>{if(e.target===modal)close()});
@@ -4446,9 +4430,7 @@ if(quotePdfBtn){
     if(!pieces[index])return alert("Pièce cible introuvable.");
     pieces[index].developed=result.rounded;pieces[index].folds=profile.angles.length;
     pieces[index].bendProfile=JSON.parse(JSON.stringify({profile,settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,round:fields.round.value},result}));
-    savePieces();
-    close();
-    setStatus(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
+    savePieces();renderPieces();close();alert(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
   });
   document.getElementById("bendSaveProfileBtn")?.addEventListener("click",()=>{
     if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
