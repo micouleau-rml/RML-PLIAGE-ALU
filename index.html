@@ -2809,6 +2809,65 @@ svg{
 svg{max-width:100%;height:auto;margin:0 auto;}
 .actions{text-align:center;margin-top:20px;}
 button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;margin:4px;}
+
+/* ===== V21 : GRAND ÉCRAN STABLE — DESSIN + COTES À DROITE ===== */
+@media (min-width:900px){
+  #bendDesignerModal[data-large-drawing="true"] .bend-workspace{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 430px!important;
+    grid-template-rows:minmax(0,1fr)!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-card{
+    display:grid!important;
+    grid-template-rows:64px minmax(0,1fr)!important;
+    grid-template-columns:minmax(0,1fr)!important;
+    grid-column:1!important;
+    grid-row:1!important;
+    min-width:0!important;
+    min-height:0!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-mini-actions{
+    position:relative!important;
+    grid-row:1!important;
+    grid-column:1!important;
+    top:auto!important;
+    bottom:auto!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-wrap{
+    position:relative!important;
+    inset:auto!important;
+    grid-row:2!important;
+    grid-column:1!important;
+    min-width:0!important;
+    min-height:0!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-data-card{
+    display:flex!important;
+    flex-direction:column!important;
+    grid-column:2!important;
+    grid-row:1!important;
+    width:430px!important;
+    min-width:430px!important;
+    max-width:430px!important;
+    height:100%!important;
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table-wrap{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:auto!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table{
+    width:100%!important;
+    min-width:0!important;
+    table-layout:fixed!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-help{
+    display:none!important;
+  }
+}
 </style>
 </head>
 <body>
@@ -4045,7 +4104,10 @@ if(quotePdfBtn){
     if(!element)return;
     saveInlineStyle(element);
     Object.entries(styles).forEach(([property,value])=>{
-      element.style.setProperty(property,value,"important");
+      // style.setProperty exige des noms CSS en kebab-case.
+      // Conversion indispensable pour grid-template-columns, min-width, etc.
+      const cssProperty=property.replace(/[A-Z]/g,letter=>"-"+letter.toLowerCase());
+      element.style.setProperty(cssProperty,value,"important");
     });
   }
 
