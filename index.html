@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU</title>
+<title>RML PLIAGE ALU — V17</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -2060,6 +2060,7 @@ win.document.close();
   function generateCalpinageDocument(){
   const client=getCurrentClient();
   const project=(projectName?.value || "Projet sans nom").trim();
+  const color=(projectColor?.value || "").trim() || "-";
   const today=new Date().toLocaleDateString("fr-FR");
 
   const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
@@ -2524,7 +2525,8 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
   <div class="box">
     <strong>Client :</strong> ${client?.name || "-"}<br>
     <strong>Projet :</strong> ${project}<br>
-    <strong>Épaisseur :</strong> ${selectedThickness.value}
+    <strong>Épaisseur :</strong> ${selectedThickness.value}<br>
+    <strong>Couleur :</strong> ${color}
   </div>
 
   <div class="box">
@@ -3812,12 +3814,16 @@ if(quotePdfBtn){
         background:"#ffffff"
       });
 
-      [toolbar,dataCard,card3D,results,warning].forEach(element=>{
+      const largeDesktop=window.innerWidth>=1050;
+
+      [toolbar,card3D,results,warning].forEach(element=>{
         forceStyle(element,{display:"none"});
       });
 
       forceStyle(workspace,{
-        display:"block",
+        display:largeDesktop ? "grid" : "block",
+        gridTemplateColumns:largeDesktop ? "minmax(0,1fr) 460px" : "none",
+        gap:"0",
         position:"fixed",
         top:"72px",
         left:"0",
@@ -3832,16 +3838,54 @@ if(quotePdfBtn){
 
       forceStyle(canvasCard,{
         display:"block",
-        position:"absolute",
-        inset:"0",
+        position:largeDesktop ? "relative" : "absolute",
+        inset:largeDesktop ? "auto" : "0",
         width:"100%",
         height:"100%",
+        minWidth:"0",
         margin:"0",
         padding:"0",
         border:"0",
         borderRadius:"0",
         background:"#1593c5"
       });
+
+      if(largeDesktop){
+        forceStyle(dataCard,{
+          display:"block",
+          visibility:"visible",
+          opacity:"1",
+          position:"relative",
+          width:"460px",
+          minWidth:"460px",
+          height:"100%",
+          minHeight:"0",
+          margin:"0",
+          padding:"12px",
+          overflow:"auto",
+          border:"0",
+          borderLeft:"1px solid #d9e1ea",
+          borderRadius:"0",
+          background:"#f8fafc"
+        });
+
+        const tableWrap=modal.querySelector(".bend-table-wrap");
+        const table=modal.querySelector(".bend-table");
+        forceStyle(tableWrap,{
+          display:"block",
+          width:"100%",
+          maxHeight:"calc(100vh - 300px)",
+          minHeight:"180px",
+          overflow:"auto"
+        });
+        forceStyle(table,{
+          display:"table",
+          width:"100%",
+          minWidth:"760px"
+        });
+      }else{
+        forceStyle(dataCard,{display:"none"});
+      }
 
       forceStyle(canvasWrap,{
         display:"block",
@@ -4059,8 +4103,21 @@ if(quotePdfBtn){
     help.textContent="Les cotes et les angles du tableau sont maintenant prioritaires. Toute modification est conservée et visible immédiatement sur le dessin.";
     renderAll(true);
 
-    // Après le dessin grossier, retour automatique au tableau des cotes.
-    showDimensionsTable();
+    // Sur grand écran, le tableau reste affiché à droite sans quitter le dessinateur.
+    const keepLargeDesktop=
+      modal.getAttribute("data-large-drawing")==="true" &&
+      window.innerWidth>=1050;
+
+    if(keepLargeDesktop){
+      renderTable();
+      calculate();
+      setTimeout(()=>{
+        resizeCanvas();
+        draw();
+      },60);
+    }else{
+      showDimensionsTable();
+    }
   }
 
   function renderTable(){
