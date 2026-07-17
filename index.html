@@ -1306,9 +1306,9 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <div class="field col-4">
   <label for="sheetFormat">Format feuille</label>
   <select id="sheetFormat">
-    <option value="1500x3000">1500 x 3000 mm</option>
-    <option value="1250x3000">1250 x 3000 mm</option>
-    <option value="1000x2000">1000 x 2000 mm</option>
+    <option value="1500x3000">3000 x 1500 mm — longueur × hauteur</option>
+    <option value="1250x3000">3000 x 1250 mm — longueur × hauteur</option>
+    <option value="1000x2000">2000 x 1000 mm — longueur × hauteur</option>
   </select>
 </div>        
 </div>
@@ -2096,233 +2096,103 @@ win.document.close();
   return (b.w*b.h)-(a.w*a.h);
 });
 
-  const sheets=[];
 
-// MOTEUR CALEPINAGE PRO — MaxRects avec rotation + zéro chevauchement
-allParts.sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+  let sheets=[];
 
-allParts.forEach(part=>{
-  let placed=false;
-
-  for(const sheet of sheets){
-    if(placePartPro(sheet,part)){
-      placed=true;
-      break;
-    }
-  }
-
-  if(!placed){
-    const newSheet={
-      parts:[],
-      rows:[],
-      freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]
-    };
-
-    if(placePartPro(newSheet,part)){
-      sheets.push(newSheet);
-      placed=true;
-    }
-  }
-
-  if(!placed){
-    alert(`Pièce impossible à placer : P${part.pieceNo} - ${part.dev} x ${part.long}`);
-  }
-});
-
-sheets.forEach(sheet=>{
-  sheet.freeRects=cleanFreeRects(sheet.freeRects);
-  sheet.rows=buildRowsFromParts(sheet.parts);
-});
-
-function placePartPro(sheet,part){
-  sheet.freeRects=cleanFreeRects(sheet.freeRects);
-
+// ===== V9 : MOTEUR DE CALEPINAGE HORIZONTAL =====
+function rectanglesOverlap(a,b){
+  return !(a.x+a.w<=b.x || b.x+b.w<=a.x || a.y+a.h<=b.y || b.y+b.h<=a.y);
+}
+function canPlaceAt(sheet,x,y,w,h){
+  if(x<0 || y<0 || x+w>sheetL || y+h>sheetW) return false;
+  return !sheet.parts.some(p=>rectanglesOverlap({x,y,w,h},{x:p.x,y:p.y,w:p.w,h:p.h}));
+}
+function candidatePositions(sheet){
+  const xs=new Set([0]), ys=new Set([0]);
+  sheet.parts.forEach(p=>{xs.add(Math.round(p.x+p.w));ys.add(Math.round(p.y+p.h));});
+  const positions=[];
+  [...ys].sort((a,b)=>a-b).forEach(y=>{
+    [...xs].sort((a,b)=>a-b).forEach(x=>positions.push({x,y}));
+  });
+  return positions;
+}
+function findBestPlacement(sheet,part){
+  const orientations=[
+    {w:part.w,h:part.h,rotated:false},
+    {w:part.h,h:part.w,rotated:true}
+  ];
   let best=null;
-
-  sheet.freeRects.forEach((zone,zoneIndex)=>{
-    const tests=[
-      {w:part.w,h:part.h,rotated:false},
-      {w:part.h,h:part.w,rotated:true}
-    ];
-
-    tests.forEach(t=>{
-      if(t.w<=zone.w && t.h<=zone.h){
-        const remainingW=zone.w-t.w;
-        const remainingH=zone.h-t.h;
-        const shortSide=Math.min(remainingW,remainingH);
-        const longSide=Math.max(remainingW,remainingH);
-        const waste=zone.w*zone.h-t.w*t.h;
-
-        const score=waste*10 + shortSide*3 + longSide;
-
-        if(!best || score<best.score){
-          best={
-            zone,
-            zoneIndex,
-            w:t.w,
-            h:t.h,
-            rotated:t.rotated,
-            score
-          };
-        }
+  const positions=candidatePositions(sheet);
+  orientations.forEach(o=>{
+    positions.forEach(pos=>{
+      if(!canPlaceAt(sheet,pos.x,pos.y,o.w,o.h)) return;
+      const score=(pos.y+o.h)*1000000+(pos.x+o.w)*1000+pos.y*10+pos.x;
+      if(!best || score<best.score){
+        best={x:pos.x,y:pos.y,w:o.w,h:o.h,rotated:o.rotated,score};
       }
     });
   });
-
+  return best;
+}
+function placePartOnSheet(sheet,part){
+  const best=findBestPlacement(sheet,part);
   if(!best) return false;
-
-  const placed={
-    ...part,
-    x:best.zone.x,
-    y:best.zone.y,
-    w:best.w,
-    h:best.h,
-    rotated:best.rotated
-  };
-
-  sheet.parts.push(placed);
-
-  const used={x:placed.x,y:placed.y,w:placed.w,h:placed.h};
-  const newFree=[];
-
-  sheet.freeRects.forEach(rect=>{
-    if(!rectOverlap(rect,used)){
-      newFree.push(rect);
-    }else{
-      splitFreeRect(rect,used).forEach(r=>newFree.push(r));
-    }
-  });
-
-  sheet.freeRects=cleanFreeRects(newFree);
-
+  sheet.parts.push({...part,x:best.x,y:best.y,w:best.w,h:best.h,rotated:best.rotated});
   return true;
 }
-
-function rectOverlap(a,b){
-  return !(
-    b.x>=a.x+a.w ||
-    b.x+b.w<=a.x ||
-    b.y>=a.y+a.h ||
-    b.y+b.h<=a.y
-  );
-}
-
-function splitFreeRect(free,used){
-  const result=[];
-
-  const fx1=free.x;
-  const fy1=free.y;
-  const fx2=free.x+free.w;
-  const fy2=free.y+free.h;
-
-  const ux1=used.x;
-  const uy1=used.y;
-  const ux2=used.x+used.w;
-  const uy2=used.y+used.h;
-
-  if(uy1>fy1){
-    result.push({x:fx1,y:fy1,w:free.w,h:uy1-fy1});
-  }
-
-  if(uy2<fy2){
-    result.push({x:fx1,y:uy2,w:free.w,h:fy2-uy2});
-  }
-
-  if(ux1>fx1){
-    result.push({x:fx1,y:Math.max(fy1,uy1),w:ux1-fx1,h:Math.min(fy2,uy2)-Math.max(fy1,uy1)});
-  }
-
-  if(ux2<fx2){
-    result.push({x:ux2,y:Math.max(fy1,uy1),w:fx2-ux2,h:Math.min(fy2,uy2)-Math.max(fy1,uy1)});
-  }
-
-  return result.filter(r=>r.w>0 && r.h>0);
-}
-
-function cleanFreeRects(rects){
-  let clean=rects
-    .map(r=>({
-      x:Math.round(r.x),
-      y:Math.round(r.y),
-      w:Math.round(r.w),
-      h:Math.round(r.h)
-    }))
-    .filter(r=>r.w>0 && r.h>0);
-
-  clean=clean.filter((r,i,arr)=>{
-    return !arr.some((o,j)=>
-      i!==j &&
-      r.x>=o.x &&
-      r.y>=o.y &&
-      r.x+r.w<=o.x+o.w &&
-      r.y+r.h<=o.y+o.h
-    );
-  });
-
-  const seen=new Set();
-  clean=clean.filter(r=>{
-    const key=`${r.x}-${r.y}-${r.w}-${r.h}`;
-    if(seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  return mergeAdjacentRects(clean);
-}
-
-function mergeAdjacentRects(rects){
-  let merged=[...rects];
-  let changed=true;
-
-  while(changed){
-    changed=false;
-
-    outer:
-    for(let i=0;i<merged.length;i++){
-      for(let j=i+1;j<merged.length;j++){
-        const a=merged[i];
-        const b=merged[j];
-
-        if(a.x===b.x && a.w===b.w && a.y+a.h===b.y){
-          a.h+=b.h;
-          merged.splice(j,1);
-          changed=true;
-          break outer;
-        }
-
-        if(a.y===b.y && a.h===b.h && a.x+a.w===b.x){
-          a.w+=b.w;
-          merged.splice(j,1);
-          changed=true;
-          break outer;
-        }
-      }
-    }
-  }
-
-  return merged;
-}
-
 function buildRowsFromParts(parts){
   const rows=[];
-
   parts.forEach(p=>{
     let row=rows.find(r=>Math.abs(r.y-p.y)<2);
-
-    if(!row){
-      rows.push({
-        y:p.y,
-        height:p.h,
-        usedLength:p.x+p.w
-      });
-    }else{
+    if(!row) rows.push({y:p.y,height:p.h,usedLength:p.x+p.w});
+    else{
       row.height=Math.max(row.height,p.h);
       row.usedLength=Math.max(row.usedLength,p.x+p.w);
     }
   });
-
   return rows.sort((a,b)=>a.y-b.y);
 }
+function packWithOrder(partsOrder){
+  const packed=[];
+  partsOrder.forEach(part=>{
+    let placed=false;
+    for(const sheet of packed){
+      if(placePartOnSheet(sheet,part)){placed=true;break;}
+    }
+    if(!placed){
+      const newSheet={parts:[],rows:[],freeRects:[]};
+      if(placePartOnSheet(newSheet,part)){packed.push(newSheet);placed=true;}
+    }
+    if(!placed) alert(`Pièce impossible à placer : P${part.pieceNo} - ${part.dev} x ${part.long}`);
+  });
+  packed.forEach(sheet=>sheet.rows=buildRowsFromParts(sheet.parts));
+  return packed;
+}
+function usedBoundingArea(packed){
+  return packed.reduce((sum,sheet)=>{
+    if(!sheet.parts.length) return sum;
+    const right=Math.max(...sheet.parts.map(p=>p.x+p.w));
+    const bottom=Math.max(...sheet.parts.map(p=>p.y+p.h));
+    return sum+right*bottom;
+  },0);
+}
+const packingOrders=[
+  [...allParts].sort((a,b)=>(b.w*b.h)-(a.w*a.h)),
+  [...allParts].sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)),
+  [...allParts].sort((a,b)=>Math.min(b.w,b.h)-Math.min(a.w,a.h)),
+  [...allParts].sort((a,b)=>b.w-a.w || b.h-a.h),
+  [...allParts].sort((a,b)=>b.h-a.h || b.w-a.w)
+];
+let bestPacking=null;
+packingOrders.forEach(order=>{
+  const candidate=packWithOrder(order);
+  const score={sheetCount:candidate.length,boundingArea:usedBoundingArea(candidate)};
+  if(!bestPacking || score.sheetCount<bestPacking.score.sheetCount ||
+    (score.sheetCount===bestPacking.score.sheetCount && score.boundingArea<bestPacking.score.boundingArea)){
+    bestPacking={sheets:candidate,score};
+  }
+});
+sheets=bestPacking ? bestPacking.sheets : [];
 
 const placedCount=sheets.reduce((sum,s)=>sum+s.parts.length,0);
 
@@ -2550,7 +2420,7 @@ zones.forEach(zone=>{
 
 drawings+=`
   <div class="drawing-block">
-    <h3>Feuille ${sheetIndex+1} — ${sheetW} x ${sheetL} mm</h3>
+    <h3>Feuille ${sheetIndex+1} — ${sheetL} x ${sheetW} mm (longueur × hauteur)</h3>
     <p><strong>Contenu :</strong> ${detail}</p>
     <p style="margin:3px 0 5px 0;font-size:11px;line-height:1.15">
       <strong>Zones exploitables :</strong> ${chuteInfos.join(" / ")}
@@ -2648,7 +2518,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
 <div class="sheet">
 
 <h1>FEUILLE DE CALPINAGE ATELIER</h1>
-<h2>Optimisation globale du projet — feuille ${sheetW} x ${sheetL} mm</h2>
+<h2>Optimisation globale du projet — feuille ${sheetL} x ${sheetW} mm (longueur × hauteur)</h2>
 
 <div class="top">
   <div class="box">
@@ -2659,7 +2529,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
 
   <div class="box">
     <strong>Date :</strong> ${today}<br>
-    <strong>Format feuille :</strong> ${sheetW} x ${sheetL} mm<br>
+    <strong>Format feuille :</strong> ${sheetL} x ${sheetW} mm — longueur × hauteur<br>
     <strong>Surface feuille :</strong> ${((sheetW*sheetL)/1000000).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
   </div>
 </div>
