@@ -1306,6 +1306,171 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   }
 }
 
+
+
+/* ===== V19 : GRAND DESSINATEUR — DESSIN À GAUCHE, COTES À DROITE, BOUTONS EN HAUT ===== */
+@media (min-width:900px){
+  #bendDesignerModal[data-large-drawing="true"] .modal-head{
+    height:70px!important;
+    padding:9px 14px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .modal-head .note{
+    display:none!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-workspace{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 370px!important;
+    grid-template-rows:64px minmax(0,1fr)!important;
+    position:fixed!important;
+    inset:70px 0 0 0!important;
+    gap:0!important;
+    overflow:hidden!important;
+    background:#eef3f8!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-mini-actions{
+    grid-column:1 / 3!important;
+    grid-row:1!important;
+    position:relative!important;
+    inset:auto!important;
+    width:100%!important;
+    height:64px!important;
+    padding:8px 12px!important;
+    margin:0!important;
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    align-items:center!important;
+    gap:8px!important;
+    overflow-x:auto!important;
+    background:#fff!important;
+    border-bottom:1px solid #d9e1ea!important;
+    border-top:0!important;
+    box-shadow:0 5px 14px rgba(15,23,42,.08)!important;
+    z-index:60!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-mini-actions button{
+    min-width:auto!important;
+    min-height:44px!important;
+    height:44px!important;
+    padding:9px 13px!important;
+    font-size:.88rem!important;
+    flex:0 0 auto!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] #bendAddSegmentBtn,
+  #bendDesignerModal[data-large-drawing="true"] #bendHorizontalBtn,
+  #bendDesignerModal[data-large-drawing="true"] #bendVerticalBtn,
+  #bendDesignerModal[data-large-drawing="true"] #bendZoomOutBtn,
+  #bendDesignerModal[data-large-drawing="true"] #bendZoomInBtn,
+  #bendDesignerModal[data-large-drawing="true"] #bendAutoFitBtn{
+    display:inline-flex!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-card{
+    grid-column:1!important;
+    grid-row:2!important;
+    position:relative!important;
+    inset:auto!important;
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow:hidden!important;
+    background:#178fc4!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-wrap{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    border:0!important;
+    border-radius:0!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] #bendCanvas{
+    width:100%!important;
+    height:100%!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-help{
+    display:none!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-results,
+  #bendDesignerModal[data-large-drawing="true"] .bend-warning{
+    display:none!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-data-card{
+    grid-column:2!important;
+    grid-row:2!important;
+    display:flex!important;
+    flex-direction:column!important;
+    position:relative!important;
+    inset:auto!important;
+    width:370px!important;
+    min-width:370px!important;
+    height:100%!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:12px!important;
+    overflow:hidden!important;
+    border:0!important;
+    border-left:1px solid #cbd5e1!important;
+    border-radius:0!important;
+    background:#fff!important;
+    box-shadow:-8px 0 20px rgba(15,23,42,.08)!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-data-card h3{
+    flex:0 0 auto!important;
+    margin:0 0 8px!important;
+    font-size:1rem!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table-wrap{
+    flex:1 1 auto!important;
+    width:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:auto!important;
+    border-radius:10px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table{
+    width:100%!important;
+    min-width:690px!important;
+    table-layout:auto!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th,
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td{
+    padding:6px 5px!important;
+    font-size:.76rem!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table input,
+  #bendDesignerModal[data-large-drawing="true"] .bend-table select{
+    min-width:92px!important;
+    min-height:38px!important;
+    padding:5px 6px!important;
+    font-size:14px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row{
+    flex:0 0 auto!important;
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+    gap:7px!important;
+    margin-top:9px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row .field{
+    grid-column:1 / 3!important;
+    min-width:0!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row button{
+    width:100%!important;
+    min-width:0!important;
+    min-height:42px!important;
+    padding:8px!important;
+    font-size:.82rem!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-calibration-note{
+    display:none!important;
+  }
+}
+
 </style> 
   </head>
 <body>
@@ -3482,7 +3647,7 @@ if(quotePdfBtn){
       });
       if(!roughPoints.length){
         ctx.fillStyle="rgba(255,255,255,.92)";ctx.font="700 18px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-        ctx.textAlign="center";ctx.fillText("Cliquez pour placer le premier point",w/2,h/2);
+        ctx.textAlign="center";
       }
       return;
     }
@@ -3837,201 +4002,72 @@ if(quotePdfBtn){
     modal.setAttribute("data-large-drawing",enabled ? "true" : "false");
 
     if(enabled){
-      forceStyle(modal,{
-        display:"block",
-        position:"fixed",
-        inset:"0",
-        width:"100vw",
-        height:"100vh",
-        padding:"0",
-        margin:"0",
-        overflow:"hidden",
-        background:"#0f172a",
-        zIndex:"2147483000"
-      });
+      forceStyle(modal,{display:"block",position:"fixed",inset:"0",width:"100vw",height:"100vh",padding:"0",margin:"0",overflow:"hidden",background:"#0f172a",zIndex:"2147483000"});
+      forceStyle(card,{display:"block",position:"fixed",inset:"0",width:"100vw",maxWidth:"100vw",height:"100vh",maxHeight:"100vh",margin:"0",padding:"0",overflow:"hidden",border:"0",borderRadius:"0",background:"#eef3f8"});
+      forceStyle(head,{display:"flex",position:"fixed",top:"0",left:"0",right:"0",height:"70px",margin:"0",padding:"9px 14px",zIndex:"1000",background:"#ffffff"});
 
-      forceStyle(card,{
-        display:"block",
-        position:"fixed",
-        inset:"0",
-        width:"100vw",
-        maxWidth:"100vw",
-        height:"100vh",
-        maxHeight:"100vh",
-        margin:"0",
-        padding:"0",
-        overflow:"hidden",
-        border:"0",
-        borderRadius:"0"
-      });
+      [toolbar,card3D,results,warning].forEach(element=>forceStyle(element,{display:"none"}));
 
-      forceStyle(head,{
-        display:"flex",
-        position:"fixed",
-        top:"0",
-        left:"0",
-        right:"0",
-        height:"72px",
-        margin:"0",
-        padding:"10px 16px",
-        zIndex:"1000",
-        background:"#ffffff"
-      });
-
-      const largeDesktop=window.innerWidth>=1050;
-
-      [toolbar,card3D,results,warning].forEach(element=>{
-        forceStyle(element,{display:"none"});
-      });
-
+      const desktop=window.innerWidth>=900;
       forceStyle(workspace,{
-        display:largeDesktop ? "grid" : "block",
-        gridTemplateColumns:largeDesktop ? "410px minmax(0,1fr)" : "none",
-        gap:"0",
-        position:"fixed",
-        top:"72px",
-        left:"0",
-        right:"0",
-        bottom:"0",
-        width:"auto",
-        height:"auto",
-        margin:"0",
-        padding:"0",
-        overflow:"hidden"
+        display:desktop?"grid":"block",
+        gridTemplateColumns:desktop?"minmax(0,1fr) 370px":"none",
+        gridTemplateRows:desktop?"64px minmax(0,1fr)":"none",
+        position:"fixed",top:"70px",left:"0",right:"0",bottom:"0",
+        width:"auto",height:"auto",margin:"0",padding:"0",overflow:"hidden",gap:"0"
       });
 
       forceStyle(canvasCard,{
-        display:"block",
-        position:largeDesktop ? "relative" : "absolute",
-        inset:largeDesktop ? "auto" : "0",
-        width:"100%",
-        height:"100%",
-        minWidth:"0",
-        margin:"0",
-        padding:"0",
-        border:"0",
-        borderRadius:"0",
-        background:"#1593c5"
+        display:"block",position:desktop?"relative":"absolute",inset:desktop?"auto":"0",
+        width:"100%",height:"100%",minWidth:"0",minHeight:"0",margin:"0",padding:"0",
+        border:"0",borderRadius:"0",overflow:"hidden",background:"#178fc4",
+        gridColumn:desktop?"1":"auto",gridRow:desktop?"2":"auto"
+      });
+      forceStyle(canvasWrap,{display:"block",position:"absolute",inset:"0",width:"100%",height:"100%",minHeight:"0",margin:"0",padding:"0",overflow:"hidden",border:"0",borderRadius:"0"});
+      forceStyle(canvas,{display:"block",width:"100%",height:"100%",minHeight:"0"});
+      forceStyle(canvasHelp,{display:"none"});
+
+      forceStyle(miniActions,{
+        display:"flex",position:desktop?"relative":"absolute",left:"0",right:"0",top:desktop?"auto":"0",bottom:"auto",
+        height:desktop?"64px":"70px",margin:"0",padding:"8px 12px",zIndex:"60",flexWrap:"nowrap",
+        alignItems:"center",gap:"8px",overflowX:"auto",background:"#ffffff",
+        gridColumn:desktop?"1 / 3":"auto",gridRow:desktop?"1":"auto"
       });
 
-      if(largeDesktop){
+      if(desktop){
         forceStyle(dataCard,{
-          display:"block",
-          visibility:"visible",
-          opacity:"1",
-          position:"relative",
-          width:"410px",
-          minWidth:"410px",
-          gridColumn:"1",
-          gridRow:"1",
-          height:"100%",
-          minHeight:"0",
-          margin:"0",
-          padding:"12px",
-          overflow:"auto",
-          border:"0",
-          borderRight:"1px solid #d9e1ea",
-          borderRadius:"0",
-          background:"#f8fafc"
+          display:"flex",flexDirection:"column",visibility:"visible",opacity:"1",position:"relative",
+          width:"370px",minWidth:"370px",height:"100%",minHeight:"0",margin:"0",padding:"12px",
+          overflow:"hidden",border:"0",borderLeft:"1px solid #cbd5e1",borderRadius:"0",background:"#ffffff",
+          gridColumn:"2",gridRow:"2"
         });
-
         const tableWrap=modal.querySelector(".bend-table-wrap");
         const table=modal.querySelector(".bend-table");
-        forceStyle(tableWrap,{
-          display:"block",
-          width:"100%",
-          maxHeight:"calc(100vh - 300px)",
-          minHeight:"180px",
-          overflow:"auto"
-        });
-        forceStyle(table,{
-          display:"table",
-          width:"100%",
-          minWidth:"0"
-        });
+        forceStyle(tableWrap,{display:"block",width:"100%",minHeight:"0",maxHeight:"none",overflow:"auto",flex:"1 1 auto"});
+        forceStyle(table,{display:"table",width:"100%",minWidth:"690px"});
       }else{
         forceStyle(dataCard,{display:"none"});
       }
-
-      forceStyle(canvasWrap,{
-        display:"block",
-        position:"absolute",
-        top:"0",
-        left:"0",
-        right:"0",
-        bottom:"92px",
-        width:"auto",
-        height:"auto",
-        minHeight:"0",
-        margin:"0",
-        padding:"0",
-        overflow:"hidden",
-        border:"0",
-        borderRadius:"0"
-      });
-
-      forceStyle(canvas,{
-        display:"block",
-        width:"100%",
-        height:"100%",
-        minHeight:"0"
-      });
-
-      forceStyle(canvasHelp,{
-        position:"absolute",
-        left:"16px",
-        right:"16px",
-        bottom:"104px",
-        zIndex:"30",
-        maxWidth:"none",
-        margin:"0",
-        padding:"10px 14px",
-        color:"#ffffff",
-        background:"rgba(15,23,42,.82)"
-      });
-
-      forceStyle(miniActions,{
-        display:"flex",
-        position:"absolute",
-        left:"0",
-        right:"0",
-        bottom:"0",
-        height:"92px",
-        margin:"0",
-        padding:"14px 16px",
-        zIndex:"40",
-        flexWrap:"nowrap",
-        alignItems:"center",
-        gap:"10px",
-        overflowX:"auto",
-        background:"#ffffff"
-      });
 
       if(document.documentElement.requestFullscreen){
         document.documentElement.requestFullscreen().catch(()=>{});
       }
     }else{
       restoreInlineStyles();
-
       if(document.fullscreenElement && document.exitFullscreen){
         document.exitFullscreen().catch(()=>{});
       }
     }
 
     if(fullscreenDrawBtn){
-      fullscreenDrawBtn.textContent=enabled
-        ? "↩ Revenir au calcul"
-        : "✏️ Ouvrir le grand dessinateur";
+      fullscreenDrawBtn.textContent=enabled ? "↩ Revenir au calcul" : "✏️ Ouvrir le grand dessinateur";
       fullscreenDrawBtn.setAttribute("aria-pressed",enabled ? "true" : "false");
     }
 
     document.documentElement.style.overflow=enabled ? "hidden" : "";
     document.body.style.overflow=enabled ? "hidden" : "";
 
-    setTimeout(()=>{
-      resizeCanvas();
-      draw();
-    },120);
+    setTimeout(()=>{resizeCanvas();draw();},120);
   }
 
   function toggleLargeDrawingMode(event){
