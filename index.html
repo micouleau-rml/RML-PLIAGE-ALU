@@ -4186,8 +4186,14 @@ if(quotePdfBtn){
         forceStyle(dataCard,{display:"none"});
       }
 
+      if(document.documentElement.requestFullscreen){
+        document.documentElement.requestFullscreen().catch(()=>{});
+      }
     }else{
       restoreInlineStyles();
+      if(document.fullscreenElement && document.exitFullscreen){
+        document.exitFullscreen().catch(()=>{});
+      }
     }
 
     if(fullscreenDrawBtn){
@@ -4615,8 +4621,6 @@ if(quotePdfBtn){
   canvas.addEventListener("dblclick",e=>{e.preventDefault();if(drawingMode)finishDrawing()});
 
   function open(){
-    // Repart toujours d'un état propre, puis ouvre directement le grand écran
-    // avec le tableau des cotes visible à droite.
     setLargeDrawingMode(false);
     renderTargets();
 
@@ -4626,21 +4630,14 @@ if(quotePdfBtn){
 
     modal.classList.add("open");
     setTimeout(()=>{
-      reset();
-      setLargeDrawingMode(true);
-      renderTable();
       resizeCanvas();
       resizeCanvas3D();
+      reset();
     },80);
   }
   function close(){
-    // Nettoyage complet du faux plein écran sans utiliser le plein écran natif Safari.
     setLargeDrawingMode(false);
     modal.classList.remove("open");
-    modal.classList.remove("bend-drawing-stage");
-    modal.setAttribute("data-large-drawing","false");
-    document.documentElement.style.overflow="";
-    document.body.style.overflow="";
   }
   openBtn?.addEventListener("click",open);closeBtn?.addEventListener("click",close);
   modal?.addEventListener("click",e=>{if(e.target===modal)close()});
@@ -4691,34 +4688,11 @@ if(quotePdfBtn){
   document.getElementById("bendInsertBtn")?.addEventListener("click",()=>{
     if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
     drawingMode=false;
-    const result=calculate();
-    const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+    const result=calculate();const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
     if(!pieces[index])return alert("Pièce cible introuvable.");
-
-    pieces[index].developed=result.rounded;
-    pieces[index].folds=profile.angles.length;
-    pieces[index].bendProfile=JSON.parse(JSON.stringify({
-      profile,
-      settings:{
-        material:fields.material.value,
-        thickness:fields.thickness.value,
-        vee:fields.vee.value,
-        radius:fields.radius.value,
-        k:fields.k.value,
-        round:fields.round.value
-      },
-      result
-    }));
-
-    savePieces();
-    close();
-
-    // Attend la fermeture effective de la modale avant de reconstruire le devis.
-    requestAnimationFrame(()=>{
-      renderPieces();
-      recalcAll();
-      setStatus(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
-    });
+    pieces[index].developed=result.rounded;pieces[index].folds=profile.angles.length;
+    pieces[index].bendProfile=JSON.parse(JSON.stringify({profile,settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,round:fields.round.value},result}));
+    savePieces();renderPieces();close();alert(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
   });
   document.getElementById("bendSaveProfileBtn")?.addEventListener("click",()=>{
     if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
@@ -4733,5 +4707,133 @@ if(quotePdfBtn){
 })();
 
 </script>
+<!-- ===== V25 : GRAND DESSINATEUR FIXE — DESSIN À GAUCHE / COTES À DROITE ===== -->
+<style>
+@media (min-width:900px){
+  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-help{display:none!important}
+  #bendDesignerModal[data-large-drawing="true"] #bendShowTableBtn{display:none!important}
+  #bendDesignerModal[data-large-drawing="true"] .bend-data-card h3{
+    margin:0 0 10px!important;
+    font-size:18px!important;
+    flex:0 0 auto!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table-wrap{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow:auto!important;
+    border-radius:10px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table{
+    width:100%!important;
+    min-width:0!important;
+    table-layout:fixed!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table th,
+  #bendDesignerModal[data-large-drawing="true"] .bend-table td{
+    padding:8px 4px!important;
+    font-size:12px!important;
+    overflow:hidden!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-table input,
+  #bendDesignerModal[data-large-drawing="true"] .bend-table select{
+    min-width:0!important;
+    width:100%!important;
+    min-height:40px!important;
+    padding:6px!important;
+    font-size:14px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row{
+    flex:0 0 auto!important;
+    margin-top:10px!important;
+    gap:7px!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"] .bend-calibration-note{
+    flex:0 0 auto!important;
+    margin-top:8px!important;
+    font-size:11px!important;
+  }
+}
+</style>
+<script>
+(function(){
+  const PANEL_WIDTH=390;
+  const HEAD_HEIGHT=88;
+
+  function important(el, rules){
+    if(!el) return;
+    Object.entries(rules).forEach(([k,v])=>el.style.setProperty(k,v,'important'));
+  }
+
+  function applyV25LargeLayout(){
+    const modal=document.getElementById('bendDesignerModal');
+    if(!modal || modal.getAttribute('data-large-drawing')!=='true' || window.innerWidth<900) return;
+
+    const card=modal.querySelector('.modal-card');
+    const head=modal.querySelector('.modal-head');
+    const toolbar=modal.querySelector('.bend-toolbar');
+    const workspace=modal.querySelector('.bend-workspace');
+    const canvasCard=modal.querySelector('.bend-canvas-card');
+    const canvasWrap=modal.querySelector('.bend-canvas-wrap');
+    const canvas=modal.querySelector('#bendCanvas');
+    const mini=modal.querySelector('.bend-mini-actions');
+    const data=modal.querySelector('.bend-data-card');
+    const tableWrap=modal.querySelector('.bend-table-wrap');
+    const table=modal.querySelector('.bend-table');
+    const results=modal.querySelector('.bend-results');
+    const warning=modal.querySelector('.bend-warning');
+    const card3d=modal.querySelector('#bend3DCard');
+    const help=modal.querySelector('.bend-canvas-help');
+    const showTable=modal.querySelector('#bendShowTableBtn');
+
+    important(modal,{display:'block',position:'fixed',inset:'0',width:'100vw',height:'100vh',padding:'0',margin:'0',overflow:'hidden',zIndex:'2147483000',background:'#eef3f8'});
+    important(card,{display:'block',position:'fixed',inset:'0',width:'100vw',maxWidth:'100vw',height:'100vh',maxHeight:'100vh',padding:'0',margin:'0',overflow:'hidden',border:'0',borderRadius:'0',background:'#eef3f8'});
+    important(head,{display:'flex',position:'fixed',top:'0',left:'0',right:'0',height:HEAD_HEIGHT+'px',padding:'10px 14px',margin:'0',zIndex:'1000',background:'#fff',alignItems:'center',boxSizing:'border-box'});
+
+    important(toolbar,{display:'none'});
+    important(results,{display:'none'});
+    important(warning,{display:'none'});
+    important(card3d,{display:'none'});
+    important(help,{display:'none'});
+    important(showTable,{display:'none'});
+
+    important(workspace,{display:'block',position:'fixed',top:HEAD_HEIGHT+'px',left:'0',right:'0',bottom:'0',width:'auto',height:'auto',padding:'0',margin:'0',overflow:'hidden'});
+
+    important(canvasCard,{display:'block',position:'absolute',top:'0',left:'0',right:PANEL_WIDTH+'px',bottom:'0',width:'auto',height:'auto',padding:'0',margin:'0',border:'0',borderRadius:'0',overflow:'hidden',background:'#1593c5'});
+    important(mini,{display:'flex',position:'absolute',top:'0',left:'0',right:'0',bottom:'auto',height:'66px',padding:'8px 10px',margin:'0',zIndex:'50',gap:'7px',alignItems:'center',flexWrap:'nowrap',overflowX:'auto',background:'#fff',borderBottom:'1px solid #d9e1ea',boxSizing:'border-box'});
+    important(canvasWrap,{display:'block',position:'absolute',top:'66px',left:'0',right:'0',bottom:'0',width:'auto',height:'auto',minHeight:'0',padding:'0',margin:'0',border:'0',borderRadius:'0',overflow:'hidden'});
+    important(canvas,{display:'block',width:'100%',height:'100%',minHeight:'0'});
+
+    important(data,{display:'flex',visibility:'visible',opacity:'1',position:'absolute',top:'0',right:'0',bottom:'0',left:'auto',width:PANEL_WIDTH+'px',minWidth:PANEL_WIDTH+'px',maxWidth:PANEL_WIDTH+'px',height:'auto',minHeight:'0',padding:'12px',margin:'0',border:'0',borderLeft:'1px solid #cbd5e1',borderRadius:'0',overflow:'hidden',background:'#fff',zIndex:'60',flexDirection:'column',boxSizing:'border-box'});
+    data.hidden=false;
+    important(tableWrap,{display:'block',visibility:'visible',flex:'1 1 auto',width:'100%',minHeight:'0',maxHeight:'none',overflow:'auto'});
+    important(table,{display:'table',width:'100%',minWidth:'0',tableLayout:'fixed'});
+
+    requestAnimationFrame(()=>{
+      window.dispatchEvent(new Event('resize'));
+    });
+  }
+
+  const modal=document.getElementById('bendDesignerModal');
+  if(!modal) return;
+
+  const observer=new MutationObserver(mutations=>{
+    if(mutations.some(m=>m.type==='attributes' && m.attributeName==='data-large-drawing')){
+      setTimeout(applyV25LargeLayout,0);
+      setTimeout(applyV25LargeLayout,100);
+    }
+  });
+  observer.observe(modal,{attributes:true});
+
+  document.getElementById('bendFullscreenDrawBtn')?.addEventListener('click',()=>{
+    setTimeout(applyV25LargeLayout,0);
+    setTimeout(applyV25LargeLayout,120);
+    setTimeout(applyV25LargeLayout,350);
+  });
+
+  window.addEventListener('resize',()=>setTimeout(applyV25LargeLayout,20));
+})();
+</script>
+
+
 </body>
 </html>
