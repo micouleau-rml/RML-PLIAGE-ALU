@@ -3443,6 +3443,13 @@ if(quotePdfBtn){
   let activeBend=-1;
   let viewRotation=0;
   let viewZoom=1;
+  let view3DYaw=-0.65;
+  let view3DPitch=0.42;
+  let view3DZoom=1;
+  let view3DDragging=false;
+  let view3DLastX=0;
+  let view3DLastY=0;
+  let view3DPinchDistance=0;
   let profile={lengths:[],angles:[],directions:[],exactPoints:[]};
 
   function resizeCanvas(){
@@ -4351,9 +4358,14 @@ if(quotePdfBtn){
       renderTable();
       calculate();
       setTimeout(()=>{
+        renderTable();
+        calculate();
         resizeCanvas();
         draw();
       },60);
+      setTimeout(()=>{
+        renderTable();
+      },220);
     }else{
       showDimensionsTable();
     }
@@ -4532,9 +4544,12 @@ if(quotePdfBtn){
   document.getElementById("bend3DIsoBtn")?.addEventListener("click",()=>reset3DView("iso"));
 
   function renderAll(rebuildTable=true){
-    calculate();draw();draw3D();
+    // Le tableau est reconstruit en premier pour qu'il reste visible même si le rendu 3D rencontre un problème.
     if(rebuildTable)renderTable();
     else body.querySelectorAll("tr").forEach((tr,i)=>{const cell=tr.children[4];if(cell&&i<profile.angles.length)cell.textContent=fmtNumber(getBendData(i).deduction,2)+" mm"});
+    calculate();
+    draw();
+    try{draw3D();}catch(error){console.warn("Rendu 3D ignoré :",error);}
   }
 
   function addSegment(){
@@ -4707,7 +4722,7 @@ if(quotePdfBtn){
 })();
 
 </script>
-<!-- ===== V25 : GRAND DESSINATEUR FIXE — DESSIN À GAUCHE / COTES À DROITE ===== -->
+<!-- ===== V26 : CORRECTIF AFFICHAGE DES COTES APRÈS TERMINER LE DESSIN ===== -->
 <style>
 @media (min-width:900px){
   #bendDesignerModal[data-large-drawing="true"] .bend-canvas-help{display:none!important}
