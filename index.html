@@ -3796,6 +3796,41 @@ if(quotePdfBtn){
       ctx.strokeStyle="#0f172a";ctx.lineWidth=2;ctx.beginPath();ctx.arc(q.x,q.y,5,0,Math.PI*2);ctx.fill();ctx.stroke();
     });
 
+    // Numéro de chaque segment pour correspondre au tableau des cotes
+    for(let i=0;i<mapped.length-1;i++){
+      const a=mapped[i];
+      const b=mapped[i+1];
+      const dx=b.x-a.x;
+      const dy=b.y-a.y;
+      const length=Math.max(1,Math.hypot(dx,dy));
+      const mx=(a.x+b.x)/2;
+      const my=(a.y+b.y)/2;
+      const nx=-dy/length;
+      const ny=dx/length;
+
+      // Léger décalage pour ne pas masquer le trait ni les cotes
+      const badgeOffset=14;
+      const bx=mx+nx*badgeOffset;
+      const by=my+ny*badgeOffset;
+      const radius=11;
+
+      ctx.save();
+      ctx.fillStyle="rgba(15,23,42,.95)";
+      ctx.strokeStyle="#ffffff";
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.arc(bx,by,radius,0,Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle="#ffffff";
+      ctx.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx.textAlign="center";
+      ctx.textBaseline="middle";
+      ctx.fillText(String(i+1),bx,by+.5);
+      ctx.restore();
+    }
+
     // Cotes parallèles aux segments
     for(let i=0;i<mapped.length-1;i++){
       const a=mapped[i];
