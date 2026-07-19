@@ -1793,6 +1793,10 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <button class="btn-light" id="bendZoomOutBtn">− Zoom</button>
           <button class="btn-light" id="bendZoomInBtn">+ Zoom</button>
           <button class="btn-light" id="bendAutoFitBtn">Centrer</button>
+          <div class="bend-large-length-control" title="Longueur utilisée dans le devis et la vue 3D">
+            <label for="bendLargeLength">Longueur pièce</label>
+            <div><input id="bendLargeLength" type="number" min="10" step="10" value="1000"><span>mm</span></div>
+          </div>
           <button class="btn-danger" id="bendResetBtn">Réinitialiser</button>
         </div>
         <div class="bend-results">
@@ -5202,6 +5206,8 @@ if(quotePdfBtn){
     const result=calculate();
     pieces[index].developed=result.rounded;
     pieces[index].folds=profile.angles.length;
+    const savedPieceLengthMm=Math.max(0,Number(fields.length3D?.value)||0);
+    if(savedPieceLengthMm>0)pieces[index].length=String(Number((savedPieceLengthMm/1000).toFixed(3)));
     pieces[index].bendProfile=JSON.parse(JSON.stringify({
       profile,
       roughPoints,
@@ -5284,7 +5290,7 @@ if(quotePdfBtn){
 </style>
 <script>
 (function(){
-  const PANEL_WIDTH=390;
+  const PANEL_WIDTH=430;
   const HEAD_HEIGHT=88;
 
   function important(el, rules){
@@ -5484,5 +5490,34 @@ if(quotePdfBtn){
 </script>
 
 
+
+<!-- ===== V34.3 : LONGUEUR GRAND DESSINATEUR + PANNEAU COTES ===== -->
+<style>
+#bendDesignerModal .bend-large-length-control{display:none}
+#bendDesignerModal[data-large-drawing="true"] .bend-large-length-control{display:flex!important;flex:0 0 auto;align-items:center;gap:7px;min-width:205px;height:48px;padding:5px 9px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;box-sizing:border-box}
+#bendDesignerModal[data-large-drawing="true"] .bend-large-length-control label{margin:0;font-size:12px;font-weight:800;line-height:1.1;white-space:nowrap;color:#1e293b}
+#bendDesignerModal[data-large-drawing="true"] .bend-large-length-control>div{display:flex;align-items:center;gap:5px}
+#bendDesignerModal[data-large-drawing="true"] #bendLargeLength{width:82px!important;min-width:82px!important;height:34px!important;min-height:34px!important;padding:4px 6px!important;font-size:15px!important;font-weight:800!important;text-align:right;background:#fff}
+#bendDesignerModal[data-large-drawing="true"] .bend-large-length-control span{font-size:12px;font-weight:800;color:#475569}
+#bendDesignerModal[data-large-drawing="true"] .bend-data-card>h3{display:block!important;width:100%!important;flex:0 0 auto!important;margin:0 0 10px!important;padding:2px 4px!important;box-sizing:border-box!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25!important}
+@media (min-width:900px){#bendDesignerModal[data-large-drawing="true"] .bend-data-card{width:430px!important;min-width:430px!important;max-width:430px!important;padding:14px!important}}
+</style>
+<script>
+(function(){
+  const normal=document.getElementById('bend3DLength');
+  const large=document.getElementById('bendLargeLength');
+  const target=document.getElementById('bendTargetPiece');
+  if(!normal || !large)return;
+  let syncing=false;
+  function copy(source,destination){if(syncing)return;syncing=true;destination.value=source.value;destination.dispatchEvent(new Event('input',{bubbles:true}));syncing=false}
+  function refresh(){large.value=normal.value||1000}
+  large.addEventListener('input',()=>copy(large,normal));
+  normal.addEventListener('input',()=>{if(!syncing)refresh()});
+  target?.addEventListener('change',()=>setTimeout(refresh,20));
+  document.getElementById('bendFullscreenDrawBtn')?.addEventListener('click',()=>setTimeout(refresh,80));
+  document.getElementById('bendDesignerBtn')?.addEventListener('click',()=>setTimeout(refresh,80));
+  refresh();
+})();
+</script>
 </body>
 </html>
