@@ -3796,6 +3796,13 @@ if(quotePdfBtn){
       ctx.strokeStyle="#0f172a";ctx.lineWidth=2;ctx.beginPath();ctx.arc(q.x,q.y,5,0,Math.PI*2);ctx.fill();ctx.stroke();
     });
 
+    // Centre visuel du profil : les numéros sont placés côté intérieur
+    // et les cotes extérieures sur le côté opposé pour éviter tout chevauchement.
+    const profileCenter={
+      x:mapped.reduce((sum,p)=>sum+p.x,0)/mapped.length,
+      y:mapped.reduce((sum,p)=>sum+p.y,0)/mapped.length
+    };
+
     // Numéro de chaque segment pour correspondre au tableau des cotes
     for(let i=0;i<mapped.length-1;i++){
       const a=mapped[i];
@@ -3808,10 +3815,11 @@ if(quotePdfBtn){
       const nx=-dy/length;
       const ny=dx/length;
 
-      // Léger décalage pour ne pas masquer le trait ni les cotes
-      const badgeOffset=14;
-      const bx=mx+nx*badgeOffset;
-      const by=my+ny*badgeOffset;
+      // Choisit la normale orientée vers le centre du profil : numéro intérieur.
+      const towardCenter=((profileCenter.x-mx)*nx+(profileCenter.y-my)*ny)>=0 ? 1 : -1;
+      const badgeOffset=17;
+      const bx=mx+nx*badgeOffset*towardCenter;
+      const by=my+ny*badgeOffset*towardCenter;
       const radius=11;
 
       ctx.save();
@@ -3848,7 +3856,9 @@ if(quotePdfBtn){
         rotation+=Math.PI;
       }
 
-      const offset=(i%2===0 ? -24 : 24);
+      // Cote placée à l'extérieur, à l'opposé du numéro de segment.
+      const towardCenter=((profileCenter.x-mx)*nx+(profileCenter.y-my)*ny)>=0 ? 1 : -1;
+      const offset=-34*towardCenter;
       const tx=mx+nx*offset;
       const ty=my+ny*offset;
       const label=`${fmtNumber(profile.lengths[i],1)} mm`;
@@ -4551,14 +4561,27 @@ if(quotePdfBtn){
   bendShow3DBtn?.addEventListener("click",()=>{
     if(!bend3DCard)return;
 
-    const mustOpen=bend3DCard.hidden;
+    const largeMode=modal?.getAttribute("data-large-drawing")==="true";
 
+    if(largeMode){
+      const show3D=modal.getAttribute("data-large-view")!=="3d";
+      modal.setAttribute("data-large-view",show3D ? "3d" : "2d");
+      bend3DCard.hidden=!show3D;
+      bend3DCard.classList.toggle("bend-3d-visible",show3D);
+      bendShow3DBtn.textContent=show3D ? "Revenir au tracé 2D" : "Afficher la 3D";
+      window.dispatchEvent(new Event("resize"));
+      if(show3D){
+        setTimeout(()=>{resizeCanvas3D();draw3D();},80);
+        setTimeout(()=>{resizeCanvas3D();draw3D();},220);
+      }else{
+        setTimeout(()=>{resizeCanvas();draw();},80);
+      }
+      return;
+    }
+
+    const mustOpen=bend3DCard.hidden;
     bend3DCard.hidden=!mustOpen;
-    bend3DCard.style.setProperty(
-      "display",
-      mustOpen ? "block" : "none",
-      "important"
-    );
+    bend3DCard.style.setProperty("display",mustOpen ? "block" : "none","important");
     bend3DCard.classList.toggle("bend-3d-visible",mustOpen);
     bendShow3DBtn.textContent=mustOpen ? "Masquer la 3D" : "Afficher la 3D";
 
@@ -4566,10 +4589,7 @@ if(quotePdfBtn){
       setTimeout(()=>{
         resizeCanvas3D();
         draw3D();
-        bend3DCard.scrollIntoView({
-          behavior:"smooth",
-          block:"start"
-        });
+        bend3DCard.scrollIntoView({behavior:"smooth",block:"start"});
       },80);
     }
   });
@@ -4842,13 +4862,36 @@ if(quotePdfBtn){
     important(toolbar,{display:'none'});
     important(results,{display:'none'});
     important(warning,{display:'none'});
-    important(card3d,{display:'none'});
+    const showLarge3D=modal.getAttribute('data-large-view')==='3d';
+    important(card3d,{
+      display:showLarge3D?'flex':'none',
+      position:'absolute',
+      top:'0',
+      left:'0',
+      right:PANEL_WIDTH+'px',
+      bottom:'0',
+      width:'auto',
+      height:'auto',
+      margin:'0',
+      padding:'12px',
+      border:'0',
+      borderRadius:'0',
+      background:'#eef3f8',
+      zIndex:'55',
+      flexDirection:'column',
+      boxSizing:'border-box',
+      overflow:'hidden'
+    });
+    if(card3d){
+      card3d.hidden=!showLarge3D;
+      card3d.classList.toggle('bend-3d-visible',showLarge3D);
+    }
     important(help,{display:'none'});
     important(showTable,{display:'none'});
 
     important(workspace,{display:'block',position:'fixed',top:HEAD_HEIGHT+'px',left:'0',right:'0',bottom:'0',width:'auto',height:'auto',padding:'0',margin:'0',overflow:'hidden'});
 
-    important(canvasCard,{display:'block',position:'absolute',top:'0',left:'0',right:PANEL_WIDTH+'px',bottom:'0',width:'auto',height:'auto',padding:'0',margin:'0',border:'0',borderRadius:'0',overflow:'hidden',background:'#1593c5'});
+    important(canvasCard,{display:showLarge3D?'none':'block',position:'absolute',top:'0',left:'0',right:PANEL_WIDTH+'px',bottom:'0',width:'auto',height:'auto',padding:'0',margin:'0',border:'0',borderRadius:'0',overflow:'hidden',background:'#1593c5'});
     important(mini,{display:'flex',position:'absolute',top:'0',left:'0',right:'0',bottom:'auto',height:'66px',padding:'8px 10px',margin:'0',zIndex:'50',gap:'7px',alignItems:'center',flexWrap:'nowrap',overflowX:'auto',background:'#fff',borderBottom:'1px solid #d9e1ea',boxSizing:'border-box'});
     important(canvasWrap,{display:'block',position:'absolute',top:'66px',left:'0',right:'0',bottom:'0',width:'auto',height:'auto',minHeight:'0',padding:'0',margin:'0',border:'0',borderRadius:'0',overflow:'hidden'});
     important(canvas,{display:'block',width:'100%',height:'100%',minHeight:'0'});
@@ -4857,6 +4900,15 @@ if(quotePdfBtn){
     data.hidden=false;
     important(tableWrap,{display:'block',visibility:'visible',flex:'1 1 auto',width:'100%',minHeight:'0',maxHeight:'none',overflow:'auto'});
     important(table,{display:'table',width:'100%',minWidth:'0',tableLayout:'fixed'});
+
+    if(showLarge3D && card3d){
+      const head3d=card3d.querySelector('.bend-3d-head');
+      const wrap3d=card3d.querySelector('.bend-3d-wrap');
+      const canvas3d=card3d.querySelector('#bend3DCanvas');
+      important(head3d,{display:'flex',flex:'0 0 auto',marginBottom:'10px'});
+      important(wrap3d,{display:'block',flex:'1 1 auto',width:'100%',height:'auto',minHeight:'0',overflow:'hidden'});
+      important(canvas3d,{display:'block',width:'100%',height:'100%',minHeight:'0'});
+    }
 
     requestAnimationFrame(()=>{
       window.dispatchEvent(new Event('resize'));
@@ -4867,7 +4919,7 @@ if(quotePdfBtn){
   if(!modal) return;
 
   const observer=new MutationObserver(mutations=>{
-    if(mutations.some(m=>m.type==='attributes' && m.attributeName==='data-large-drawing')){
+    if(mutations.some(m=>m.type==='attributes' && (m.attributeName==='data-large-drawing' || m.attributeName==='data-large-view'))){
       setTimeout(applyV25LargeLayout,0);
       setTimeout(applyV25LargeLayout,100);
     }
@@ -4875,6 +4927,9 @@ if(quotePdfBtn){
   observer.observe(modal,{attributes:true});
 
   document.getElementById('bendFullscreenDrawBtn')?.addEventListener('click',()=>{
+    if(modal.getAttribute('data-large-drawing')!=='true'){
+      modal.setAttribute('data-large-view','2d');
+    }
     setTimeout(applyV25LargeLayout,0);
     setTimeout(applyV25LargeLayout,120);
     setTimeout(applyV25LargeLayout,350);
