@@ -1912,7 +1912,18 @@ function loadPieces(){
     return Array.isArray(parsed)&&parsed.length ? parsed : [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
   }catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}]}
 }
-function savePieces(){localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces))}
+function syncPieceLengthsFromBendProfiles(){
+  pieces.forEach(piece=>{
+    const lengthMm=Number(piece?.bendProfile?.settings?.length3D||0);
+    if(lengthMm>0 && !(Number(piece.length||0)>0)){
+      piece.length=String(Number((lengthMm/1000).toFixed(3)));
+    }
+  });
+}
+function savePieces(){
+  syncPieceLengthsFromBendProfiles();
+  localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces));
+}
 function saveCurrentProjectState(){
   const state={
     clientId:selectedClient.value || "",
@@ -3069,6 +3080,7 @@ const PROJECTS_KEY="rml_pliage_projects_v1";
 let currentLoadedProjectId="";
 
 function persistCurrentProjectRecord({createIfMissing=true}={}){
+  syncPieceLengthsFromBendProfiles();
   const name=(projectNameInput.value || "Projet sans nom").trim();
   const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
 
@@ -5164,6 +5176,8 @@ if(quotePdfBtn){
     const result=calculate();const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
     if(!pieces[index])return alert("Pièce cible introuvable.");
     pieces[index].developed=result.rounded;pieces[index].folds=profile.angles.length;
+    const pieceLengthMm=Math.max(0,Number(fields.length3D?.value)||0);
+    if(pieceLengthMm>0)pieces[index].length=String(Number((pieceLengthMm/1000).toFixed(3)));
     pieces[index].bendProfile=JSON.parse(JSON.stringify({
       profile,
       roughPoints,
