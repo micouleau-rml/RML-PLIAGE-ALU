@@ -4162,6 +4162,65 @@ if(quotePdfBtn){
     }
     ctx3D.restore();
 
+    // ===== V30 : COTE DE LONGUEUR DE LA PIÈCE SUR LA VUE 3D =====
+    // La longueur est représentée parallèlement à la profondeur de la pièce,
+    // avec deux lignes d’attache et une cote imprimable.
+    {
+      const f=front[0];
+      const b=back[0];
+      const dx=b.x-f.x;
+      const dy=b.y-f.y;
+      const dl=Math.max(1,Math.hypot(dx,dy));
+      const ux=dx/dl, uy=dy/dl;
+      const nx=-uy, ny=ux;
+      const offset=42;
+      const fDim={x:f.x+nx*offset,y:f.y+ny*offset};
+      const bDim={x:b.x+nx*offset,y:b.y+ny*offset};
+
+      ctx3D.save();
+      ctx3D.strokeStyle="#0f172a";
+      ctx3D.fillStyle="#0f172a";
+      ctx3D.lineWidth=1.5;
+
+      // Lignes d’attache
+      ctx3D.beginPath();ctx3D.moveTo(f.x,f.y);ctx3D.lineTo(fDim.x,fDim.y);ctx3D.stroke();
+      ctx3D.beginPath();ctx3D.moveTo(b.x,b.y);ctx3D.lineTo(bDim.x,bDim.y);ctx3D.stroke();
+
+      // Ligne de cote
+      ctx3D.beginPath();ctx3D.moveTo(fDim.x,fDim.y);ctx3D.lineTo(bDim.x,bDim.y);ctx3D.stroke();
+
+      function drawArrow3D(p,dir){
+        const size=9;
+        const px=-dir.y, py=dir.x;
+        ctx3D.beginPath();
+        ctx3D.moveTo(p.x,p.y);
+        ctx3D.lineTo(p.x+dir.x*size+px*size*.45,p.y+dir.y*size+py*size*.45);
+        ctx3D.lineTo(p.x+dir.x*size-px*size*.45,p.y+dir.y*size-py*size*.45);
+        ctx3D.closePath();
+        ctx3D.fill();
+      }
+      drawArrow3D(fDim,{x:ux,y:uy});
+      drawArrow3D(bDim,{x:-ux,y:-uy});
+
+      const lengthText=`Longueur ${Math.round(extrusion).toLocaleString("fr-FR")} mm`;
+      const mx=(fDim.x+bDim.x)/2;
+      const my=(fDim.y+bDim.y)/2;
+      let rotation=Math.atan2(dy,dx);
+      if(rotation>Math.PI/2 || rotation<-Math.PI/2)rotation+=Math.PI;
+      ctx3D.translate(mx,my);
+      ctx3D.rotate(rotation);
+      ctx3D.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.textAlign="center";
+      ctx3D.textBaseline="middle";
+      const lw=ctx3D.measureText(lengthText).width;
+      ctx3D.fillStyle="rgba(255,255,255,.96)";
+      ctx3D.strokeStyle="#0f172a";
+      ctx3D.beginPath();ctx3D.roundRect(-lw/2-8,-12,lw+16,24,6);ctx3D.fill();ctx3D.stroke();
+      ctx3D.fillStyle="#0f172a";
+      ctx3D.fillText(lengthText,0,0);
+      ctx3D.restore();
+    }
+
     // Cartouche longueur
     const label=`Longueur : ${Math.round(extrusion).toLocaleString("fr-FR")} mm`;
     ctx3D.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
@@ -4728,11 +4787,51 @@ if(quotePdfBtn){
     const y=Math.max(0,Math.min(r.height,e.clientY-r.top));
     return {x,y};
   }
+  function selectSegmentAtPoint(point){
+    if(drawingMode || profile.lengths.length<1)return false;
+
+    buildExactPoints();
+    const mapped=fitPoints(profile.exactPoints,canvas.clientWidth,canvas.clientHeight,90);
+    let bestIndex=-1;
+    let bestDistance=Infinity;
+
+    for(let i=0;i<mapped.length-1;i++){
+      const a=mapped[i],b=mapped[i+1];
+      const vx=b.x-a.x,vy=b.y-a.y;
+      const len2=vx*vx+vy*vy || 1;
+      const t=Math.max(0,Math.min(1,((point.x-a.x)*vx+(point.y-a.y)*vy)/len2));
+      const px=a.x+t*vx,py=a.y+t*vy;
+      const distance=Math.hypot(point.x-px,point.y-py);
+      if(distance<bestDistance){bestDistance=distance;bestIndex=i;}
+    }
+
+    if(bestIndex<0 || bestDistance>28)return false;
+    activeSegment=bestIndex;
+    activeBend=-1;
+    body.querySelectorAll("tr").forEach((row,index)=>{
+      row.classList.toggle("bend-active-row",index===bestIndex);
+    });
+    body.querySelectorAll("tr")[bestIndex]?.scrollIntoView({block:"nearest",behavior:"smooth"});
+    draw();
+    return true;
+  }
+
   canvas.addEventListener("pointerdown",e=>{
-    if(!drawingMode)return;
+    const p=pointerPos(e);
+
+    // Après validation, un clic sur le plan sélectionne le segment correspondant
+    // et surligne immédiatement sa ligne dans le tableau.
+    if(!drawingMode){
+      e.preventDefault();
+      selectSegmentAtPoint(p);
+      return;
+    }
+
+    // Le clic droit est réservé à la validation de fin de dessin.
+    if(e.button===2)return;
+
     e.preventDefault();
     canvas.setPointerCapture?.(e.pointerId);
-    const p=pointerPos(e);
     if(roughPoints.length){
       const last=roughPoints[roughPoints.length-1];
       if(Math.hypot(p.x-last.x,p.y-last.y)<10)return;
@@ -4752,6 +4851,16 @@ if(quotePdfBtn){
   canvas.addEventListener("pointerup",e=>{canvas.releasePointerCapture?.(e.pointerId)});
   canvas.addEventListener("pointercancel",e=>{canvas.releasePointerCapture?.(e.pointerId)});
   canvas.addEventListener("dblclick",e=>{e.preventDefault();if(drawingMode)finishDrawing()});
+
+  // Clic droit : valide immédiatement la fin du tracé sans afficher le menu du navigateur.
+  canvas.addEventListener("contextmenu",e=>{
+    e.preventDefault();
+    if(drawingMode){
+      finishDrawing();
+    }else{
+      selectSegmentAtPoint(pointerPos(e));
+    }
+  });
 
   function open(){
     setLargeDrawingMode(false);
