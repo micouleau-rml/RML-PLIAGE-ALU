@@ -1569,7 +1569,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 .bend-context-menu .bend-context-cancel{margin-top:5px;background:#f3f5f7;color:#233241;}
 
 </style> 
-  </head>
+  <!-- V33 : clic droit robuste + mémorisation du profil dans le projet -->
+</head>
 <body>
 <div class="container">
   <div class="hero">
@@ -3008,6 +3009,7 @@ if(data.client){
   }
 }
 
+currentLoadedProjectId=importedProject.id || "";
 projectNameInput.value=importedProject.name;
 renderClientSelect();
 
@@ -3064,29 +3066,52 @@ const saveProjectBtn=document.getElementById("saveProjectBtn");
 const newProjectBtn=document.getElementById("newProjectBtn");
 const projectNameInput=document.getElementById("projectName");
 const PROJECTS_KEY="rml_pliage_projects_v1";
+let currentLoadedProjectId="";
 
-function saveCurrentProject(){
-  const projectName=(projectNameInput.value || "Projet sans nom").trim();
+function persistCurrentProjectRecord({createIfMissing=true}={}){
+  const name=(projectNameInput.value || "Projet sans nom").trim();
+  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
 
+  let index=currentLoadedProjectId
+    ? projects.findIndex(p=>p.id===currentLoadedProjectId)
+    : -1;
+
+  if(index<0 && !currentLoadedProjectId){
+    index=projects.findIndex(p=>(p.name||p.projectName||"").trim()===name && (p.clientId||"")===selectedClient.value);
+  }
+
+  if(index<0 && !createIfMissing)return null;
+
+  const existing=index>=0 ? projects[index] : null;
   const projectData={
-    id:crypto.randomUUID(),
-    name:projectName,
-    color: projectColor ? projectColor.value : "",
+    ...(existing||{}),
+    id:existing?.id || currentLoadedProjectId || crypto.randomUUID(),
+    name,
+    color:projectColor ? projectColor.value : "",
     clientId:selectedClient.value,
     thickness:selectedThickness.value,
     sheetFormat:sheetFormat.value,
     pieces:JSON.parse(JSON.stringify(pieces)),
-    date:new Date().toISOString()
+    date:existing?.date || new Date().toISOString(),
+    modifiedAt:new Date().toISOString()
   };
 
-  const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
-  projects.push(projectData);
-  localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+  if(index>=0)projects[index]=projectData;
+  else projects.push(projectData);
 
-  alert("Projet enregistré : " + projectName);
+  currentLoadedProjectId=projectData.id;
+  localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+  return projectData;
+}
+
+function saveCurrentProject(){
+  const saved=persistCurrentProjectRecord({createIfMissing:true});
+  if(saved)alert("Projet enregistré : " + saved.name);
 }
 
 function newProject(){
+
+  currentLoadedProjectId="";
 
   // Nom et couleur du projet
   projectNameInput.value="";
@@ -3224,6 +3249,8 @@ function newProject(){
 
     openButton.addEventListener("click",()=>{
       const selected=projects[index];
+
+      currentLoadedProjectId=selected?.id || "";
 
       if(!selected){
         alert("Projet invalide.");
@@ -4945,22 +4972,35 @@ if(quotePdfBtn){
     return false;
   }
 
-  // Le mode capture évite qu’un autre gestionnaire ou Safari intercepte le clic droit.
-  canvas.addEventListener("contextmenu",handleBendContextMenu,{capture:true});
+  function pointIsInsideCanvas(clientX,clientY){
+    const rect=canvas.getBoundingClientRect();
+    return clientX>=rect.left && clientX<=rect.right && clientY>=rect.top && clientY<=rect.bottom;
+  }
+
+  // Interception globale en capture : fonctionne même si un calque du grand écran
+  // se trouve momentanément au-dessus du canvas.
+  document.addEventListener("contextmenu",e=>{
+    if(!modal.classList.contains("open"))return;
+    if(!pointIsInsideCanvas(e.clientX,e.clientY))return;
+    handleBendContextMenu(e);
+  },true);
+
+  canvas.addEventListener("contextmenu",handleBendContextMenu,true);
   canvas.parentElement?.addEventListener("contextmenu",e=>{
-    if(e.target===canvas || canvas.contains?.(e.target)){
-      handleBendContextMenu(e);
-    }
-  },{capture:true});
+    if(pointIsInsideCanvas(e.clientX,e.clientY))handleBendContextMenu(e);
+  },true);
 
   // Compatibilité Mac : Ctrl + clic ouvre le même menu personnalisé.
-  canvas.addEventListener("mousedown",e=>{
-    if(e.ctrlKey && e.button===0){
-      e.preventDefault();
-      e.stopPropagation();
-      if(drawingMode)openBendContextMenu(e.clientX,e.clientY);
-    }
-  },{capture:true});
+  document.addEventListener("mousedown",e=>{
+    if(!modal.classList.contains("open"))return;
+    if(!(e.ctrlKey && e.button===0))return;
+    if(!pointIsInsideCanvas(e.clientX,e.clientY))return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation?.();
+    if(drawingMode)openBendContextMenu(e.clientX,e.clientY);
+    else selectSegmentAtPoint(pointerPos(e));
+  },true);
 
   document.addEventListener("pointerdown",e=>{
     if(bendContextMenu && !bendContextMenu.contains(e.target)){
@@ -5046,12 +5086,43 @@ if(quotePdfBtn){
     savePieces();renderPieces();close();alert(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
   });
   document.getElementById("bendSaveProfileBtn")?.addEventListener("click",()=>{
-    if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
-    drawingMode=false;
+    if(drawingMode){
+      if(!deriveProfileFromRough())return alert("Tracez au moins un segment avant de mémoriser la pièce.");
+      drawingMode=false;
+      previewPoint=null;
+      renderAll(true);
+    }
+
     const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
     if(!pieces[index])return alert("Pièce cible introuvable.");
-    const result=calculate();pieces[index].bendProfile=JSON.parse(JSON.stringify({profile,settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,round:fields.round.value},result}));
-    savePieces();alert(`Profil mémorisé dans la pièce ${index+1}.`);
+
+    const result=calculate();
+    pieces[index].developed=result.rounded;
+    pieces[index].folds=profile.angles.length;
+    pieces[index].bendProfile=JSON.parse(JSON.stringify({
+      profile,
+      settings:{
+        material:fields.material.value,
+        thickness:fields.thickness.value,
+        vee:fields.vee.value,
+        radius:fields.radius.value,
+        k:fields.k.value,
+        cybFactor:fields.cybFactor?.value,
+        calcMode:fields.calcMode?.value,
+        round:fields.round.value,
+        length3D:fields.length3D?.value
+      },
+      result
+    }));
+
+    savePieces();
+    renderPieces();
+    saveCurrentProjectState();
+    const savedProject=persistCurrentProjectRecord({createIfMissing:true});
+    renderTargets();
+    targetSelect.value=String(index);
+
+    alert(`Pièce ${index+1} mémorisée${savedProject ? ` dans le projet « ${savedProject.name} »` : ""}.`);
   });
 
   calculate();
