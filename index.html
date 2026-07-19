@@ -4868,8 +4868,11 @@ if(quotePdfBtn){
       return;
     }
 
-    // Le clic droit est réservé à la validation de fin de dessin.
-    if(e.button===2)return;
+    // Le clic droit ou Ctrl + clic sur Mac est réservé au menu de validation.
+    if(e.button===2 || e.ctrlKey){
+      e.preventDefault();
+      return;
+    }
 
     e.preventDefault();
     canvas.setPointerCapture?.(e.pointerId);
@@ -4927,15 +4930,37 @@ if(quotePdfBtn){
     menu.querySelector(".bend-context-cancel")?.addEventListener("click",closeBendContextMenu);
   }
 
-  canvas.addEventListener("contextmenu",e=>{
+  function handleBendContextMenu(e){
+    // Capture prioritaire pour Safari/Chrome : empêche toujours le menu natif.
     e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation?.();
+
     if(drawingMode){
       openBendContextMenu(e.clientX,e.clientY);
     }else{
       closeBendContextMenu();
       selectSegmentAtPoint(pointerPos(e));
     }
-  });
+    return false;
+  }
+
+  // Le mode capture évite qu’un autre gestionnaire ou Safari intercepte le clic droit.
+  canvas.addEventListener("contextmenu",handleBendContextMenu,{capture:true});
+  canvas.parentElement?.addEventListener("contextmenu",e=>{
+    if(e.target===canvas || canvas.contains?.(e.target)){
+      handleBendContextMenu(e);
+    }
+  },{capture:true});
+
+  // Compatibilité Mac : Ctrl + clic ouvre le même menu personnalisé.
+  canvas.addEventListener("mousedown",e=>{
+    if(e.ctrlKey && e.button===0){
+      e.preventDefault();
+      e.stopPropagation();
+      if(drawingMode)openBendContextMenu(e.clientX,e.clientY);
+    }
+  },{capture:true});
 
   document.addEventListener("pointerdown",e=>{
     if(bendContextMenu && !bendContextMenu.contains(e.target)){
