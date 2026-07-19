@@ -4099,6 +4099,69 @@ if(quotePdfBtn){
       ctx3D.stroke();
     }
 
+    // ===== V29 : COTES EXTÉRIEURES ET ANGLES SUR LE PLAN 3D =====
+    // Numéros de segments à l’intérieur, cotes à l’extérieur.
+    ctx3D.save();
+    ctx3D.textAlign="center";
+    ctx3D.textBaseline="middle";
+
+    for(let i=0;i<front.length-1;i++){
+      const a=front[i], b=front[i+1];
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const segLen=Math.max(1,Math.hypot(dx,dy));
+      const nx=-dy/segLen, ny=dx/segLen;
+      const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+
+      // Décalage extérieur pour la cote
+      const coteOffset=30;
+      const cx=mx+nx*coteOffset;
+      const cy=my+ny*coteOffset;
+      const cote=`${fmtNumber(profile.lengths[i],1)} mm`;
+      ctx3D.font="800 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      const cw=ctx3D.measureText(cote).width;
+      ctx3D.fillStyle="rgba(255,255,255,.94)";
+      ctx3D.strokeStyle="#17324a";
+      ctx3D.lineWidth=1;
+      ctx3D.beginPath();
+      ctx3D.roundRect(cx-cw/2-6,cy-10,cw+12,20,5);
+      ctx3D.fill();ctx3D.stroke();
+      ctx3D.fillStyle="#17324a";
+      ctx3D.fillText(cote,cx,cy);
+
+      // Numéro du segment côté intérieur
+      const noOffset=-18;
+      const sx=mx+nx*noOffset;
+      const sy=my+ny*noOffset;
+      ctx3D.fillStyle="#0f172a";
+      ctx3D.strokeStyle="#fff";
+      ctx3D.lineWidth=1.5;
+      ctx3D.beginPath();ctx3D.arc(sx,sy,10,0,Math.PI*2);ctx3D.fill();ctx3D.stroke();
+      ctx3D.fillStyle="#fff";
+      ctx3D.font="800 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.fillText(String(i+1),sx,sy+.5);
+    }
+
+    // Angles intérieurs aux sommets
+    for(let i=1;i<front.length-1;i++){
+      const p0=front[i-1], p1=front[i], p2=front[i+1];
+      const v1={x:p0.x-p1.x,y:p0.y-p1.y};
+      const v2={x:p2.x-p1.x,y:p2.y-p1.y};
+      const l1=Math.hypot(v1.x,v1.y)||1, l2=Math.hypot(v2.x,v2.y)||1;
+      let bx=v1.x/l1+v2.x/l2, by=v1.y/l1+v2.y/l2;
+      const bl=Math.hypot(bx,by)||1; bx/=bl; by/=bl;
+      const ax=p1.x+bx*34, ay=p1.y+by*34;
+      const angle=`${fmtNumber(profile.angles[i-1],1)}°`;
+      ctx3D.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      const aw=ctx3D.measureText(angle).width;
+      ctx3D.fillStyle="rgba(250,204,21,.96)";
+      ctx3D.strokeStyle="#17202a";
+      ctx3D.lineWidth=1;
+      ctx3D.beginPath();ctx3D.roundRect(ax-aw/2-6,ay-10,aw+12,20,5);ctx3D.fill();ctx3D.stroke();
+      ctx3D.fillStyle="#17202a";
+      ctx3D.fillText(angle,ax,ay);
+    }
+    ctx3D.restore();
+
     // Cartouche longueur
     const label=`Longueur : ${Math.round(extrusion).toLocaleString("fr-FR")} mm`;
     ctx3D.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
@@ -4936,6 +4999,92 @@ if(quotePdfBtn){
   });
 
   window.addEventListener('resize',()=>setTimeout(applyV25LargeLayout,20));
+})();
+</script>
+
+
+<!-- ===== V29 : GRAND ÉCRAN 3D COTÉ + IMPRESSION ===== -->
+<style>
+@media (min-width:900px){
+  #bendDesignerModal[data-large-drawing="true"][data-large-view="3d"] #bend3DCard{
+    padding:0!important;
+    background:#dff1f8!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"][data-large-view="3d"] .bend-3d-head{
+    position:absolute!important;
+    top:0!important;
+    left:0!important;
+    right:0!important;
+    z-index:80!important;
+    height:58px!important;
+    margin:0!important;
+    padding:8px 12px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    background:rgba(255,255,255,.96)!important;
+    border-bottom:1px solid #cbd5e1!important;
+    box-sizing:border-box!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"][data-large-view="3d"] .bend-3d-head>div:first-child{
+    display:none!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"][data-large-view="3d"] .bend-3d-actions{
+    width:100%!important;
+    justify-content:flex-end!important;
+    margin:0!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"][data-large-view="3d"] .bend-3d-wrap{
+    position:absolute!important;
+    inset:58px 0 0 0!important;
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:linear-gradient(180deg,#eaf6fb 0%,#d6edf7 100%)!important;
+  }
+  #bendDesignerModal[data-large-drawing="true"][data-large-view="3d"] #bend3DCanvas{
+    width:100%!important;
+    height:100%!important;
+  }
+}
+</style>
+<script>
+(function(){
+  const modal=document.getElementById('bendDesignerModal');
+  const printButton=document.createElement('button');
+  printButton.type='button';
+  printButton.id='bend3DPrintBtn';
+  printButton.className='btn-primary';
+  printButton.textContent='🖨 Imprimer la vue 3D';
+
+  const actions=document.querySelector('#bend3DCard .bend-3d-actions');
+  if(actions && !document.getElementById('bend3DPrintBtn')) actions.appendChild(printButton);
+
+  printButton.addEventListener('click',()=>{
+    const canvas=document.getElementById('bend3DCanvas');
+    if(!canvas) return;
+    const image=canvas.toDataURL('image/png',1);
+    const client=document.getElementById('selectedClient')?.selectedOptions?.[0]?.textContent || '-';
+    const project=document.getElementById('projectName')?.value || 'Projet sans nom';
+    const thickness=document.getElementById('selectedThickness')?.value || '-';
+    const developed=document.getElementById('bendDeveloped')?.textContent || '-';
+    const win=window.open('','_blank');
+    if(!win) return alert('Autorisez les fenêtres surgissantes pour imprimer la vue 3D.');
+    win.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Vue 3D - ${project}</title><style>
+      @page{size:A4 landscape;margin:10mm}body{font-family:Arial,sans-serif;margin:0;color:#111}.page{padding:6mm}.head{display:flex;justify-content:space-between;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px}.title{font-size:22px;font-weight:800}.meta{font-size:12px;line-height:1.5}.drawing{width:100%;display:flex;justify-content:center}.drawing img{width:100%;max-height:165mm;object-fit:contain}.actions{text-align:center;margin-top:12px}@media print{.actions{display:none}}</style></head><body><div class="page"><div class="head"><div class="title">PLAN 3D COTÉ</div><div class="meta"><strong>Client :</strong> ${client}<br><strong>Projet :</strong> ${project}<br><strong>Épaisseur :</strong> ${thickness}<br><strong>Développé :</strong> ${developed}</div></div><div class="drawing"><img src="${image}" alt="Vue 3D cotée"></div><div class="actions"><button onclick="window.print()">Imprimer / Enregistrer PDF</button><button onclick="window.close()">Retour</button></div></div></body></html>`);
+    win.document.close();
+  });
+
+  // Force le recalcul du canvas lors du passage en 3D pour exploiter tout l'espace.
+  const observer=new MutationObserver(()=>{
+    if(modal?.getAttribute('data-large-view')==='3d'){
+      setTimeout(()=>window.dispatchEvent(new Event('resize')),50);
+      setTimeout(()=>window.dispatchEvent(new Event('resize')),200);
+    }
+  });
+  if(modal) observer.observe(modal,{attributes:true,attributeFilter:['data-large-view']});
 })();
 </script>
 
