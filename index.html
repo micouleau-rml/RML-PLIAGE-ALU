@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V34.7</title>
+<title>RML PLIAGE ALU — V34.8</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -2407,524 +2407,317 @@ win.document.close();
   const project=(projectName?.value || "Projet sans nom").trim();
   const color=(projectColor?.value || "").trim() || "-";
   const today=new Date().toLocaleDateString("fr-FR");
-
   const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
   const scale=0.24;
 
-  let allParts=[];
+  const EPS=0.001;
+  const MIN_REUSABLE_WIDTH=150;
+  const MIN_REUSABLE_LENGTH=300;
+  const MIN_FULL_LENGTH_RESIDUAL=150;
 
+  const fmtM2=value=>Number(value||0).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})+" m²";
+  const fmtPct=value=>Number(value||0).toLocaleString("fr-FR",{minimumFractionDigits:1,maximumFractionDigits:1})+" %";
+  const safePct=(value,total)=>total>EPS ? (value/total)*100 : 0;
+
+  const allParts=[];
   pieces.forEach((piece,index)=>{
     const dev=Number(piece.developed||0);
     const long=Number(piece.length||0)*1000;
-    const qty=Number(piece.qty||0);
-
-    if(!dev || !long || !qty) return;
-
+    const qty=Math.max(0,Math.floor(Number(piece.qty||0)));
+    if(dev<=0 || long<=0 || qty<=0)return;
+    if(dev>sheetW+EPS || long>sheetL+EPS){
+      alert(`La pièce P${index+1} (${Math.round(dev)} × ${Math.round(long)} mm) dépasse le format ${sheetL} × ${sheetW} mm.`);
+      return;
+    }
     for(let i=0;i<qty;i++){
       allParts.push({
+        uid:`${index+1}-${i+1}`,
         pieceNo:index+1,
         dev,
         long,
+        area:dev*long,
         w:long,
         h:dev,
-        label:`P${index+1} - ${dev} x ${long}`
+        x:0,
+        y:0,
+        rotated:false
       });
     }
   });
 
-  // On trie les pièces les plus larges en premier
-  allParts.sort((a,b)=>{
-  const maxA=Math.max(a.w,a.h);
-  const maxB=Math.max(b.w,b.h);
-
-  if(maxB!==maxA) return maxB-maxA;
-
-  return (b.w*b.h)-(a.w*a.h);
-});
-
-
-  let sheets=[];
-
-// ===== V34.7 : MOTEUR ATELIER TÔLERIE — GUILLOTINE 3 M =====
-// Principe de fabrication :
-// 1) chaque pièce conserve sa longueur dans le sens des 3000 mm ;
-// 2) les pièces de même développé sont regroupées dans des bandes continues ;
-// 3) les bandes sont réparties sur les feuilles dans le sens des 1500 mm ;
-// 4) une chute résiduelle sur toute la longueur inférieure à 150 mm est évitée ;
-// 5) aucune pièce n'est tournée à 90° : le plan reste directement guillotinable.
-const EPS=0.001;
-const MIN_FULL_LENGTH_RESIDUAL=150; // chute minimale acceptable sur 3000 mm
-
-function clonePartForPacking(part){
-  return {...part,x:0,y:0,w:part.long,h:part.dev,rotated:false};
-}
-
-function createLengthStrips(parts){
-  // Regroupement strict par développé au dixième de millimètre.
-  const groups=new Map();
-  parts.forEach(part=>{
-    const key=(Math.round(part.dev*10)/10).toFixed(1);
-    if(!groups.has(key)) groups.set(key,[]);
-    groups.get(key).push(clonePartForPacking(part));
-  });
-
-  const strips=[];
-  [...groups.entries()]
-    .sort((a,b)=>Number(b[0])-Number(a[0]))
-    .forEach(([key,groupParts])=>{
-      const dev=Number(key);
-      const ordered=[...groupParts].sort((a,b)=>b.long-a.long || a.pieceNo-b.pieceNo);
-      const bins=[];
-
-      // Best Fit Decreasing sur la longueur de 3000 mm.
-      ordered.forEach(part=>{
-        let bestIndex=-1;
-        let bestRemaining=Infinity;
-        bins.forEach((bin,index)=>{
-          const remaining=sheetL-bin.used-part.long;
-          if(remaining>=-EPS && remaining<bestRemaining){
-            bestRemaining=remaining;
-            bestIndex=index;
-          }
-        });
-        if(bestIndex<0){
-          bins.push({dev,used:part.long,parts:[part]});
-        }else{
-          bins[bestIndex].parts.push(part);
-          bins[bestIndex].used+=part.long;
-        }
-      });
-
-      // Petite amélioration locale : tente de remplir les bandes les moins pleines.
-      let changed=true;
-      while(changed){
-        changed=false;
-        bins.sort((a,b)=>b.used-a.used);
-        for(let i=bins.length-1;i>0;i--){
-          const source=bins[i];
-          for(let p=source.parts.length-1;p>=0;p--){
-            const part=source.parts[p];
-            let targetIndex=-1;
-            let bestRemaining=Infinity;
-            for(let j=0;j<i;j++){
-              const rem=sheetL-bins[j].used-part.long;
-              if(rem>=-EPS && rem<bestRemaining){bestRemaining=rem;targetIndex=j;}
-            }
-            if(targetIndex>=0){
-              bins[targetIndex].parts.push(part);
-              bins[targetIndex].used+=part.long;
-              source.parts.splice(p,1);
-              source.used-=part.long;
-              changed=true;
-            }
-          }
-          if(source.parts.length===0){bins.splice(i,1);changed=true;}
-        }
-      }
-
-      bins.forEach((bin,binIndex)=>{
-        let x=0;
-        const placed=bin.parts
-          .sort((a,b)=>b.long-a.long || a.pieceNo-b.pieceNo)
-          .map(part=>{
-            const placedPart={...part,x,y:0,w:part.long,h:dev,rotated:false};
-            x+=part.long;
-            return placedPart;
-          });
-        strips.push({
-          id:`D${key}-${binIndex+1}`,
-          dev,
-          width:dev,
-          usedLength:bin.used,
-          parts:placed
-        });
-      });
-    });
-  return strips;
-}
-
-function seededShuffle(items,seed){
-  const arr=[...items];
-  let x=(seed+1)>>>0;
-  const rnd=()=>{x=(Math.imul(1664525,x)+1013904223)>>>0;return x/4294967296;};
-  for(let i=arr.length-1;i>0;i--){
-    const j=Math.floor(rnd()*(i+1));
-    [arr[i],arr[j]]=[arr[j],arr[i]];
-  }
-  return arr;
-}
-
-function packStripsWithOrder(order){
-  const packed=[];
-  order.forEach(strip=>{
-    let best=null;
-    packed.forEach((sheet,index)=>{
-      const remBefore=sheetW-sheet.usedWidth;
-      const remAfter=remBefore-strip.width;
-      if(remAfter<-EPS) return;
-      // On préfère une feuille qui se termine à 0 ou garde une chute >= 150 mm.
-      const badResidual=remAfter>EPS && remAfter<MIN_FULL_LENGTH_RESIDUAL ? 1 : 0;
-      const score=badResidual*1000000 + remAfter;
-      if(!best || score<best.score) best={index,score};
-    });
-    if(best){
-      packed[best.index].strips.push(strip);
-      packed[best.index].usedWidth+=strip.width;
-    }else{
-      packed.push({strips:[strip],usedWidth:strip.width});
-    }
-  });
-  return packed;
-}
-
-function sheetPackingScore(packed){
-  const residuals=packed.map(s=>sheetW-s.usedWidth);
-  const bad=residuals.filter(r=>r>EPS && r<MIN_FULL_LENGTH_RESIDUAL);
-  const totalUnused=residuals.reduce((a,b)=>a+b,0);
-  const concentration=packed.reduce((sum,s,i)=>sum+(sheetW-s.usedWidth)*(i+1),0);
-  return {
-    sheetCount:packed.length,
-    badCount:bad.length,
-    badTotal:bad.reduce((a,b)=>a+b,0),
-    totalUnused,
-    concentration
-  };
-}
-
-function isBetterSheetPacking(a,b){
-  if(!b) return true;
-  for(const key of ['sheetCount','badCount','badTotal','totalUnused','concentration']){
-    if(Math.abs(a[key]-b[key])>EPS) return a[key]<b[key];
-  }
-  return false;
-}
-
-function improveSheetPacking(packed){
-  const result=packed.map(s=>({strips:[...s.strips],usedWidth:s.usedWidth}));
-  let changed=true;
-  let guard=0;
-  while(changed && guard++<200){
-    changed=false;
-    // Déplacement d'une bande d'une feuille à une autre si le score global s'améliore.
-    const baseScore=sheetPackingScore(result);
-    outer:
-    for(let from=result.length-1;from>=0;from--){
-      for(let si=0;si<result[from].strips.length;si++){
-        const strip=result[from].strips[si];
-        for(let to=0;to<result.length;to++){
-          if(to===from || result[to].usedWidth+strip.width>sheetW+EPS) continue;
-          const trial=result.map(s=>({strips:[...s.strips],usedWidth:s.usedWidth}));
-          trial[from].strips.splice(si,1);
-          trial[from].usedWidth-=strip.width;
-          trial[to].strips.push(strip);
-          trial[to].usedWidth+=strip.width;
-          const cleaned=trial.filter(s=>s.strips.length);
-          const score=sheetPackingScore(cleaned);
-          if(isBetterSheetPacking(score,baseScore)){
-            result.splice(0,result.length,...cleaned);
-            changed=true;
-            break outer;
-          }
-        }
-      }
-    }
-  }
-  return result;
-}
-
-const strips=createLengthStrips(allParts);
-const stripOrders=[
-  [...strips].sort((a,b)=>b.width-a.width || b.usedLength-a.usedLength),
-  [...strips].sort((a,b)=>b.usedLength-a.usedLength || b.width-a.width),
-  [...strips].sort((a,b)=>(b.width*b.usedLength)-(a.width*a.usedLength)),
-  [...strips].sort((a,b)=>a.width-b.width || b.usedLength-a.usedLength)
-];
-
-// Variantes reproductibles pour trouver de meilleures combinaisons de bandes.
-const passes=Math.min(240,Math.max(80,strips.length*6));
-for(let seed=0;seed<passes;seed++){
-  const base=[...strips].sort((a,b)=>b.width-a.width || b.usedLength-a.usedLength);
-  const order=[];
-  for(let i=0;i<base.length;i+=5){order.push(...seededShuffle(base.slice(i,i+5),seed*131+i));}
-  stripOrders.push(order);
-}
-
-let best=null;
-stripOrders.forEach(order=>{
-  const packed=improveSheetPacking(packStripsWithOrder(order));
-  const score=sheetPackingScore(packed);
-  if(!best || isBetterSheetPacking(score,best.score)) best={packed,score};
-});
-
-sheets=(best?best.packed:[]).map(sheet=>{
-  // Les bandes les plus larges sont placées en premier pour une lecture atelier claire.
-  sheet.strips.sort((a,b)=>b.width-a.width || b.usedLength-a.usedLength);
-  let y=0;
-  const parts=[];
-  const rows=[];
-  sheet.strips.forEach(strip=>{
-    strip.parts.forEach(part=>parts.push({...part,y:y,h:strip.width}));
-    rows.push({y,height:strip.width,usedLength:strip.usedLength,developed:strip.dev});
-    y+=strip.width;
-  });
-  return {
-    parts,
-    rows,
-    strips:sheet.strips,
-    usedWidth:sheet.usedWidth,
-    fullLengthResidual:sheetW-sheet.usedWidth,
-    freeRects:[]
-  };
-});
-
-// Feuilles les plus remplies en premier.
-sheets.sort((a,b)=>b.usedWidth-a.usedWidth);
-
-const placedCount=sheets.reduce((sum,s)=>sum+s.parts.length,0);
-if(!sheets.length && allParts.length){
-  alert("Aucune pièce ne peut être placée avec le format de feuille sélectionné.");
-}
-if(placedCount!==allParts.length){
-  alert(`Attention : ${allParts.length-placedCount} pièce(s) non placée(s).`);
-}
-
-const badResidualSheets=sheets.filter(s=>s.fullLengthResidual>EPS && s.fullLengthResidual<MIN_FULL_LENGTH_RESIDUAL);
-if(badResidualSheets.length){
-  console.warn("Calepinage atelier : certaines feuilles conservent une chute pleine longueur inférieure à 150 mm faute de combinaison exacte.");
-}
-
-  let summaryRows="";
-  let drawings="";
-  let totalParts=allParts.length;
-  let totalSheetArea=sheets.length*(sheetW*sheetL/1000000);
-
-  sheets.forEach((sheet,sheetIndex)=>{
-
-  if(!sheet.parts || sheet.parts.length===0){
+  if(!allParts.length){
+    alert("Aucune pièce valide à calepiner.");
     return;
   }
 
-  const counts={};
+  function clonePart(part){return {...part};}
+  function clonePacking(packing){
+    return packing.map(sheet=>({
+      rows:sheet.rows.map(row=>({height:row.height,usedLength:row.usedLength,parts:row.parts.map(clonePart)})),
+      usedWidth:sheet.usedWidth
+    }));
+  }
 
-    sheet.parts.forEach(p=>{
-      counts[p.pieceNo]=(counts[p.pieceNo]||0)+1;
+  function rowPlacementScore(row,part){
+    if(part.dev>row.height+EPS || row.usedLength+part.long>sheetL+EPS)return null;
+    const lengthAfter=sheetL-row.usedLength-part.long;
+    const heightSlack=row.height-part.dev;
+    const lostArea=heightSlack*part.long;
+    return lostArea*1000 + lengthAfter*10 + heightSlack;
+  }
+
+  function placePart(packing,part){
+    let best=null;
+
+    packing.forEach((sheet,sheetIndex)=>{
+      sheet.rows.forEach((row,rowIndex)=>{
+        const score=rowPlacementScore(row,part);
+        if(score===null)return;
+        if(!best || score<best.score){best={type:"row",sheetIndex,rowIndex,score};}
+      });
+
+      const remainingWidth=sheetW-sheet.usedWidth;
+      if(part.dev<=remainingWidth+EPS){
+        const residualAfter=remainingWidth-part.dev;
+        const badResidual=residualAfter>EPS && residualAfter<MIN_FULL_LENGTH_RESIDUAL ? 1 : 0;
+        const score=500000 + badResidual*1000000 + residualAfter*100 + (sheetL-part.long);
+        if(!best || score<best.score){best={type:"newRow",sheetIndex,score};}
+      }
     });
 
-    const detail=Object.entries(counts)
-      .map(([pieceNo,count])=>`P${pieceNo} : ${count} u`)
-      .join(" / ");
+    if(!best){
+      packing.push({rows:[{height:part.dev,usedLength:part.long,parts:[clonePart(part)]}],usedWidth:part.dev});
+      return;
+    }
+
+    const sheet=packing[best.sheetIndex];
+    if(best.type==="row"){
+      const row=sheet.rows[best.rowIndex];
+      row.parts.push(clonePart(part));
+      row.usedLength+=part.long;
+    }else{
+      sheet.rows.push({height:part.dev,usedLength:part.long,parts:[clonePart(part)]});
+      sheet.usedWidth+=part.dev;
+    }
+  }
+
+  function layoutPacking(packing){
+    packing.forEach(sheet=>{
+      sheet.rows.sort((a,b)=>b.height-a.height || b.usedLength-a.usedLength);
+      let y=0;
+      const parts=[];
+      sheet.rows.forEach(row=>{
+        row.parts.sort((a,b)=>b.dev-a.dev || b.long-a.long || a.pieceNo-b.pieceNo);
+        let x=0;
+        row.parts.forEach(part=>{
+          part.x=x;
+          part.y=y;
+          part.w=part.long;
+          part.h=part.dev;
+          part.rowHeight=row.height;
+          parts.push(part);
+          x+=part.long;
+        });
+        row.usedLength=x;
+        row.y=y;
+        y+=row.height;
+      });
+      sheet.usedWidth=y;
+      sheet.parts=parts;
+      sheet.fullLengthResidual=Math.max(0,sheetW-y);
+    });
+    return packing;
+  }
+
+  function freeZonesForSheet(sheet){
+    const zones=[];
+    sheet.rows.forEach(row=>{
+      if(row.usedLength<sheetL-EPS){
+        zones.push({
+          x:row.usedLength,
+          y:row.y,
+          w:sheetL-row.usedLength,
+          h:row.height,
+          type:"fin-bande"
+        });
+      }
+      row.parts.forEach(part=>{
+        const verticalSlack=row.height-part.dev;
+        if(verticalSlack>EPS){
+          zones.push({
+            x:part.x,
+            y:row.y+part.dev,
+            w:part.long,
+            h:verticalSlack,
+            type:"sous-piece"
+          });
+        }
+      });
+    });
+    if(sheet.usedWidth<sheetW-EPS){
+      zones.push({x:0,y:sheet.usedWidth,w:sheetL,h:sheetW-sheet.usedWidth,type:"pleine-longueur"});
+    }
+    return zones.filter(z=>z.w>EPS && z.h>EPS);
+  }
+
+  function zoneIsReusable(zone){
+    const a=Math.max(zone.w,zone.h);
+    const b=Math.min(zone.w,zone.h);
+    return a>=MIN_REUSABLE_LENGTH-EPS && b>=MIN_REUSABLE_WIDTH-EPS;
+  }
+
+  function packingStats(packing){
+    const sheetArea=sheetW*sheetL;
+    let used=0,reusable=0,unusable=0,badFullLength=0;
+    packing.forEach(sheet=>{
+      used+=sheet.parts.reduce((sum,p)=>sum+p.area,0);
+      const zones=freeZonesForSheet(sheet);
+      zones.forEach(zone=>{
+        const area=zone.w*zone.h;
+        if(zoneIsReusable(zone))reusable+=area; else unusable+=area;
+      });
+      if(sheet.fullLengthResidual>EPS && sheet.fullLengthResidual<MIN_FULL_LENGTH_RESIDUAL)badFullLength++;
+    });
+    const total=packing.length*sheetArea;
+    const roundingGap=Math.max(0,total-used-reusable-unusable);
+    unusable+=roundingGap;
+    return {sheetCount:packing.length,total,used,reusable,unusable,badFullLength};
+  }
+
+  function packingScore(packing){
+    const s=packingStats(packing);
+    return [s.sheetCount,s.badFullLength,s.unusable,-s.reusable];
+  }
+
+  function scoreIsBetter(a,b){
+    if(!b)return true;
+    for(let i=0;i<a.length;i++){
+      if(Math.abs(a[i]-b[i])>EPS)return a[i]<b[i];
+    }
+    return false;
+  }
+
+  function seededShuffle(items,seed){
+    const arr=[...items];
+    let x=(seed+1)>>>0;
+    const random=()=>{x=(Math.imul(1664525,x)+1013904223)>>>0;return x/4294967296;};
+    for(let i=arr.length-1;i>0;i--){
+      const j=Math.floor(random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  const baseOrders=[
+    [...allParts].sort((a,b)=>b.dev-a.dev || b.long-a.long),
+    [...allParts].sort((a,b)=>b.long-a.long || b.dev-a.dev),
+    [...allParts].sort((a,b)=>b.area-a.area || b.dev-a.dev),
+    [...allParts].sort((a,b)=>(b.dev*2+b.long)-(a.dev*2+a.long))
+  ];
+
+  const passes=Math.min(260,Math.max(100,allParts.length*5));
+  for(let seed=0;seed<passes;seed++){
+    const sorted=[...allParts].sort((a,b)=>b.dev-a.dev || b.long-a.long);
+    const order=[];
+    const blockSize=6;
+    for(let i=0;i<sorted.length;i+=blockSize){
+      order.push(...seededShuffle(sorted.slice(i,i+blockSize),seed*97+i));
+    }
+    baseOrders.push(order);
+  }
+
+  let bestPacking=null;
+  let bestScore=null;
+  baseOrders.forEach(order=>{
+    const packing=[];
+    order.forEach(part=>placePart(packing,part));
+    layoutPacking(packing);
+    const score=packingScore(packing);
+    if(scoreIsBetter(score,bestScore)){
+      bestPacking=clonePacking(packing);
+      layoutPacking(bestPacking);
+      bestScore=score;
+    }
+  });
+
+  const sheets=bestPacking || [];
+  sheets.sort((a,b)=>b.usedWidth-a.usedWidth || b.parts.reduce((s,p)=>s+p.area,0)-a.parts.reduce((s,p)=>s+p.area,0));
+  layoutPacking(sheets);
+
+  const globalStats=packingStats(sheets);
+  const totalSheetAreaM2=globalStats.total/1000000;
+  const totalUsedM2=globalStats.used/1000000;
+  const totalReusableM2=globalStats.reusable/1000000;
+  const totalUnusableM2=globalStats.unusable/1000000;
+  const totalWaste=globalStats.reusable+globalStats.unusable;
+
+  let summaryRows="";
+  let drawings="";
+  const chuteColors=["#f8c8dc","#fca5a5","#dbeafe","#fde68a","#e9d5ff","#fed7aa","#fbcfe8","#c7d2fe","#e5e7eb"];
+
+  sheets.forEach((sheet,sheetIndex)=>{
+    const counts={};
+    sheet.parts.forEach(p=>{counts[p.pieceNo]=(counts[p.pieceNo]||0)+1;});
+    const detail=Object.entries(counts).map(([pieceNo,count])=>`P${pieceNo} : ${count} u`).join(" / ");
+
+    const zones=freeZonesForSheet(sheet);
+    const usedArea=sheet.parts.reduce((sum,p)=>sum+p.area,0);
+    const reusableArea=zones.filter(zoneIsReusable).reduce((sum,z)=>sum+z.w*z.h,0);
+    const unusableArea=zones.filter(z=>!zoneIsReusable(z)).reduce((sum,z)=>sum+z.w*z.h,0);
+    const sheetArea=sheetW*sheetL;
 
     summaryRows+=`
       <tr>
         <td>${sheetIndex+1}</td>
         <td>${detail}</td>
         <td>${sheet.parts.length}</td>
-      </tr>
-    `;
+        <td>${fmtPct(safePct(usedArea,sheetArea))}</td>
+        <td>${fmtPct(safePct(reusableArea,sheetArea))}</td>
+        <td>${fmtPct(safePct(unusableArea,sheetArea))}</td>
+      </tr>`;
 
     const svgW=sheetL*scale;
     const svgH=sheetW*scale;
-
     let rects="";
 
     sheet.parts.forEach(p=>{
-      const displayH=p.h*scale;      
-      
-     rects +=`
-  <rect x="${p.x*scale}" y="${p.y*scale}"
-        width="${p.w*scale}" height="${displayH}"
-        fill="#dff3df" stroke="#111"/>
-
-  ${(()=>{
-    const pw=p.w*scale;
-    const ph=p.h*scale;
-    const cx=(p.x*scale)+(pw/2);
-    const cy=(p.y*scale)+(ph/2);
-    const fontSize=Math.max(6, Math.min(12, Math.min(pw,ph)/2.8));
-
-    if(pw>=ph){
-      return `
-        <text x="${cx}" y="${cy}"
-              font-size="${fontSize}"
-              text-anchor="middle"
-              dominant-baseline="middle"
-              fill="#111">
-${(p.w*scale>80 && p.h*scale>14)
-  ? `P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`
-  : `P${p.pieceNo} - ${Math.round(p.h)}x${Math.round(p.w)}`
-}
-         </text>
-         `;
-    }
-
-    return `
-      <text x="${cx}" y="${cy}"
-            font-size="${fontSize}"
-            text-anchor="middle"
-            dominant-baseline="middle"
-            transform="rotate(-90 ${cx} ${cy})"
-            fill="#111">
-${(p.h*scale>80 && p.w*scale>8)
-  ? `P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`
-  : `P${p.pieceNo} - ${Math.round(p.h)}x${Math.round(p.w)}`
-}
-      </text>
-    `;
-  })()}
-`;
-});
-    let chuteInfos=[];
-const chuteColors=[
-  "#f8c8dc",
-  "#fca5a5",
-  "#dbeafe",
-  "#fde68a",
-  "#e9d5ff",
-  "#fed7aa",
-  "#fbcfe8",
-  "#c7d2fe",
-  "#e5e7eb"
-];
-
-let chuteIndex=0;
-
-function buildFreeZonesFromPlacedParts(sheet){
-  const zones=[];
-  const parts=(sheet.parts || []).map(p=>({
-    x:Math.round(p.x),
-    y:Math.round(p.y),
-    w:Math.round(p.w),
-    h:Math.round(p.h)
-  }));
-
-  const yCuts=[0,sheetW];
-  parts.forEach(p=>{
-    yCuts.push(p.y);
-    yCuts.push(p.y+p.h);
-  });
-
-  const ys=[...new Set(yCuts)].sort((a,b)=>a-b);
-
-  for(let i=0;i<ys.length-1;i++){
-    const y1=ys[i];
-    const y2=ys[i+1];
-    const h=y2-y1;
-    if(h<=0) continue;
-
-    const occupied=parts
-      .filter(p=>!(p.y+p.h<=y1 || p.y>=y2))
-      .map(p=>({x:p.x,w:p.w}))
-      .sort((a,b)=>a.x-b.x);
-
-    let x=0;
-
-    occupied.forEach(o=>{
-      if(o.x>x){
-        zones.push({x:x,y:y1,w:o.x-x,h:h});
-      }
-      x=Math.max(x,o.x+o.w);
+      const pw=p.w*scale;
+      const ph=p.h*scale;
+      const cx=p.x*scale+pw/2;
+      const cy=p.y*scale+ph/2;
+      const fontSize=Math.max(6,Math.min(12,Math.min(pw,ph)/2.8));
+      const label=`P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`;
+      rects+=`
+        <rect x="${p.x*scale}" y="${p.y*scale}" width="${pw}" height="${ph}" fill="#dff3df" stroke="#111"/>
+        <text x="${cx}" y="${cy}" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle" fill="#111" ${pw<ph?`transform="rotate(-90 ${cx} ${cy})"`:""}>${label}</text>`;
     });
 
-    if(x<sheetL){
-      zones.push({x:x,y:y1,w:sheetL-x,h:h});
-    }
-  }
+    const chuteInfos=[];
+    zones.sort((a,b)=>(b.w*b.h)-(a.w*a.h)).forEach((zone,index)=>{
+      const chuteNo="Z"+(index+1);
+      const reusable=zoneIsReusable(zone);
+      const chuteColor=reusable ? chuteColors[index%chuteColors.length] : "#e5e7eb";
+      chuteInfos.push(`<span class="zone-chip"><span class="zone-dot" style="background:${chuteColor}"></span>${chuteNo} : ${Math.round(zone.w)} x ${Math.round(zone.h)} mm — ${reusable?"réutilisable":"non exploitable"}</span>`);
+      rects+=`
+        <rect x="${zone.x*scale}" y="${zone.y*scale}" width="${zone.w*scale}" height="${zone.h*scale}" fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
+        ${(zone.w*scale>18 && zone.h*scale>10)?`<text x="${zone.x*scale+zone.w*scale/2}" y="${zone.y*scale+zone.h*scale/2}" font-size="8" text-anchor="middle" dominant-baseline="middle" fill="#111">${chuteNo}</text>`:""}`;
+    });
 
-  return mergeFreeZones(zones);
-}
-
-function mergeFreeZones(zones){
-  let merged=zones
-    .filter(z=>z.w>0 && z.h>0)
-    .map(z=>({
-      x:Math.round(z.x),
-      y:Math.round(z.y),
-      w:Math.round(z.w),
-      h:Math.round(z.h)
-    }));
-
-  let changed=true;
-
-  while(changed){
-    changed=false;
-
-    outer:
-    for(let i=0;i<merged.length;i++){
-      for(let j=i+1;j<merged.length;j++){
-        const a=merged[i];
-        const b=merged[j];
-
-        if(a.x===b.x && a.w===b.w && a.y+a.h===b.y){
-          a.h+=b.h;
-          merged.splice(j,1);
-          changed=true;
-          break outer;
-        }
-
-        if(a.y===b.y && a.h===b.h && a.x+a.w===b.x){
-          a.w+=b.w;
-          merged.splice(j,1);
-          changed=true;
-          break outer;
-        }
-      }
-    }
-  }
-
-  return merged;
-}    
-
-// Affichage direct des vraies zones libres du moteur
-const zones=buildFreeZonesFromPlacedParts(sheet)
-  .filter(z=>z.w>0 && z.h>0)
-  .sort((a,b)=>(b.w*b.h)-(a.w*a.h));
-    
-zones.forEach(zone=>{
-  const chuteNo="Z"+(chuteIndex+1);
-  const chuteColor=chuteColors[chuteIndex % chuteColors.length];
-
-  chuteInfos.push(
-    `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${chuteColor};border:1px solid #111;margin-right:4px"></span>${chuteNo} : ${Math.round(zone.w)} x ${Math.round(zone.h)} mm`
-  );
-
-  rects+=`
-    <rect x="${zone.x*scale}" y="${zone.y*scale}"
-          width="${zone.w*scale}" height="${zone.h*scale}"
-          fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
-  `;
-
-  if(zone.w*scale>18 && zone.h*scale>10){
-    rects+=`
-      <text x="${(zone.x*scale)+(zone.w*scale/2)}"
-            y="${(zone.y*scale)+(zone.h*scale/2)}"
-            font-size="8"
-            text-anchor="middle"
-            dominant-baseline="middle"
-            fill="#111">${chuteNo}</text>
-    `;
-  }
-
-  chuteIndex++;
-});
-    
-    if(!sheet.parts || sheet.parts.length===0){
-  return;
-}
-
-drawings+=`
-  <div class="drawing-block">
-    <h3>Feuille ${sheetIndex+1} — ${sheetL} x ${sheetW} mm (longueur × hauteur)</h3>
-    <p><strong>Contenu :</strong> ${detail}</p>
-    <p style="margin:3px 0 5px 0;font-size:11px;line-height:1.15">
-      <strong>Zones exploitables :</strong> ${chuteInfos.join(" / ")}
-    </p>
-    <svg width="100%" viewBox="0 0 ${svgW} ${svgH}" style="display:block;margin-top:4px">
-      <rect x="0" y="0" width="${svgW}" height="${svgH}"
-            fill="#fff" stroke="#111" stroke-width="2"/>
-      ${rects}
-    </svg>
-  </div>
-`;
+    drawings+=`
+      <div class="drawing-block">
+        <h3>Feuille ${sheetIndex+1} — ${sheetL} x ${sheetW} mm</h3>
+        <div class="sheet-kpis">
+          <div><strong>Surface utilisée</strong><span>${fmtM2(usedArea/1000000)} — ${fmtPct(safePct(usedArea,sheetArea))}</span></div>
+          <div><strong>Chutes réutilisables</strong><span>${fmtM2(reusableArea/1000000)} — ${fmtPct(safePct(reusableArea,sheetArea))}</span></div>
+          <div><strong>Chutes non exploitables</strong><span>${fmtM2(unusableArea/1000000)} — ${fmtPct(safePct(unusableArea,sheetArea))}</span></div>
+        </div>
+        <p><strong>Contenu :</strong> ${detail}</p>
+        <p class="zones-line"><strong>Zones restantes :</strong> ${chuteInfos.join(" / ")}</p>
+        <svg width="100%" viewBox="0 0 ${svgW} ${svgH}" style="display:block;margin-top:4px">
+          <rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#fff" stroke="#111" stroke-width="2"/>
+          ${rects}
+        </svg>
+      </div>`;
   });
 
   const html=`
@@ -2932,7 +2725,7 @@ drawings+=`
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Calpinage atelier</title>
+<title>Calepinage atelier tôlerie</title>
 <style>
 @page{size:A4 portrait;margin:8mm;}
 body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;}
@@ -2940,188 +2733,92 @@ body{font-family:Arial,sans-serif;color:#111;background:#fff;margin:0;}
 h1{text-align:center;font-size:24px;margin:0;}
 h2{text-align:center;font-size:15px;font-weight:400;margin:4px 0 18px;}
 .top{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.box{border:1px solid #333;padding:10px;font-size:13px;}
-.summary{margin-top:14px;border:2px solid #111;padding:10px;font-size:14px;background:#f7f7f7;}
-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:14px;}
-th,td{border:1px solid #333;padding:6px;text-align:center;}
+.box{border:1px solid #333;padding:10px;font-size:13px;line-height:1.55;}
+.summary{margin-top:14px;border:2px solid #111;padding:12px;background:#f7f7f7;}
+.summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px;margin-top:8px;font-size:13px;}
+.summary-grid div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dotted #aaa;padding-bottom:4px;}
+.summary-grid strong{font-weight:700;}
+table{width:100%;border-collapse:collapse;font-size:10px;margin-top:14px;}
+th,td{border:1px solid #333;padding:5px;text-align:center;}
 th{background:#f2f2f2;}
-.drawing-block{
-  border:1px solid #333;
-  padding:10px;
-  margin-top:18px;
-  page-break-inside:avoid;
-  break-inside:avoid;
-}
-
-@media print{
-  @page{
-    size:A4 portrait;
-    margin:8mm;
-  }
-
-  .actions{
-    display:none!important;
-  }
-
-  .sheet{
-    width:100%!important;
-    margin:0!important;
-    padding:0!important;
-  }
-
-  .drawing-block{
-  width:190mm!important;
-  height:132mm!important;
-  margin:0 auto!important;
-  padding:8mm 0 0 3mm!important;
-  box-sizing:border-box!important;
-  overflow:hidden!important;
-  display:inline-block!important;
-  vertical-align:top!important;
-  page-break-inside:avoid!important;
-}
-
-.drawing-block:nth-of-type(2n){
-  page-break-after:always!important;
-}
-
-#pdfPrintZone{
-  display:block!important;
-  width:194mm!important;
-  margin:0 auto!important;
-  padding:0!important;
-}
-
-svg{
-  display:block!important;
-  width:100%!important;
-  max-width:100%!important;
-  height:auto!important;
-  max-height:77mm!important;
-  margin:0 auto!important;
-}
-}
+.drawing-block{border:1px solid #333;padding:10px;margin-top:18px;page-break-inside:avoid;break-inside:avoid;}
 .drawing-block h3{margin:0 0 8px;font-size:15px;}
+.sheet-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:7px 0;font-size:10px;}
+.sheet-kpis div{border:1px solid #bbb;border-radius:6px;padding:6px;background:#fafafa;}
+.sheet-kpis strong,.sheet-kpis span{display:block;}
+.sheet-kpis span{margin-top:3px;font-weight:700;}
+.zones-line{margin:4px 0 6px;font-size:10px;line-height:1.35;}
+.zone-chip{white-space:nowrap;}
+.zone-dot{display:inline-block;width:9px;height:9px;border-radius:50%;border:1px solid #111;margin-right:3px;vertical-align:middle;}
 svg{max-width:100%;height:auto;margin:0 auto;}
 .actions{text-align:center;margin-top:20px;}
 button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background:#0f62fe;color:white;margin:4px;}
-
-/* ===== V21 : GRAND ÉCRAN STABLE — DESSIN + COTES À DROITE ===== */
-@media (min-width:900px){
-  #bendDesignerModal[data-large-drawing="true"] .bend-workspace{
-    display:grid!important;
-    grid-template-columns:minmax(0,1fr) 430px!important;
-    grid-template-rows:minmax(0,1fr)!important;
-  }
-  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-card{
-    display:grid!important;
-    grid-template-rows:64px minmax(0,1fr)!important;
-    grid-template-columns:minmax(0,1fr)!important;
-    grid-column:1!important;
-    grid-row:1!important;
-    min-width:0!important;
-    min-height:0!important;
-  }
-  #bendDesignerModal[data-large-drawing="true"] .bend-mini-actions{
-    position:relative!important;
-    grid-row:1!important;
-    grid-column:1!important;
-    top:auto!important;
-    bottom:auto!important;
-  }
-  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-wrap{
-    position:relative!important;
-    inset:auto!important;
-    grid-row:2!important;
-    grid-column:1!important;
-    min-width:0!important;
-    min-height:0!important;
-  }
-  #bendDesignerModal[data-large-drawing="true"] .bend-data-card{
-    display:flex!important;
-    flex-direction:column!important;
-    grid-column:2!important;
-    grid-row:1!important;
-    width:430px!important;
-    min-width:430px!important;
-    max-width:430px!important;
-    height:100%!important;
-    min-height:0!important;
-    overflow:hidden!important;
-  }
-  #bendDesignerModal[data-large-drawing="true"] .bend-table-wrap{
-    flex:1 1 auto!important;
-    min-height:0!important;
-    max-height:none!important;
-    overflow:auto!important;
-  }
-  #bendDesignerModal[data-large-drawing="true"] .bend-table{
-    width:100%!important;
-    min-width:0!important;
-    table-layout:fixed!important;
-  }
-  #bendDesignerModal[data-large-drawing="true"] .bend-canvas-help{
-    display:none!important;
-  }
+.note{font-size:10px;color:#555;margin-top:8px;line-height:1.4;}
+@media print{
+  .actions{display:none!important;}
+  .sheet{width:100%!important;margin:0!important;padding:0!important;}
+  .drawing-block{width:190mm!important;min-height:128mm!important;margin:0 auto!important;padding:6mm 2mm!important;box-sizing:border-box!important;overflow:hidden!important;page-break-inside:avoid!important;}
+  .drawing-block:nth-of-type(2n){page-break-after:always!important;}
+  svg{display:block!important;width:100%!important;max-height:75mm!important;margin:0 auto!important;}
 }
 </style>
 </head>
 <body>
 <div class="sheet">
+  <h1>FEUILLE DE CALPINAGE ATELIER</h1>
+  <h2>Moteur guillotine par bandes — feuille ${sheetL} x ${sheetW} mm</h2>
 
-<h1>FEUILLE DE CALPINAGE ATELIER</h1>
-<h2>Optimisation globale du projet — feuille ${sheetL} x ${sheetW} mm (longueur × hauteur)</h2>
-
-<div class="top">
-  <div class="box">
-    <strong>Client :</strong> ${client?.name || "-"}<br>
-    <strong>Projet :</strong> ${project}<br>
-    <strong>Épaisseur :</strong> ${selectedThickness.value}<br>
-    <strong>Couleur :</strong> ${color}
+  <div class="top">
+    <div class="box">
+      <strong>Client :</strong> ${client?.name || "-"}<br>
+      <strong>Projet :</strong> ${project}<br>
+      <strong>Épaisseur :</strong> ${selectedThickness.value}<br>
+      <strong>Couleur :</strong> ${color}
+    </div>
+    <div class="box">
+      <strong>Date :</strong> ${today}<br>
+      <strong>Format :</strong> ${sheetL} x ${sheetW} mm<br>
+      <strong>Surface d'une feuille :</strong> ${fmtM2((sheetW*sheetL)/1000000)}<br>
+      <strong>Seuil chute réutilisable :</strong> ${MIN_REUSABLE_LENGTH} x ${MIN_REUSABLE_WIDTH} mm minimum
+    </div>
   </div>
 
-  <div class="box">
-    <strong>Date :</strong> ${today}<br>
-    <strong>Format feuille :</strong> ${sheetL} x ${sheetW} mm — longueur × hauteur<br>
-    <strong>Surface feuille :</strong> ${((sheetW*sheetL)/1000000).toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
+  <div class="summary">
+    <strong>BILAN GLOBAL DU CALÉPINAGE</strong>
+    <div class="summary-grid">
+      <div><span>Pièces à fabriquer</span><strong>${allParts.length}</strong></div>
+      <div><span>Feuilles entières</span><strong>${sheets.length}</strong></div>
+      <div><span>Surface en feuilles entières</span><strong>${fmtM2(totalSheetAreaM2)}</strong></div>
+      <div><span>Surface réellement utilisée</span><strong>${fmtM2(totalUsedM2)} — ${fmtPct(safePct(globalStats.used,globalStats.total))}</strong></div>
+      <div><span>Chutes restantes réutilisables</span><strong>${fmtM2(totalReusableM2)} — ${fmtPct(safePct(globalStats.reusable,globalStats.total))}</strong></div>
+      <div><span>Chutes non exploitables</span><strong>${fmtM2(totalUnusableM2)} — ${fmtPct(safePct(globalStats.unusable,globalStats.total))}</strong></div>
+      <div><span>Part des chutes réutilisables</span><strong>${fmtPct(safePct(globalStats.reusable,totalWaste))} des chutes</strong></div>
+      <div><span>Part des pertes non exploitables</span><strong>${fmtPct(safePct(globalStats.unusable,totalWaste))} des chutes</strong></div>
+    </div>
+    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la hauteur de cette bande. Les coupes restent organisées en bandes droites compatibles avec la guillotine.</div>
   </div>
-</div>
 
-<div class="summary">
-  <strong>Total projet :</strong><br>
-  Pièces totales à fabriquer : ${totalParts}<br>
-  Feuilles nécessaires : ${sheets.length}<br>
-  Surface matière consommée : ${totalSheetArea.toLocaleString("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2})} m²
-</div>
+  <table>
+    <thead><tr><th>Feuille</th><th>Pièces placées</th><th>Qté</th><th>Utilisé</th><th>Chutes réutilisables</th><th>Pertes</th></tr></thead>
+    <tbody>${summaryRows}</tbody>
+  </table>
 
-<table>
-<thead>
-<tr>
-  <th>Feuille</th>
-  <th>Pièces placées</th>
-  <th>Total pièces</th>
-</tr>
-</thead>
-<tbody>
-${summaryRows}
-</tbody>
-</table>
+  ${drawings}
 
-${drawings}
-
- <div class="actions">
-  <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
-  <button onclick="window.close()">Retour à l’application</button>
+  <div class="actions">
+    <button onclick="window.print()">Imprimer / Enregistrer PDF</button>
+    <button onclick="window.close()">Retour à l'application</button>
+  </div>
 </div>
 </body>
 </html>`;
 
-  const win=window.open("", "_blank");
+  const win=window.open("","_blank");
+  if(!win){alert("La fenêtre de calepinage a été bloquée par le navigateur.");return;}
   win.document.open();
   win.document.write(html);
   win.document.close();
-  }
-
+}
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
 document.getElementById("clearPiecesBtn").addEventListener("click",()=>{pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];savePieces();renderPieces();setStatus("Pièces réinitialisées.");});
