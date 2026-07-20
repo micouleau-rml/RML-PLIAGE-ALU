@@ -1799,6 +1799,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           </div>
           <button type="button" class="btn-primary bend-large-proxy-action" id="bendLargeInsertProxyBtn">Insérer dans le devis</button>
           <button type="button" class="btn-light bend-large-proxy-action" id="bendLargeSaveProxyBtn">Mémoriser le profil</button>
+          <button type="button" class="btn-light bend-large-proxy-action" id="bendLarge3DProxyBtn">Afficher la 3D</button>
           <button class="btn-danger" id="bendResetBtn">Réinitialiser</button>
         </div>
         <div class="bend-results">
@@ -4822,7 +4823,7 @@ if(quotePdfBtn){
   const bendShow3DBtn=document.getElementById("bendShow3DBtn");
   const bend3DCard=document.getElementById("bend3DCard");
 
-  bendShow3DBtn?.addEventListener("click",()=>{
+  function toggleBend3D(){
     if(!bend3DCard)return;
 
     const largeMode=modal?.getAttribute("data-large-drawing")==="true";
@@ -4856,7 +4857,10 @@ if(quotePdfBtn){
         bend3DCard.scrollIntoView({behavior:"smooth",block:"start"});
       },80);
     }
-  });
+  }
+
+  bendShow3DBtn?.addEventListener("click",toggleBend3D);
+  document.getElementById("bendLarge3DProxyBtn")?.addEventListener("click",toggleBend3D);
 
   document.getElementById("bend3DResetBtn")?.addEventListener("click",()=>reset3DView("iso"));
   document.getElementById("bend3DFrontBtn")?.addEventListener("click",()=>reset3DView("front"));
@@ -5176,7 +5180,7 @@ if(quotePdfBtn){
   bendResizeObserver.observe(canvas.parentElement);
   if(canvas3D?.parentElement)bendResizeObserver.observe(canvas3D.parentElement);
 
-  document.getElementById("bendInsertBtn")?.addEventListener("click",()=>{
+  function insertBendIntoQuote(){
     if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
     drawingMode=false;
     const result=calculate();const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
@@ -5193,8 +5197,10 @@ if(quotePdfBtn){
     }));
     window.RML_ACTIVE_BEND_PIECE_INDEX=index;
     savePieces();renderPieces();close();alert(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
-  });
-  document.getElementById("bendSaveProfileBtn")?.addEventListener("click",()=>{
+  }
+  document.getElementById("bendInsertBtn")?.addEventListener("click",insertBendIntoQuote);
+  document.getElementById("bendLargeInsertProxyBtn")?.addEventListener("click",insertBendIntoQuote);
+  function saveBendProfile(){
     if(drawingMode){
       if(!deriveProfileFromRough())return alert("Tracez au moins un segment avant de mémoriser la pièce.");
       drawingMode=false;
@@ -5237,7 +5243,9 @@ if(quotePdfBtn){
     targetSelect.value=String(index);
 
     alert(`Pièce ${index+1} mémorisée${savedProject ? ` dans le projet « ${savedProject.name} »` : ""}.`);
-  });
+  }
+  document.getElementById("bendSaveProfileBtn")?.addEventListener("click",saveBendProfile);
+  document.getElementById("bendLargeSaveProxyBtn")?.addEventListener("click",saveBendProfile);
 
   calculate();
 })();
@@ -5508,7 +5516,8 @@ if(quotePdfBtn){
 #bendDesignerModal[data-large-drawing="true"] .bend-large-proxy-action{display:inline-flex!important}
 @media (min-width:900px){
   #bendDesignerModal[data-large-drawing="true"] .bend-target-row #bendInsertBtn,
-  #bendDesignerModal[data-large-drawing="true"] .bend-target-row #bendSaveProfileBtn{display:none!important}
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row #bendSaveProfileBtn,
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row #bendShow3DBtn{display:none!important}
 }
 </style>
 <script>
@@ -5529,26 +5538,7 @@ if(quotePdfBtn){
 })();
 </script>
 
-<!-- ===== V34.4 : RELAIS DES ACTIONS DU GRAND DESSINATEUR ===== -->
-<script>
-(function(){
-  const modal=document.getElementById('bendDesignerModal');
-  const largeInsert=document.getElementById('bendLargeInsertProxyBtn');
-  const largeSave=document.getElementById('bendLargeSaveProxyBtn');
-  const normalInsert=document.getElementById('bendInsertBtn');
-  const normalSave=document.getElementById('bendSaveProfileBtn');
+<!-- ===== V34.5 : ACTIONS DIRECTES DU GRAND DESSINATEUR ===== -->
 
-  function relay(event,target){
-    event.preventDefault();
-    event.stopPropagation();
-    if(modal?.getAttribute('data-large-drawing')!=='true')return;
-    if(!target)return alert('Action du dessinateur principal introuvable.');
-    target.click();
-  }
-
-  largeInsert?.addEventListener('click',event=>relay(event,normalInsert));
-  largeSave?.addEventListener('click',event=>relay(event,normalSave));
-})();
-</script>
 </body>
 </html>
