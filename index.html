@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V34.1</title>
+<title>RML PLIAGE ALU — V34.4</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1797,6 +1797,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
             <label for="bendLargeLength">Longueur pièce</label>
             <div><input id="bendLargeLength" type="number" min="10" step="10" value="1000"><span>mm</span></div>
           </div>
+          <button type="button" class="btn-primary bend-large-proxy-action" id="bendLargeInsertProxyBtn">Insérer dans le devis</button>
+          <button type="button" class="btn-light bend-large-proxy-action" id="bendLargeSaveProxyBtn">Mémoriser le profil</button>
           <button class="btn-danger" id="bendResetBtn">Réinitialiser</button>
         </div>
         <div class="bend-results">
@@ -5501,6 +5503,13 @@ if(quotePdfBtn){
 #bendDesignerModal[data-large-drawing="true"] .bend-large-length-control span{font-size:12px;font-weight:800;color:#475569}
 #bendDesignerModal[data-large-drawing="true"] .bend-data-card>h3{display:block!important;width:100%!important;flex:0 0 auto!important;margin:0 0 10px!important;padding:2px 4px!important;box-sizing:border-box!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.25!important}
 @media (min-width:900px){#bendDesignerModal[data-large-drawing="true"] .bend-data-card{width:430px!important;min-width:430px!important;max-width:430px!important;padding:14px!important}}
+
+#bendDesignerModal .bend-large-proxy-action{display:none!important}
+#bendDesignerModal[data-large-drawing="true"] .bend-large-proxy-action{display:inline-flex!important}
+@media (min-width:900px){
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row #bendInsertBtn,
+  #bendDesignerModal[data-large-drawing="true"] .bend-target-row #bendSaveProfileBtn{display:none!important}
+}
 </style>
 <script>
 (function(){
@@ -5517,6 +5526,28 @@ if(quotePdfBtn){
   document.getElementById('bendFullscreenDrawBtn')?.addEventListener('click',()=>setTimeout(refresh,80));
   document.getElementById('bendDesignerBtn')?.addEventListener('click',()=>setTimeout(refresh,80));
   refresh();
+})();
+</script>
+
+<!-- ===== V34.4 : RELAIS DES ACTIONS DU GRAND DESSINATEUR ===== -->
+<script>
+(function(){
+  const modal=document.getElementById('bendDesignerModal');
+  const largeInsert=document.getElementById('bendLargeInsertProxyBtn');
+  const largeSave=document.getElementById('bendLargeSaveProxyBtn');
+  const normalInsert=document.getElementById('bendInsertBtn');
+  const normalSave=document.getElementById('bendSaveProfileBtn');
+
+  function relay(event,target){
+    event.preventDefault();
+    event.stopPropagation();
+    if(modal?.getAttribute('data-large-drawing')!=='true')return;
+    if(!target)return alert('Action du dessinateur principal introuvable.');
+    target.click();
+  }
+
+  largeInsert?.addEventListener('click',event=>relay(event,normalInsert));
+  largeSave?.addEventListener('click',event=>relay(event,normalSave));
 })();
 </script>
 </body>
