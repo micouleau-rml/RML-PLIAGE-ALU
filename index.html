@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V34.6</title>
+<title>RML PLIAGE ALU — V34.7</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -2445,256 +2445,254 @@ win.document.close();
 
   let sheets=[];
 
-// ===== V34.6 : MOTEUR MAXRECTS — OPTIMISATION MULTI-PASSES =====
-// Objectif prioritaire : utiliser le moins de feuilles possible.
-// Objectif secondaire : concentrer les pièces sur les premières feuilles
-// afin de préserver de grandes chutes réutilisables et de vider la dernière feuille.
+// ===== V34.7 : MOTEUR ATELIER TÔLERIE — GUILLOTINE 3 M =====
+// Principe de fabrication :
+// 1) chaque pièce conserve sa longueur dans le sens des 3000 mm ;
+// 2) les pièces de même développé sont regroupées dans des bandes continues ;
+// 3) les bandes sont réparties sur les feuilles dans le sens des 1500 mm ;
+// 4) une chute résiduelle sur toute la longueur inférieure à 150 mm est évitée ;
+// 5) aucune pièce n'est tournée à 90° : le plan reste directement guillotinable.
 const EPS=0.001;
+const MIN_FULL_LENGTH_RESIDUAL=150; // chute minimale acceptable sur 3000 mm
 
-function rectsIntersect(a,b){
-  return !(a.x+a.w<=b.x+EPS || b.x+b.w<=a.x+EPS || a.y+a.h<=b.y+EPS || b.y+b.h<=a.y+EPS);
+function clonePartForPacking(part){
+  return {...part,x:0,y:0,w:part.long,h:part.dev,rotated:false};
 }
-function rectContains(a,b){
-  return b.x>=a.x-EPS && b.y>=a.y-EPS && b.x+b.w<=a.x+a.w+EPS && b.y+b.h<=a.y+a.h+EPS;
-}
-function createPackingSheet(){
-  return {parts:[],rows:[],freeRects:[{x:0,y:0,w:sheetL,h:sheetW}]};
-}
-function clonePackingSheet(sheet){
-  return {
-    parts:sheet.parts.map(p=>({...p})),
-    rows:[],
-    freeRects:sheet.freeRects.map(r=>({...r}))
-  };
-}
-function splitFreeRect(free,used){
-  if(!rectsIntersect(free,used)) return [free];
-  const out=[];
-  const freeRight=free.x+free.w, freeBottom=free.y+free.h;
-  const usedRight=used.x+used.w, usedBottom=used.y+used.h;
 
-  if(used.x>free.x+EPS) out.push({x:free.x,y:free.y,w:used.x-free.x,h:free.h});
-  if(usedRight<freeRight-EPS) out.push({x:usedRight,y:free.y,w:freeRight-usedRight,h:free.h});
-  if(used.y>free.y+EPS) out.push({x:free.x,y:free.y,w:free.w,h:used.y-free.y});
-  if(usedBottom<freeBottom-EPS) out.push({x:free.x,y:usedBottom,w:free.w,h:freeBottom-usedBottom});
-  return out.filter(r=>r.w>EPS && r.h>EPS);
-}
-function pruneFreeRects(rects){
-  let work=rects.filter(r=>r.w>EPS && r.h>EPS);
-  for(let i=0;i<work.length;i++){
-    if(!work[i]) continue;
-    for(let j=0;j<work.length;j++){
-      if(i===j || !work[j]) continue;
-      if(rectContains(work[j],work[i])){work[i]=null;break;}
-    }
-  }
-  work=work.filter(Boolean);
+function createLengthStrips(parts){
+  // Regroupement strict par développé au dixième de millimètre.
+  const groups=new Map();
+  parts.forEach(part=>{
+    const key=(Math.round(part.dev*10)/10).toFixed(1);
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(clonePartForPacking(part));
+  });
 
-  // Fusionne les rectangles parfaitement adjacents. Cela recrée de grandes chutes
-  // après plusieurs découpes et améliore sensiblement le placement des pièces longues.
-  let merged=true;
-  while(merged){
-    merged=false;
-    outer: for(let i=0;i<work.length;i++){
-      for(let j=i+1;j<work.length;j++){
-        const a=work[i], b=work[j];
-        if(Math.abs(a.y-b.y)<EPS && Math.abs(a.h-b.h)<EPS){
-          if(Math.abs(a.x+a.w-b.x)<EPS || Math.abs(b.x+b.w-a.x)<EPS){
-            work.splice(j,1);work[i]={x:Math.min(a.x,b.x),y:a.y,w:a.w+b.w,h:a.h};merged=true;break outer;
+  const strips=[];
+  [...groups.entries()]
+    .sort((a,b)=>Number(b[0])-Number(a[0]))
+    .forEach(([key,groupParts])=>{
+      const dev=Number(key);
+      const ordered=[...groupParts].sort((a,b)=>b.long-a.long || a.pieceNo-b.pieceNo);
+      const bins=[];
+
+      // Best Fit Decreasing sur la longueur de 3000 mm.
+      ordered.forEach(part=>{
+        let bestIndex=-1;
+        let bestRemaining=Infinity;
+        bins.forEach((bin,index)=>{
+          const remaining=sheetL-bin.used-part.long;
+          if(remaining>=-EPS && remaining<bestRemaining){
+            bestRemaining=remaining;
+            bestIndex=index;
           }
-        }
-        if(Math.abs(a.x-b.x)<EPS && Math.abs(a.w-b.w)<EPS){
-          if(Math.abs(a.y+a.h-b.y)<EPS || Math.abs(b.y+b.h-a.y)<EPS){
-            work.splice(j,1);work[i]={x:a.x,y:Math.min(a.y,b.y),w:a.w,h:a.h+b.h};merged=true;break outer;
-          }
-        }
-      }
-    }
-  }
-  return work;
-}
-function commitPlacement(sheet,part,placement){
-  const used={x:placement.x,y:placement.y,w:placement.w,h:placement.h};
-  let next=[];
-  sheet.freeRects.forEach(fr=>next.push(...splitFreeRect(fr,used)));
-  sheet.freeRects=pruneFreeRects(next);
-  sheet.parts.push({...part,...used,rotated:placement.rotated});
-}
-function placementCandidates(sheet,part){
-  const orientations=[{w:part.w,h:part.h,rotated:false}];
-  if(Math.abs(part.w-part.h)>EPS) orientations.push({w:part.h,h:part.w,rotated:true});
-  const candidates=[];
-  sheet.freeRects.forEach((fr,freeIndex)=>{
-    orientations.forEach(o=>{
-      if(o.w<=fr.w+EPS && o.h<=fr.h+EPS){
-        const leftoverW=fr.w-o.w, leftoverH=fr.h-o.h;
-        candidates.push({
-          x:fr.x,y:fr.y,w:o.w,h:o.h,rotated:o.rotated,freeIndex,
-          shortSide:Math.min(leftoverW,leftoverH),
-          longSide:Math.max(leftoverW,leftoverH),
-          areaFit:fr.w*fr.h-o.w*o.h,
-          top:fr.y+o.h,
-          right:fr.x+o.w
         });
+        if(bestIndex<0){
+          bins.push({dev,used:part.long,parts:[part]});
+        }else{
+          bins[bestIndex].parts.push(part);
+          bins[bestIndex].used+=part.long;
+        }
+      });
+
+      // Petite amélioration locale : tente de remplir les bandes les moins pleines.
+      let changed=true;
+      while(changed){
+        changed=false;
+        bins.sort((a,b)=>b.used-a.used);
+        for(let i=bins.length-1;i>0;i--){
+          const source=bins[i];
+          for(let p=source.parts.length-1;p>=0;p--){
+            const part=source.parts[p];
+            let targetIndex=-1;
+            let bestRemaining=Infinity;
+            for(let j=0;j<i;j++){
+              const rem=sheetL-bins[j].used-part.long;
+              if(rem>=-EPS && rem<bestRemaining){bestRemaining=rem;targetIndex=j;}
+            }
+            if(targetIndex>=0){
+              bins[targetIndex].parts.push(part);
+              bins[targetIndex].used+=part.long;
+              source.parts.splice(p,1);
+              source.used-=part.long;
+              changed=true;
+            }
+          }
+          if(source.parts.length===0){bins.splice(i,1);changed=true;}
+        }
       }
+
+      bins.forEach((bin,binIndex)=>{
+        let x=0;
+        const placed=bin.parts
+          .sort((a,b)=>b.long-a.long || a.pieceNo-b.pieceNo)
+          .map(part=>{
+            const placedPart={...part,x,y:0,w:part.long,h:dev,rotated:false};
+            x+=part.long;
+            return placedPart;
+          });
+        strips.push({
+          id:`D${key}-${binIndex+1}`,
+          dev,
+          width:dev,
+          usedLength:bin.used,
+          parts:placed
+        });
+      });
     });
-  });
-  return candidates;
+  return strips;
 }
-function comparePlacement(a,b,mode=0){
-  // Plusieurs heuristiques MaxRects sont testées. Elles ne donnent pas toujours
-  // le même résultat selon la combinaison de développés et de longueurs.
-  const keys=mode===1
-    ? ['areaFit','shortSide','longSide','top','right']
-    : mode===2
-      ? ['longSide','shortSide','areaFit','top','right']
-      : mode===3
-        ? ['top','right','shortSide','areaFit','longSide']
-        : ['shortSide','longSide','areaFit','top','right'];
-  for(const k of keys){if(Math.abs(a[k]-b[k])>EPS) return a[k]-b[k];}
-  return Number(a.rotated)-Number(b.rotated);
-}
-function bestPlacementOnSheet(sheet,part,mode){
-  const c=placementCandidates(sheet,part);
-  if(!c.length) return null;
-  c.sort((a,b)=>comparePlacement(a,b,mode));
-  return c[0];
-}
-function buildRowsFromParts(parts){
-  const rows=[];
-  parts.forEach(p=>{
-    let row=rows.find(r=>Math.abs(r.y-p.y)<2);
-    if(!row) rows.push({y:p.y,height:p.h,usedLength:p.x+p.w});
-    else{row.height=Math.max(row.height,p.h);row.usedLength=Math.max(row.usedLength,p.x+p.w);}
-  });
-  return rows.sort((a,b)=>a.y-b.y);
-}
-function chooseBestExistingSheet(packed,part,mode){
-  let best=null;
-  packed.forEach((sheet,sheetIndex)=>{
-    const place=bestPlacementOnSheet(sheet,part,mode);
-    if(!place) return;
-    const candidate={...place,sheetIndex};
-    if(!best || comparePlacement(candidate,best,mode)<0) best=candidate;
-  });
-  return best;
-}
-function packWithOrder(partsOrder,mode=0){
-  const packed=[];
-  const impossible=[];
-  partsOrder.forEach(part=>{
-    const existing=chooseBestExistingSheet(packed,part,mode);
-    if(existing){
-      commitPlacement(packed[existing.sheetIndex],part,existing);
-      return;
-    }
-    const newSheet=createPackingSheet();
-    const place=bestPlacementOnSheet(newSheet,part,mode);
-    if(place){commitPlacement(newSheet,part,place);packed.push(newSheet);}
-    else impossible.push(part);
-  });
-  packed.forEach(sheet=>sheet.rows=buildRowsFromParts(sheet.parts));
-  return {sheets:packed,impossible};
-}
-function sheetUsedArea(sheet){return sheet.parts.reduce((sum,p)=>sum+p.w*p.h,0);}
-function packingScore(packed){
-  const orderedAreas=packed.map(sheetUsedArea).sort((a,b)=>b-a);
-  let concentration=0;
-  orderedAreas.forEach((a,i)=>concentration+=a*(i+1));
-  const extents=packed.reduce((sum,s)=>{
-    if(!s.parts.length) return sum;
-    const right=Math.max(...s.parts.map(p=>p.x+p.w));
-    const bottom=Math.max(...s.parts.map(p=>p.y+p.h));
-    return sum+right*bottom;
-  },0);
-  return {sheetCount:packed.length,concentration,extents};
-}
-function betterScore(a,b){
-  if(!b) return true;
-  if(a.sheetCount!==b.sheetCount) return a.sheetCount<b.sheetCount;
-  if(Math.abs(a.concentration-b.concentration)>EPS) return a.concentration<b.concentration;
-  return a.extents<b.extents;
-}
+
 function seededShuffle(items,seed){
   const arr=[...items];
   let x=(seed+1)>>>0;
   const rnd=()=>{x=(Math.imul(1664525,x)+1013904223)>>>0;return x/4294967296;};
-  for(let i=arr.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(rnd()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
   return arr;
 }
-function tryEliminateSparseSheets(packed,mode){
-  let current=packed.map(clonePackingSheet);
+
+function packStripsWithOrder(order){
+  const packed=[];
+  order.forEach(strip=>{
+    let best=null;
+    packed.forEach((sheet,index)=>{
+      const remBefore=sheetW-sheet.usedWidth;
+      const remAfter=remBefore-strip.width;
+      if(remAfter<-EPS) return;
+      // On préfère une feuille qui se termine à 0 ou garde une chute >= 150 mm.
+      const badResidual=remAfter>EPS && remAfter<MIN_FULL_LENGTH_RESIDUAL ? 1 : 0;
+      const score=badResidual*1000000 + remAfter;
+      if(!best || score<best.score) best={index,score};
+    });
+    if(best){
+      packed[best.index].strips.push(strip);
+      packed[best.index].usedWidth+=strip.width;
+    }else{
+      packed.push({strips:[strip],usedWidth:strip.width});
+    }
+  });
+  return packed;
+}
+
+function sheetPackingScore(packed){
+  const residuals=packed.map(s=>sheetW-s.usedWidth);
+  const bad=residuals.filter(r=>r>EPS && r<MIN_FULL_LENGTH_RESIDUAL);
+  const totalUnused=residuals.reduce((a,b)=>a+b,0);
+  const concentration=packed.reduce((sum,s,i)=>sum+(sheetW-s.usedWidth)*(i+1),0);
+  return {
+    sheetCount:packed.length,
+    badCount:bad.length,
+    badTotal:bad.reduce((a,b)=>a+b,0),
+    totalUnused,
+    concentration
+  };
+}
+
+function isBetterSheetPacking(a,b){
+  if(!b) return true;
+  for(const key of ['sheetCount','badCount','badTotal','totalUnused','concentration']){
+    if(Math.abs(a[key]-b[key])>EPS) return a[key]<b[key];
+  }
+  return false;
+}
+
+function improveSheetPacking(packed){
+  const result=packed.map(s=>({strips:[...s.strips],usedWidth:s.usedWidth}));
   let changed=true;
-  while(changed && current.length>1){
+  let guard=0;
+  while(changed && guard++<200){
     changed=false;
-    const candidates=current.map((s,i)=>({i,area:sheetUsedArea(s)})).sort((a,b)=>a.area-b.area);
-    for(const target of candidates){
-      const remaining=current.filter((_,i)=>i!==target.i).map(clonePackingSheet);
-      const parts=[...current[target.i].parts].map(p=>{
-        const q={...p};delete q.x;delete q.y;delete q.rotated;return q;
-      }).sort((a,b)=>(b.w*b.h)-(a.w*a.h));
-      let ok=true;
-      for(const part of parts){
-        const place=chooseBestExistingSheet(remaining,part,mode);
-        if(!place){ok=false;break;}
-        commitPlacement(remaining[place.sheetIndex],part,place);
+    // Déplacement d'une bande d'une feuille à une autre si le score global s'améliore.
+    const baseScore=sheetPackingScore(result);
+    outer:
+    for(let from=result.length-1;from>=0;from--){
+      for(let si=0;si<result[from].strips.length;si++){
+        const strip=result[from].strips[si];
+        for(let to=0;to<result.length;to++){
+          if(to===from || result[to].usedWidth+strip.width>sheetW+EPS) continue;
+          const trial=result.map(s=>({strips:[...s.strips],usedWidth:s.usedWidth}));
+          trial[from].strips.splice(si,1);
+          trial[from].usedWidth-=strip.width;
+          trial[to].strips.push(strip);
+          trial[to].usedWidth+=strip.width;
+          const cleaned=trial.filter(s=>s.strips.length);
+          const score=sheetPackingScore(cleaned);
+          if(isBetterSheetPacking(score,baseScore)){
+            result.splice(0,result.length,...cleaned);
+            changed=true;
+            break outer;
+          }
+        }
       }
-      if(ok){current=remaining;changed=true;break;}
     }
   }
-  current.forEach(sheet=>sheet.rows=buildRowsFromParts(sheet.parts));
-  return current;
+  return result;
 }
 
-// Ordres déterministes adaptés au pliage : aire, longueur, développé,
-// grand côté, petit côté et rapport d'aspect.
-const packingOrders=[
-  [...allParts].sort((a,b)=>(b.w*b.h)-(a.w*a.h)),
-  [...allParts].sort((a,b)=>b.w-a.w || b.h-a.h),
-  [...allParts].sort((a,b)=>b.h-a.h || b.w-a.w),
-  [...allParts].sort((a,b)=>Math.max(b.w,b.h)-Math.max(a.w,a.h)),
-  [...allParts].sort((a,b)=>Math.min(b.w,b.h)-Math.min(a.w,a.h)),
-  [...allParts].sort((a,b)=>(Math.max(b.w,b.h)/Math.min(b.w,b.h))-(Math.max(a.w,a.h)/Math.min(a.w,a.h)))
+const strips=createLengthStrips(allParts);
+const stripOrders=[
+  [...strips].sort((a,b)=>b.width-a.width || b.usedLength-a.usedLength),
+  [...strips].sort((a,b)=>b.usedLength-a.usedLength || b.width-a.width),
+  [...strips].sort((a,b)=>(b.width*b.usedLength)-(a.width*a.usedLength)),
+  [...strips].sort((a,b)=>a.width-b.width || b.usedLength-a.usedLength)
 ];
-// Ajoute des variantes pseudo-aléatoires reproductibles. Elles permettent de
-// sortir des minima locaux sans rendre le résultat différent à chaque ouverture.
-const randomPasses=Math.min(180,Math.max(40,allParts.length*3));
-for(let seed=0;seed<randomPasses;seed++){
-  const base=[...allParts].sort((a,b)=>(b.w*b.h)-(a.w*a.h));
-  // Mélange par petits groupes d'aires proches pour conserver une bonne priorité.
-  const grouped=[];
-  for(let i=0;i<base.length;i+=6) grouped.push(...seededShuffle(base.slice(i,i+6),seed*97+i));
-  packingOrders.push(grouped);
+
+// Variantes reproductibles pour trouver de meilleures combinaisons de bandes.
+const passes=Math.min(240,Math.max(80,strips.length*6));
+for(let seed=0;seed<passes;seed++){
+  const base=[...strips].sort((a,b)=>b.width-a.width || b.usedLength-a.usedLength);
+  const order=[];
+  for(let i=0;i<base.length;i+=5){order.push(...seededShuffle(base.slice(i,i+5),seed*131+i));}
+  stripOrders.push(order);
 }
 
-let bestPacking=null;
-for(let mode=0;mode<4;mode++){
-  packingOrders.forEach(order=>{
-    const result=packWithOrder(order,mode);
-    if(result.impossible.length) return;
-    const improved=tryEliminateSparseSheets(result.sheets,mode);
-    const score=packingScore(improved);
-    if(!bestPacking || betterScore(score,bestPacking.score)) bestPacking={sheets:improved,score};
+let best=null;
+stripOrders.forEach(order=>{
+  const packed=improveSheetPacking(packStripsWithOrder(order));
+  const score=sheetPackingScore(packed);
+  if(!best || isBetterSheetPacking(score,best.score)) best={packed,score};
+});
+
+sheets=(best?best.packed:[]).map(sheet=>{
+  // Les bandes les plus larges sont placées en premier pour une lecture atelier claire.
+  sheet.strips.sort((a,b)=>b.width-a.width || b.usedLength-a.usedLength);
+  let y=0;
+  const parts=[];
+  const rows=[];
+  sheet.strips.forEach(strip=>{
+    strip.parts.forEach(part=>parts.push({...part,y:y,h:strip.width}));
+    rows.push({y,height:strip.width,usedLength:strip.usedLength,developed:strip.dev});
+    y+=strip.width;
   });
-}
-sheets=bestPacking ? bestPacking.sheets : [];
-// Présentation logique : feuilles les plus remplies en premier.
-sheets.sort((a,b)=>sheetUsedArea(b)-sheetUsedArea(a));
-sheets.forEach(sheet=>sheet.rows=buildRowsFromParts(sheet.parts));
+  return {
+    parts,
+    rows,
+    strips:sheet.strips,
+    usedWidth:sheet.usedWidth,
+    fullLengthResidual:sheetW-sheet.usedWidth,
+    freeRects:[]
+  };
+});
 
-const impossibleParts=allParts.filter(part=>
-  !sheets.some(sheet=>sheet.parts.some(p=>p===part || (p.pieceNo===part.pieceNo && p.label===part.label)))
-);
+// Feuilles les plus remplies en premier.
+sheets.sort((a,b)=>b.usedWidth-a.usedWidth);
+
+const placedCount=sheets.reduce((sum,s)=>sum+s.parts.length,0);
 if(!sheets.length && allParts.length){
   alert("Aucune pièce ne peut être placée avec le format de feuille sélectionné.");
 }
-
-const placedCount=sheets.reduce((sum,s)=>sum+s.parts.length,0);
-
 if(placedCount!==allParts.length){
   alert(`Attention : ${allParts.length-placedCount} pièce(s) non placée(s).`);
 }
-  
+
+const badResidualSheets=sheets.filter(s=>s.fullLengthResidual>EPS && s.fullLengthResidual<MIN_FULL_LENGTH_RESIDUAL);
+if(badResidualSheets.length){
+  console.warn("Calepinage atelier : certaines feuilles conservent une chute pleine longueur inférieure à 150 mm faute de combinaison exacte.");
+}
+
   let summaryRows="";
   let drawings="";
   let totalParts=allParts.length;
