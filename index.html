@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V35 — CybTouch recalcul automatique</title>
+<title>RML PLIAGE ALU — V35.1 Correctif sécurité</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1569,7 +1569,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 .bend-context-menu .bend-context-cancel{margin-top:5px;background:#f3f5f7;color:#233241;}
 
 </style> 
-  <!-- V34.1 : sauvegarde et restauration complète des profils de pliage -->
+  <!-- V35.1 : correctif sécurité — aucun recalcul automatique destructif -->
 </head>
 <body>
 <div class="container">
@@ -1893,95 +1893,6 @@ function fmtArea(n){return fmtNumber(n,3)+" m²"}
 function fmtEuro(n){return fmtNumber(n,2)+" €"}
 function setStatus(msg,ok=true){statusEl.textContent=msg;statusEl.className=ok?"success-text":"danger-text";}
 const STORAGE_KEY_CURRENT_PROJECT="rml_pliage_current_project_v1";
-
-/* ===== V35 : MOTEUR UNIQUE CYBTOUCH 15 + RECALCUL AUTOMATIQUE ===== */
-function rmlInterpolateDin6935K(radiusThicknessRatio){
-  const points=[
-    {ratio:0.5,k:0.5},{ratio:0.8,k:0.6},{ratio:1.2,k:0.7},
-    {ratio:2.0,k:0.8},{ratio:3.0,k:0.9},{ratio:5.0,k:1.0}
-  ];
-  const ratio=Math.max(0,Number(radiusThicknessRatio)||0);
-  if(ratio<=points[0].ratio)return points[0].k;
-  if(ratio>=points[points.length-1].ratio)return points[points.length-1].k;
-  for(let i=0;i<points.length-1;i++){
-    const a=points[i],b=points[i+1];
-    if(ratio>=a.ratio && ratio<=b.ratio){
-      return a.k+(ratio-a.ratio)*(b.k-a.k)/(b.ratio-a.ratio);
-    }
-  }
-  return 1;
-}
-
-function rmlCalculateSavedBendProfile(piece){
-  const saved=piece?.bendProfile;
-  const p=saved?.profile;
-  if(!Array.isArray(p?.lengths)||!p.lengths.length)return null;
-
-  const settings=saved.settings||(saved.settings={});
-  const t=Math.max(.01,Number(settings.thickness)||1);
-  const r=Math.max(0,Number(settings.radius)||0);
-  const correction=Math.max(.8,Math.min(1.2,Number(settings.cybFactor)||1));
-  const increment=Math.max(.01,Number(settings.round)||.1);
-  const lengths=p.lengths.map(v=>Math.max(0,Number(v)||0));
-  const angles=Array.isArray(p.angles)?p.angles:[];
-  const outer=lengths.reduce((sum,v)=>sum+v,0);
-  const kDin=rmlInterpolateDin6935K(r/t);
-  let deduction=0;
-
-  angles.forEach(value=>{
-    const interior=Math.min(179.9,Math.max(.1,Number(value)||90));
-    const bendAngle=180-interior;
-    const rad=bendAngle*Math.PI/180;
-    const setback=(r+t)*Math.tan(rad/2);
-    const neutralAxisOffset=kDin*t/2;
-    const ba=rad*(r+neutralAxisOffset);
-    deduction+=Math.max(0,2*setback-ba)*correction;
-  });
-
-  const developed=Math.max(0,outer-deduction);
-  const rounded=Math.round(developed/increment)*increment;
-
-  // Tous les anciens profils passent désormais par le moteur unique CybTouch DIN.
-  settings.calcMode="cybtouch-din";
-  settings.cybFactor=String(correction);
-  settings.k=settings.k ?? "0.33";
-
-  const result={outer,deduction,developed,rounded,engine:"cybtouch-din-v35"};
-  saved.result=result;
-  piece.developed=rounded;
-  piece.folds=angles.length;
-  const lengthMm=Number(settings.length3D||0);
-  if(lengthMm>0)piece.length=String(Number((lengthMm/1000).toFixed(3)));
-  return result;
-}
-
-function rmlRecalculatePiecesFromProfiles(targetPieces){
-  if(!Array.isArray(targetPieces))return 0;
-  let changed=0;
-  targetPieces.forEach(piece=>{
-    const before=Number(piece?.developed||0);
-    const result=rmlCalculateSavedBendProfile(piece);
-    if(result && Math.abs(before-result.rounded)>.0001)changed++;
-  });
-  return changed;
-}
-
-function rmlMigrateAllSavedProjects(){
-  let changed=0;
-  try{
-    changed+=rmlRecalculatePiecesFromProfiles(pieces);
-    localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces));
-
-    const projects=JSON.parse(localStorage.getItem("rml_pliage_projects_v1")||"[]");
-    if(Array.isArray(projects)){
-      projects.forEach(project=>{changed+=rmlRecalculatePiecesFromProfiles(project?.pieces);});
-      localStorage.setItem("rml_pliage_projects_v1",JSON.stringify(projects));
-    }
-  }catch(error){
-    console.error("Migration CybTouch V35 impossible :",error);
-  }
-  return changed;
-}
 function loadClients(){
   try{
     const raw=localStorage.getItem(STORAGE_KEY_CLIENTS);
@@ -2018,7 +1929,6 @@ function syncPieceLengthsFromBendProfiles(){
   });
 }
 function savePieces(){
-  rmlRecalculatePiecesFromProfiles(pieces);
   syncPieceLengthsFromBendProfiles();
   localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces));
 }
@@ -2933,10 +2843,8 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{al
     const data=JSON.parse(text);
 
     if(data.projects){
-      const restoredProjects=Array.isArray(data.projects)?data.projects:[];
-      restoredProjects.forEach(project=>rmlRecalculatePiecesFromProfiles(project?.pieces));
-      localStorage.setItem(PROJECTS_KEY,JSON.stringify(restoredProjects));
-      alert("Liste des projets restaurée et développés recalculés avec CybTouch 15.");
+      localStorage.setItem(PROJECTS_KEY,JSON.stringify(data.projects));
+      alert("Liste des projets restaurée.");
       return;
     }
 
@@ -3259,9 +3167,6 @@ function newProject(){
               waste:""
             }];
 
-      rmlRecalculatePiecesFromProfiles(pieces);
-      selected.pieces=JSON.parse(JSON.stringify(pieces));
-      localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
       renderClientForm();
       renderPieces();
       updatePriceDisplay();
@@ -3373,13 +3278,9 @@ if(mobileSettingsBtn){mobileSettingsBtn.addEventListener("click",openSettings);}
 closeSettingsBtn.addEventListener("click",closeSettings);
 settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSettings();});
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
-const rmlMigratedProfileCount=rmlMigrateAllSavedProjects();
 renderClientSelect();
 restoreCurrentProjectState();
 renderPieces();
-if(rmlMigratedProfileCount>0){
-  setStatus(`${rmlMigratedProfileCount} développé(s) ancien(s) recalculé(s) automatiquement avec CybTouch 15.`);
-}
 updatePriceDisplay();
 
 const projectNameField=document.getElementById("projectName");
@@ -4840,31 +4741,11 @@ if(quotePdfBtn){
   document.getElementById("bend3DFrontBtn")?.addEventListener("click",()=>reset3DView("front"));
   document.getElementById("bend3DIsoBtn")?.addEventListener("click",()=>reset3DView("iso"));
 
-  function autoSyncCurrentDesignerProfile(result){
-    if(drawingMode || !profile.lengths.length)return;
-    const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
-    const piece=pieces[index];
-    if(!piece)return;
-    piece.developed=result.rounded;
-    piece.folds=profile.angles.length;
-    const pieceLengthMm=Math.max(0,Number(fields.length3D?.value)||0);
-    if(pieceLengthMm>0)piece.length=String(Number((pieceLengthMm/1000).toFixed(3)));
-    piece.bendProfile=JSON.parse(JSON.stringify({
-      profile,roughPoints,
-      display:{viewRotation,viewZoom,activeSegment,activeBend,drawingMode:false},
-      settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,cybFactor:fields.cybFactor?.value,calcMode:"cybtouch-din",round:fields.round.value,length3D:fields.length3D?.value},
-      result:{...result,engine:"cybtouch-din-v35"}
-    }));
-    localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces));
-    recalcAll();
-  }
-
   function renderAll(rebuildTable=true){
     // Le tableau est reconstruit en premier pour qu'il reste visible même si le rendu 3D rencontre un problème.
     if(rebuildTable)renderTable();
     else body.querySelectorAll("tr").forEach((tr,i)=>{const cell=tr.children[4];if(cell&&i<profile.angles.length)cell.textContent=fmtNumber(getBendData(i).deduction,2)+" mm"});
-    const liveResult=calculate();
-    autoSyncCurrentDesignerProfile(liveResult);
+    calculate();
     draw();
     try{draw3D();}catch(error){console.warn("Rendu 3D ignoré :",error);}
   }
@@ -5161,10 +5042,7 @@ if(quotePdfBtn){
     draw();
   });
 
-  Object.values(fields).forEach(f=>f?.addEventListener("input",()=>{
-    if(fields.calcMode)fields.calcMode.value="cybtouch-din";
-    renderAll(false);
-  }));
+  Object.values(fields).forEach(f=>f?.addEventListener("input",()=>renderAll(false)));
   window.addEventListener("resize",()=>{
     if(modal.classList.contains("open")){
       resizeCanvas();
