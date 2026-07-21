@@ -1767,7 +1767,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <div class="field">
         <label for="bendCalcMode">Mode de calcul</label>
         <select id="bendCalcMode">
-          <option value="cybtouch-din" selected>CybTouch 15 — DIN 6935</option>
+          <option value="cybtouch-rml" selected>CybTouch 15 RML — P50.200 / Ve16.50</option>
+          <option value="cybtouch-din">CybTouch 15 — DIN 6935</option>
           <option value="cybtouch-constant">CybTouch — K constant</option>
           <option value="theoretical">Théorique facteur K classique</option>
         </select>
@@ -1810,7 +1811,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <div class="bend-result"><span>Rayon / Vé</span><strong id="bendToolSummary">R 1 / V 16</strong></div>
           <div class="bend-result main"><span>Développé calculé</span><strong id="bendDeveloped">0,0 mm</strong></div>
         </div>
-        <div class="bend-warning" id="bendWarning">Mode CybTouch 15 approché selon la compensation DIN 6935 documentée par Cybelec. Le K DIN est déterminé automatiquement par le rapport rayon intérieur / épaisseur. La correction machine doit rester à 1,000, sauf écart mesuré et constant sur plusieurs éprouvettes.</div>
+        <div class="bend-warning" id="bendWarning">Mode CybTouch 15 RML calibré sur les mesures réelles de la machine avec le poinçon P50.200 et la matrice Ve16.50. Les angles 5°, 55°, 90° et 92° utilisent les compensations mesurées ; les autres angles reviennent automatiquement au calcul DIN 6935. La correction machine doit rester à 1,000.</div>
       </div>
 
       <div class="bend-3d-card" id="bend3DCard" hidden style="display:none!important;">
@@ -1845,7 +1846,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <button class="btn-light" id="bendShow3DBtn">Afficher la 3D</button>
         </div>
         <div class="bend-calibration-note">
-          Formule CybTouch approchée : BA = angle de pli × [Ri + (K DIN × épaisseur / 2)], puis déduction = 2 × retrait tangent extérieur − BA. En mode DIN 6935, K varie automatiquement avec Ri/épaisseur ; il ne doit donc pas être réglé pièce par pièce.
+          Mode RML calibré pour P50.200 / Ve16.50 : compensation issue des développés mesurés sur la CybTouch 15 pour les angles 5°, 55°, 90° et 92°. Hors de cette plage, l’application utilise automatiquement la formule DIN 6935. Les angles négatifs sont acceptés ; leur signe détermine le sens, tandis que leur valeur absolue sert au calcul.
         </div>
       </div>
     </div>
@@ -3470,10 +3471,36 @@ if(quotePdfBtn){
     return 1;
   }
 
+  function interpolateCybTouchRmlDeduction(interiorAngle){
+    // Calibration RML effectuée sur la CybTouch 15 avec :
+    // aluminium 1,00 mm, poinçon P50.200 et matrice Ve16.50.
+    // Valeurs de référence mesurées :
+    // 5°  = -2,043 mm ; 55° = 0,427 mm ; 90° = 2,223 mm ; 92° = 2,097 mm.
+    const angle=Math.abs(Number(interiorAngle)||90);
+    const points=[
+      {angle:5,deduction:-2.0433333333},
+      {angle:55,deduction:0.4266666667},
+      {angle:90,deduction:2.2233333333},
+      {angle:92,deduction:2.0966666667}
+    ];
+
+    if(angle<points[0].angle || angle>points[points.length-1].angle){
+      return null; // hors plage étalonnée : retour au calcul DIN
+    }
+    for(let j=0;j<points.length-1;j++){
+      const a=points[j],b=points[j+1];
+      if(angle>=a.angle && angle<=b.angle){
+        return a.deduction+(angle-a.angle)*(b.deduction-a.deduction)/(b.angle-a.angle);
+      }
+    }
+    return points[points.length-1].deduction;
+  }
+
   function getBendData(i){
     const t=Math.max(.01,Number(fields.thickness.value)||1);
     const r=Math.max(0,Number(fields.radius.value)||0);
-    const interior=Math.min(179.9,Math.max(.1,Number(profile.angles[i])||90));
+    const signedInterior=Math.min(179.9,Math.max(-179.9,Number(profile.angles[i])||90));
+    const interior=Math.min(179.9,Math.max(.1,Math.abs(signedInterior)));
     const bendAngle=180-interior;
     const rad=bendAngle*Math.PI/180;
     const correction=Math.max(.8,Math.min(1.2,Number(fields.cybFactor?.value)||1));
@@ -3484,7 +3511,29 @@ if(quotePdfBtn){
     let neutralAxisOffset=0;
     let compensationK=0;
 
-    if(mode==="cybtouch-din"){
+    if(mode==="cybtouch-rml"){
+      const calibratedAt1mm=interpolateCybTouchRmlDeduction(interior);
+      if(calibratedAt1mm!==null){
+        // Mise à l'échelle pour les épaisseurs 7/10, 10/10 et 15/10.
+        // Le signe de l'angle n'agit que sur le sens du dessin, pas sur la valeur de compensation.
+        const deduction=calibratedAt1mm*t*correction;
+        return {
+          bendAngle,
+          ba:0,
+          setback:0,
+          deduction,
+          rawDeduction:deduction/correction,
+          compensationK:null,
+          neutralAxisOffset:null,
+          radiusThicknessRatio:r/t,
+          mode,
+          calibrated:true
+        };
+      }
+      // Les angles non étalonnés utilisent automatiquement la DIN 6935.
+      compensationK=interpolateDin6935K(r/t);
+      neutralAxisOffset=compensationK*t/2;
+    }else if(mode==="cybtouch-din"){
       // Chez Cybelec, le K DIN n'est pas le K classique de fibre neutre.
       // La compensation constante correspond à K*e/2.
       compensationK=interpolateDin6935K(r/t);
@@ -3525,11 +3574,13 @@ if(quotePdfBtn){
     document.getElementById("bendOuterSum").textContent=fmtNumber(outer,2)+" mm";
     document.getElementById("bendTotalDeduction").textContent=fmtNumber(deduction,2)+" mm";
     document.getElementById("bendFoldCount").textContent=String(profile.angles.length);
-    const modeLabel=fields.calcMode?.value==="cybtouch-din"
-      ? "CybTouch DIN 6935"
-      : fields.calcMode?.value==="cybtouch-constant"
-        ? "CybTouch K constant"
-        : "Théorique K";
+    const modeLabel=fields.calcMode?.value==="cybtouch-rml"
+      ? "CybTouch RML P50.200 / Ve16.50"
+      : fields.calcMode?.value==="cybtouch-din"
+        ? "CybTouch DIN 6935"
+        : fields.calcMode?.value==="cybtouch-constant"
+          ? "CybTouch K constant"
+          : "Théorique K";
     document.getElementById("bendToolSummary").textContent=`R ${fmtNumber(fields.radius.value,1)} / V ${fmtNumber(fields.vee.value,0)} / ${modeLabel}`;
     document.getElementById("bendDeveloped").textContent=fmtNumber(rounded,Math.abs(increment-.01)<.001?2:1)+" mm";
     return {outer,deduction,developed,rounded};
@@ -3544,7 +3595,7 @@ if(quotePdfBtn){
       const p=pts[pts.length-1];
       pts.push({x:p.x+Math.cos(heading)*len,y:p.y+Math.sin(heading)*len});
       if(i<profile.angles.length){
-        const turn=(180-(Number(profile.angles[i])||90))*Math.PI/180;
+        const turn=(180-Math.abs(Number(profile.angles[i])||90))*Math.PI/180;
         heading+=profile.directions[i]==="haut"?-turn:turn;
       }
     });
@@ -4522,7 +4573,7 @@ if(quotePdfBtn){
       const tr=document.createElement("tr");
       tr.innerHTML=`<td>${i+1}</td>
         <td><input type="number" min="0.1" step="0.01" data-role="length" data-index="${i}" value="${length}"></td>
-        <td>${hasBend?`<input type="number" min="0.1" max="179.9" step="0.1" data-role="angle" data-index="${i}" value="${profile.angles[i]}">`:'—'}</td>
+        <td>${hasBend?`<input type="number" min="-179.9" max="179.9" step="0.1" data-role="angle" data-index="${i}" value="${profile.angles[i]}">`:'—'}</td>
         <td>${hasBend?`<select data-role="direction" data-index="${i}"><option value="haut" ${profile.directions[i]==='haut'?'selected':''}>Haut</option><option value="bas" ${profile.directions[i]==='bas'?'selected':''}>Bas</option></select>`:'—'}</td>
         <td>${hasBend?fmtNumber(getBendData(i).deduction,2)+' mm':'—'}</td>
         <td><div class="bend-row-actions"><button class="btn-danger" data-remove="${i}" title="Supprimer le segment">×</button></div></td>`;
@@ -4545,7 +4596,12 @@ if(quotePdfBtn){
         activate(e);
         const i=Number(e.target.dataset.index),role=e.target.dataset.role;
         if(role==="length")profile.lengths[i]=Math.max(.1,Number(e.target.value)||.1);
-        if(role==="angle")profile.angles[i]=Math.min(179.9,Math.max(.1,Number(e.target.value)||90));
+        if(role==="angle"){
+          let value=Number(e.target.value);
+          if(!Number.isFinite(value))value=90;
+          if(Math.abs(value)<.1)value=value<0?-.1:.1;
+          profile.angles[i]=Math.min(179.9,Math.max(-179.9,value));
+        }
         if(role==="direction")profile.directions[i]=e.target.value;
         renderAll(false);
       });
