@@ -2453,16 +2453,30 @@ win.document.close();
   }
 
   function clonePart(part){return {...part};}
+  function makeEmptySheet(verticalStrips=[]){
+    const strips=verticalStrips.map(clonePart);
+    const offsetX=strips.reduce((sum,part)=>sum+part.dev,0);
+    return {
+      rows:[],
+      usedWidth:0,
+      verticalStrips:strips,
+      offsetX,
+      availableLength:Math.max(0,sheetL-offsetX)
+    };
+  }
   function clonePacking(packing){
     return packing.map(sheet=>({
       rows:sheet.rows.map(row=>({height:row.height,usedLength:row.usedLength,parts:row.parts.map(clonePart)})),
-      usedWidth:sheet.usedWidth
+      usedWidth:sheet.usedWidth,
+      verticalStrips:(sheet.verticalStrips||[]).map(clonePart),
+      offsetX:Number(sheet.offsetX||0),
+      availableLength:Number(sheet.availableLength ?? sheetL)
     }));
   }
 
-  function rowPlacementScore(row,part){
-    if(part.dev>row.height+EPS || row.usedLength+part.long>sheetL+EPS)return null;
-    const lengthAfter=sheetL-row.usedLength-part.long;
+  function rowPlacementScore(row,part,maxLength){
+    if(part.dev>row.height+EPS || row.usedLength+part.long>maxLength+EPS)return null;
+    const lengthAfter=maxLength-row.usedLength-part.long;
     const heightSlack=row.height-part.dev;
     const lostArea=heightSlack*part.long;
     return lostArea*1000 + lengthAfter*10 + heightSlack;
@@ -2472,23 +2486,27 @@ win.document.close();
     let best=null;
 
     packing.forEach((sheet,sheetIndex)=>{
+      const maxLength=Number(sheet.availableLength ?? sheetL);
       sheet.rows.forEach((row,rowIndex)=>{
-        const score=rowPlacementScore(row,part);
+        const score=rowPlacementScore(row,part,maxLength);
         if(score===null)return;
         if(!best || score<best.score){best={type:"row",sheetIndex,rowIndex,score};}
       });
 
       const remainingWidth=sheetW-sheet.usedWidth;
-      if(part.dev<=remainingWidth+EPS){
+      if(part.dev<=remainingWidth+EPS && part.long<=maxLength+EPS){
         const residualAfter=remainingWidth-part.dev;
         const badResidual=residualAfter>EPS && residualAfter<MIN_FULL_LENGTH_RESIDUAL ? 1 : 0;
-        const score=500000 + badResidual*1000000 + residualAfter*100 + (sheetL-part.long);
+        const score=500000 + badResidual*1000000 + residualAfter*100 + (maxLength-part.long);
         if(!best || score<best.score){best={type:"newRow",sheetIndex,score};}
       }
     });
 
     if(!best){
-      packing.push({rows:[{height:part.dev,usedLength:part.long,parts:[clonePart(part)]}],usedWidth:part.dev});
+      const newSheet=makeEmptySheet();
+      newSheet.rows.push({height:part.dev,usedLength:part.long,parts:[clonePart(part)]});
+      newSheet.usedWidth=part.dev;
+      packing.push(newSheet);
       return;
     }
 
@@ -2505,22 +2523,37 @@ win.document.close();
 
   function layoutPacking(packing){
     packing.forEach(sheet=>{
+      sheet.verticalStrips=Array.isArray(sheet.verticalStrips)?sheet.verticalStrips:[];
+      sheet.offsetX=sheet.verticalStrips.reduce((sum,part)=>sum+part.dev,0);
+      sheet.availableLength=Math.max(0,sheetL-sheet.offsetX);
       sheet.rows.sort((a,b)=>b.height-a.height || b.usedLength-a.usedLength);
       let y=0;
       const parts=[];
+      let stripX=0;
+      sheet.verticalStrips.forEach(part=>{
+        part.x=stripX;
+        part.y=0;
+        part.w=part.dev;
+        part.h=sheetW;
+        part.rotated=true;
+        part.fullHeightStrip=true;
+        parts.push(part);
+        stripX+=part.dev;
+      });
       sheet.rows.forEach(row=>{
         row.parts.sort((a,b)=>b.dev-a.dev || b.long-a.long || a.pieceNo-b.pieceNo);
-        let x=0;
+        let x=sheet.offsetX;
         row.parts.forEach(part=>{
           part.x=x;
           part.y=y;
           part.w=part.long;
           part.h=part.dev;
+          part.rotated=false;
           part.rowHeight=row.height;
           parts.push(part);
           x+=part.long;
         });
-        row.usedLength=x;
+        row.usedLength=x-sheet.offsetX;
         row.y=y;
         y+=row.height;
       });
@@ -2533,12 +2566,14 @@ win.document.close();
 
   function freeZonesForSheet(sheet){
     const zones=[];
+    const offsetX=Number(sheet.offsetX||0);
+    const availableLength=Number(sheet.availableLength ?? sheetL);
     sheet.rows.forEach(row=>{
-      if(row.usedLength<sheetL-EPS){
+      if(row.usedLength<availableLength-EPS){
         zones.push({
-          x:row.usedLength,
+          x:offsetX+row.usedLength,
           y:row.y,
-          w:sheetL-row.usedLength,
+          w:availableLength-row.usedLength,
           h:row.height,
           type:"fin-bande"
         });
@@ -2556,8 +2591,8 @@ win.document.close();
         }
       });
     });
-    if(sheet.usedWidth<sheetW-EPS){
-      zones.push({x:0,y:sheet.usedWidth,w:sheetL,h:sheetW-sheet.usedWidth,type:"pleine-longueur"});
+    if(sheet.usedWidth<sheetW-EPS && availableLength>EPS){
+      zones.push({x:offsetX,y:sheet.usedWidth,w:availableLength,h:sheetW-sheet.usedWidth,type:"pleine-longueur"});
     }
     return zones.filter(z=>z.w>EPS && z.h>EPS);
   }
@@ -2630,9 +2665,11 @@ win.document.close();
 
   let bestPacking=null;
   let bestScore=null;
-  baseOrders.forEach(order=>{
-    const packing=[];
-    order.forEach(part=>placePart(packing,part));
+
+  function evaluatePacking(order,verticalStrips=[]){
+    const stripIds=new Set(verticalStrips.map(part=>part.uid));
+    const packing=verticalStrips.length ? [makeEmptySheet(verticalStrips)] : [];
+    order.filter(part=>!stripIds.has(part.uid)).forEach(part=>placePart(packing,part));
     layoutPacking(packing);
     const score=packingScore(packing);
     if(scoreIsBetter(score,bestScore)){
@@ -2640,7 +2677,32 @@ win.document.close();
       layoutPacking(bestPacking);
       bestScore=score;
     }
+  }
+
+  baseOrders.forEach(order=>evaluatePacking(order));
+
+  // Stratégie atelier supplémentaire : première coupe verticale sur toute la hauteur
+  // de la feuille (1500 mm), puis calepinage horizontal dans le rectangle restant.
+  // Seules les pièces dont la longueur correspond exactement à la hauteur de feuille
+  // peuvent devenir une bande verticale pleine hauteur.
+  const verticalCandidates=allParts
+    .filter(part=>Math.abs(part.long-sheetW)<=EPS && part.dev<sheetL-EPS)
+    .sort((a,b)=>b.dev-a.dev || a.pieceNo-b.pieceNo);
+
+  const limitedCandidates=verticalCandidates.slice(0,10);
+  limitedCandidates.forEach(candidate=>{
+    baseOrders.forEach(order=>evaluatePacking(order,[candidate]));
   });
+
+  // Teste aussi des doubles bandes verticales lorsque leur largeur totale laisse
+  // encore une zone exploitable pour les bandes horizontales.
+  for(let i=0;i<limitedCandidates.length;i++){
+    for(let j=i+1;j<limitedCandidates.length;j++){
+      const pair=[limitedCandidates[i],limitedCandidates[j]];
+      if(pair[0].dev+pair[1].dev>=sheetL-MIN_REUSABLE_WIDTH)continue;
+      baseOrders.slice(0,24).forEach(order=>evaluatePacking(order,pair));
+    }
+  }
 
   const sheets=bestPacking || [];
   sheets.sort((a,b)=>b.usedWidth-a.usedWidth || b.parts.reduce((s,p)=>s+p.area,0)-a.parts.reduce((s,p)=>s+p.area,0));
@@ -2688,7 +2750,7 @@ win.document.close();
       const cx=p.x*scale+pw/2;
       const cy=p.y*scale+ph/2;
       const fontSize=Math.max(6,Math.min(12,Math.min(pw,ph)/2.8));
-      const label=`P${p.pieceNo} - ${Math.round(p.h)} x ${Math.round(p.w)}`;
+      const label=`P${p.pieceNo} - ${Math.round(p.dev)} x ${Math.round(p.long)}${p.rotated?" ↻":""}`;
       rects+=`
         <rect x="${p.x*scale}" y="${p.y*scale}" width="${pw}" height="${ph}" fill="#dff3df" stroke="#111"/>
         <text x="${cx}" y="${cy}" font-size="${fontSize}" text-anchor="middle" dominant-baseline="middle" fill="#111" ${pw<ph?`transform="rotate(-90 ${cx} ${cy})"`:""}>${label}</text>`;
@@ -2797,7 +2859,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
       <div><span>Part des chutes réutilisables</span><strong>${fmtPct(safePct(globalStats.reusable,totalWaste))} des chutes</strong></div>
       <div><span>Part des pertes non exploitables</span><strong>${fmtPct(safePct(globalStats.unusable,totalWaste))} des chutes</strong></div>
     </div>
-    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la hauteur de cette bande. Les coupes restent organisées en bandes droites compatibles avec la guillotine.</div>
+    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la hauteur de cette bande. Le moteur teste aussi une première bande verticale pleine hauteur lorsque la longueur de la pièce correspond exactement à la hauteur de la feuille. Cette bande est séparée par une coupe complète avant les coupes horizontales suivantes.</div>
   </div>
 
   <table>
@@ -4373,9 +4435,9 @@ if(quotePdfBtn){
         forceStyle(dataCard,{display:"none"});
       }
 
-      if(document.documentElement.requestFullscreen){
-        document.documentElement.requestFullscreen().catch(()=>{});
-      }
+      // Le plein écran est réalisé uniquement en CSS.
+      // L’API plein écran native créait parfois une fenêtre blanche sur Mac
+      // lors de « Insérer dans le devis ».
     }else{
       restoreInlineStyles();
       if(document.fullscreenElement && document.exitFullscreen){
