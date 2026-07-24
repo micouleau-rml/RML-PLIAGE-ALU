@@ -2594,7 +2594,10 @@ win.document.close();
     if(sheet.usedWidth<sheetW-EPS && availableLength>EPS){
       zones.push({x:offsetX,y:sheet.usedWidth,w:availableLength,h:sheetW-sheet.usedWidth,type:"pleine-longueur"});
     }
-    return zones.filter(z=>z.w>EPS && z.h>EPS);
+    // Élimine les zones parasites créées par les imprécisions décimales
+    // (par exemple 700 × 0 mm après arrondi d'affichage).
+    const MIN_ZONE_DIMENSION=0.5;
+    return zones.filter(z=>z.w>=MIN_ZONE_DIMENSION && z.h>=MIN_ZONE_DIMENSION);
   }
 
   function zoneIsReusable(zone){
@@ -2757,14 +2760,43 @@ win.document.close();
     });
 
     const chuteInfos=[];
-    zones.sort((a,b)=>(b.w*b.h)-(a.w*a.h)).forEach((zone,index)=>{
+    const sortedZones=[...zones].sort((a,b)=>(b.w*b.h)-(a.w*a.h));
+    const zoneGroups=new Map();
+
+    sortedZones.forEach((zone,index)=>{
       const chuteNo="Z"+(index+1);
       const reusable=zoneIsReusable(zone);
+      const roundedW=Math.round(zone.w);
+      const roundedH=Math.round(zone.h);
       const chuteColor=reusable ? chuteColors[index%chuteColors.length] : "#e5e7eb";
-      chuteInfos.push(`<span class="zone-chip"><span class="zone-dot" style="background:${chuteColor}"></span>${chuteNo} : ${Math.round(zone.w)} x ${Math.round(zone.h)} mm — ${reusable?"réutilisable":"non exploitable"}</span>`);
+      const groupKey=`${roundedW}x${roundedH}-${reusable?1:0}`;
+
+      if(!zoneGroups.has(groupKey)){
+        zoneGroups.set(groupKey,{
+          first:index+1,
+          last:index+1,
+          count:0,
+          w:roundedW,
+          h:roundedH,
+          reusable,
+          color:chuteColor
+        });
+      }
+      const group=zoneGroups.get(groupKey);
+      group.last=index+1;
+      group.count++;
+
       rects+=`
         <rect x="${zone.x*scale}" y="${zone.y*scale}" width="${zone.w*scale}" height="${zone.h*scale}" fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
         ${(zone.w*scale>18 && zone.h*scale>10)?`<text x="${zone.x*scale+zone.w*scale/2}" y="${zone.y*scale+zone.h*scale/2}" font-size="8" text-anchor="middle" dominant-baseline="middle" fill="#111">${chuteNo}</text>`:""}`;
+    });
+
+    zoneGroups.forEach(group=>{
+      const zoneLabel=group.count===1
+        ? `Z${group.first}`
+        : `Z${group.first} à Z${group.last}`;
+      const quantityLabel=group.count===1 ? "" : `${group.count} zones — `;
+      chuteInfos.push(`<span class="zone-chip"><span class="zone-dot" style="background:${group.color}"></span>${zoneLabel} : ${quantityLabel}${group.w} x ${group.h} mm — ${group.reusable?"réutilisable":"non exploitable"}</span>`);
     });
 
     drawings+=`
