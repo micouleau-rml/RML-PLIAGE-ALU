@@ -2060,7 +2060,7 @@ function updatePriceDisplay(){
 function createPieceRow(piece,index){
   const wrap=document.createElement("div");
   wrap.className="piece";
-  wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools"><button class="btn-light small-btn" data-action="minus">−</button><button class="btn-light small-btn" data-action="plus">+</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
+  wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools">${piece.bendProfile?'<button class="btn-secondary" data-action="open-drawing">Modifier le dessin</button>':''}<button class="btn-light small-btn" data-action="minus">−</button><button class="btn-light small-btn" data-action="plus">+</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
   <div class="row">
     <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
     <div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
@@ -2074,6 +2074,9 @@ function createPieceRow(piece,index){
   wrap.querySelector('[data-action="plus"]').addEventListener("click",()=>{pieces[index].qty=Number(pieces[index].qty||1)+1;savePieces();renderPieces();});
   wrap.querySelector('[data-action="minus"]').addEventListener("click",()=>{pieces[index].qty=Math.max(1,Number(pieces[index].qty||1)-1);savePieces();renderPieces();});
   wrap.querySelector('[data-action="delete"]').addEventListener("click",()=>{pieces.splice(index,1); if(!pieces.length) pieces.push({id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}); savePieces(); renderPieces();});
+  wrap.querySelector('[data-action="open-drawing"]')?.addEventListener("click",()=>{
+    if(typeof window.RML_OPEN_BEND_PROFILE==="function") window.RML_OPEN_BEND_PROFILE(index);
+  });
   return wrap;
 }
 function renderPieces(){
@@ -2225,7 +2228,7 @@ function importBackupFromText(text){
   const parsed=JSON.parse(text);
   clients=normalizeClients(parsed);
   if(Array.isArray(parsed.pieces)){
-    pieces=parsed.pieces.map(p=>({id:p.id||crypto.randomUUID(),developed:p.developed??"",length:p.length??"",qty:p.qty??1,folds:p.folds??0,cuts:p.cuts??0,time:p.time??0,waste:p.waste??""}));
+    pieces=parsed.pieces.map(p=>({...p,id:p.id||crypto.randomUUID(),developed:p.developed??"",length:p.length??"",qty:p.qty??1,folds:p.folds??0,cuts:p.cuts??0,time:p.time??0,waste:p.waste??"",bendProfile:p.bendProfile?JSON.parse(JSON.stringify(p.bendProfile)):undefined}));
     if(!pieces.length) pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
     savePieces();
   }
@@ -2534,7 +2537,7 @@ win.document.close();
         part.x=stripX;
         part.y=0;
         part.w=part.dev;
-        part.h=sheetW;
+        part.h=part.long;
         part.rotated=true;
         part.fullHeightStrip=true;
         parts.push(part);
@@ -2623,10 +2626,26 @@ win.document.close();
     return zones;
   }
 
-  function freeZonesForSheet(sheet){
+  function rawFreeZonesForSheet(sheet){
     const zones=[];
     const offsetX=Number(sheet.offsetX||0);
     const availableLength=Number(sheet.availableLength ?? sheetL);
+
+    // Chute restante au bout de chaque bande verticale découpée sur toute la hauteur.
+    // La coupe principale reste bien continue sur 1500 mm, même si la pièce est plus courte.
+    (sheet.verticalStrips||[]).forEach(part=>{
+      const remainingHeight=sheetW-Number(part.long||0);
+      if(remainingHeight>EPS){
+        zones.push({
+          x:part.x,
+          y:Number(part.long||0),
+          w:part.dev,
+          h:remainingHeight,
+          type:"fin-bande-verticale"
+        });
+      }
+    });
+
     sheet.rows.forEach(row=>{
       if(row.usedLength<availableLength-EPS){
         zones.push({
@@ -2654,11 +2673,14 @@ win.document.close();
       zones.push({x:offsetX,y:sheet.usedWidth,w:availableLength,h:sheetW-sheet.usedWidth,type:"pleine-longueur"});
     }
 
-    // Élimine les zones parasites, puis fusionne réellement les zones adjacentes
-    // afin d'obtenir les plus grandes chutes physiques récupérables.
     const MIN_ZONE_DIMENSION=0.5;
-    const validZones=zones.filter(z=>z.w>=MIN_ZONE_DIMENSION && z.h>=MIN_ZONE_DIMENSION);
-    return mergeAdjacentFreeZones(validZones);
+    return zones.filter(z=>z.w>=MIN_ZONE_DIMENSION && z.h>=MIN_ZONE_DIMENSION);
+  }
+
+  // La fusion sert uniquement à représenter les chutes physiques maximales.
+  // Elle ne modifie jamais le choix du calepinage ni le nombre de feuilles.
+  function freeZonesForSheet(sheet){
+    return mergeAdjacentFreeZones(rawFreeZonesForSheet(sheet));
   }
 
   function zoneIsReusable(zone){
@@ -2672,7 +2694,7 @@ win.document.close();
     let used=0,reusable=0,unusable=0,badFullLength=0;
     packing.forEach(sheet=>{
       used+=sheet.parts.reduce((sum,p)=>sum+p.area,0);
-      const zones=freeZonesForSheet(sheet);
+      const zones=rawFreeZonesForSheet(sheet);
       zones.forEach(zone=>{
         const area=zone.w*zone.h;
         if(zoneIsReusable(zone))reusable+=area; else unusable+=area;
@@ -2747,10 +2769,11 @@ win.document.close();
 
   // Stratégie atelier supplémentaire : première coupe verticale sur toute la hauteur
   // de la feuille (1500 mm), puis calepinage horizontal dans le rectangle restant.
-  // Seules les pièces dont la longueur correspond exactement à la hauteur de feuille
-  // peuvent devenir une bande verticale pleine hauteur.
+  // Toute pièce dont la longueur est inférieure ou égale à 1500 mm peut être placée
+  // dans une bande verticale réservée sur toute la hauteur. La première coupe reste
+  // continue sur 1500 mm ; la partie non occupée devient une chute rectangulaire.
   const verticalCandidates=allParts
-    .filter(part=>Math.abs(part.long-sheetW)<=EPS && part.dev<sheetL-EPS)
+    .filter(part=>part.long<=sheetW+EPS && part.dev<sheetL-EPS)
     .sort((a,b)=>b.dev-a.dev || a.pieceNo-b.pieceNo);
 
   const limitedCandidates=verticalCandidates.slice(0,10);
@@ -2952,7 +2975,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
       <div><span>Part des chutes réutilisables</span><strong>${fmtPct(safePct(globalStats.reusable,totalWaste))} des chutes</strong></div>
       <div><span>Part des pertes non exploitables</span><strong>${fmtPct(safePct(globalStats.unusable,totalWaste))} des chutes</strong></div>
     </div>
-    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la hauteur de cette bande. Le moteur teste aussi une première bande verticale pleine hauteur lorsque la longueur de la pièce correspond exactement à la hauteur de la feuille. Cette bande est séparée par une coupe complète avant les coupes horizontales suivantes.</div>
+    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la hauteur de cette bande. Le moteur teste aussi une première bande verticale réservée sur toute la hauteur de la feuille. La pièce peut être plus courte que 1500 mm : la coupe principale traverse toujours les 1500 mm et le complément reste une chute rectangulaire, avant les coupes horizontales suivantes.</div>
   </div>
 
   <table>
@@ -3113,10 +3136,12 @@ function persistCurrentProjectRecord({createIfMissing=true}={}){
     sheetFormat:sheetFormat.value,
     pieces:JSON.parse(JSON.stringify(pieces)),
     activeBendPieceIndex:(()=>{
-      const stored=Number(existing?.activeBendPieceIndex);
-      if(Number.isInteger(stored) && stored>=0 && stored<pieces.length) return stored;
+      const runtime=Number(window.RML_ACTIVE_BEND_PIECE_INDEX);
+      if(Number.isInteger(runtime) && runtime>=0 && runtime<pieces.length && pieces[runtime]?.bendProfile) return runtime;
       const lastWithProfile=pieces.map((piece,index)=>piece?.bendProfile?index:-1).filter(index=>index>=0).pop();
-      return Number.isInteger(lastWithProfile) ? lastWithProfile : 0;
+      if(Number.isInteger(lastWithProfile)) return lastWithProfile;
+      const stored=Number(existing?.activeBendPieceIndex);
+      return Number.isInteger(stored) && stored>=0 && stored<pieces.length ? stored : 0;
     })(),
     date:existing?.date || new Date().toISOString(),
     modifiedAt:new Date().toISOString()
@@ -4774,7 +4799,7 @@ if(quotePdfBtn){
       const o=document.createElement("option");
       o.value=i;
       const developed=Number(p.developed);
-      o.textContent=`Pièce ${i+1}${Number.isFinite(developed)&&developed>0?` — ${fmtNumber(developed,1)} mm`:''}`;
+      o.textContent=`Pièce ${i+1}${Number.isFinite(developed)&&developed>0?` — ${fmtNumber(developed,1)} mm`:''}${p.bendProfile?' — dessin mémorisé':''}`;
       targetSelect.appendChild(o);
     });
     targetSelect.value=previous&&Number(previous)<pieces.length?previous:String(Math.max(0,pieces.length-1));
@@ -5216,6 +5241,21 @@ if(quotePdfBtn){
     setLargeDrawingMode(false);
     modal.classList.remove("open");
   }
+  window.RML_OPEN_BEND_PROFILE=function(index){
+    const safeIndex=Math.max(0,Math.min(pieces.length-1,Number(index)||0));
+    window.RML_ACTIVE_BEND_PIECE_INDEX=safeIndex;
+    renderTargets();
+    targetSelect.value=String(safeIndex);
+    modal.classList.add("open");
+    setTimeout(()=>{
+      resizeCanvas();
+      resizeCanvas3D();
+      if(!applySavedProfileToDesigner(pieces[safeIndex],safeIndex)){
+        reset();
+        targetSelect.value=String(safeIndex);
+      }
+    },80);
+  };
   openBtn?.addEventListener("click",open);closeBtn?.addEventListener("click",close);
   targetSelect?.addEventListener("change",()=>{
     const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
@@ -5309,7 +5349,9 @@ if(quotePdfBtn){
     };
     pieces.push(newPiece);
     const newIndex=pieces.length-1;
-    window.RML_ACTIVE_BEND_PIECE_INDEX=newIndex;
+    // La pièce terminée reste le profil actif mémorisé. La nouvelle pièce est seulement
+    // la cible de saisie courante, afin que la réouverture retrouve toujours le dernier dessin.
+    window.RML_ACTIVE_BEND_PIECE_INDEX=index;
 
     savePieces();
     renderPieces();
@@ -5326,6 +5368,9 @@ if(quotePdfBtn){
       setTimeout(()=>{resizeCanvas();draw();},80);
     }
 
+    if(currentLoadedProjectId && typeof persistCurrentProjectRecord==="function"){
+      persistCurrentProjectRecord({createIfMissing:false});
+    }
     setStatus(`Pièce ${index+1} enregistrée — nouvelle pièce ${newIndex+1} prête.`);
   }
   document.getElementById("bendInsertBtn")?.addEventListener("click",insertBendIntoQuote);
