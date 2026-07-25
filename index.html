@@ -2060,7 +2060,7 @@ function updatePriceDisplay(){
 function createPieceRow(piece,index){
   const wrap=document.createElement("div");
   wrap.className="piece";
-  wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools">${piece.bendProfile?'<button class="btn-secondary" data-action="open-drawing">Modifier le dessin</button>':''}<button class="btn-light small-btn" data-action="minus">−</button><button class="btn-light small-btn" data-action="plus">+</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
+  wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools">${piece.bendProfile?'<button class="btn-secondary" data-action="open-drawing">Modifier le dessin</button>':''}<button class="btn-light" data-action="duplicate">Dupliquer</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
   <div class="row">
     <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
     <div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
@@ -2071,8 +2071,26 @@ function createPieceRow(piece,index){
     <div class="field col-2"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste ?? ""}" data-field="waste" placeholder="défaut client"/></div>
   </div>`;
   wrap.querySelectorAll("input").forEach(input=>input.addEventListener("input",e=>{pieces[index][e.target.dataset.field]=e.target.value;savePieces();recalcAll();}));
-  wrap.querySelector('[data-action="plus"]').addEventListener("click",()=>{pieces[index].qty=Number(pieces[index].qty||1)+1;savePieces();renderPieces();});
-  wrap.querySelector('[data-action="minus"]').addEventListener("click",()=>{pieces[index].qty=Math.max(1,Number(pieces[index].qty||1)-1);savePieces();renderPieces();});
+  wrap.querySelector('[data-action="duplicate"]').addEventListener("click",()=>{
+    const source=pieces[index];
+    const copy=(typeof structuredClone==="function")
+      ? structuredClone(source)
+      : JSON.parse(JSON.stringify(source));
+    copy.id=crypto.randomUUID();
+
+    // L'affichage des pièces est inversé : une insertion juste après la source
+    // dans le tableau place donc la copie immédiatement au-dessus à l'écran.
+    pieces.splice(index+1,0,copy);
+
+    const activeIndex=Number(window.RML_ACTIVE_BEND_PIECE_INDEX);
+    if(Number.isInteger(activeIndex) && activeIndex>index){
+      window.RML_ACTIVE_BEND_PIECE_INDEX=activeIndex+1;
+    }
+
+    savePieces();
+    renderPieces();
+    setStatus(`Pièce ${index+1} dupliquée en pièce ${index+2}.`);
+  });
   wrap.querySelector('[data-action="delete"]').addEventListener("click",()=>{pieces.splice(index,1); if(!pieces.length) pieces.push({id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}); savePieces(); renderPieces();});
   wrap.querySelector('[data-action="open-drawing"]')?.addEventListener("click",()=>{
     if(typeof window.RML_OPEN_BEND_PROFILE==="function") window.RML_OPEN_BEND_PROFILE(index);
