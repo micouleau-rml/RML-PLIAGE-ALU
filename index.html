@@ -2080,6 +2080,7 @@ function createPieceRow(piece,index){
   return wrap;
 }
 function renderPieces(){
+  pieces=restoreBendProfiles(pieces,[]);
   piecesEl.innerHTML="";
   [...pieces].reverse().forEach((piece,index)=>{
     const realIndex = pieces.length - 1 - index;
@@ -3088,7 +3089,7 @@ return;
 
     if(data.clients && data.pieces){
       clients=data.clients;
-      pieces=data.pieces;
+      pieces=restoreBendProfiles(data.pieces,[]);
       saveClients();
       savePieces();
       renderClientSelect();
@@ -3109,6 +3110,98 @@ const newProjectBtn=document.getElementById("newProjectBtn");
 const projectNameInput=document.getElementById("projectName");
 const PROJECTS_KEY="rml_pliage_projects_v1";
 let currentLoadedProjectId="";
+
+/* ===== V35.8 : CONSERVATION ET RESTAURATION DES DESSINS ANCIENS ===== */
+function cloneSafe(value){
+  try{return JSON.parse(JSON.stringify(value));}catch{return value;}
+}
+
+function normalizeLegacyBendProfile(piece){
+  if(!piece || typeof piece!=="object")return piece;
+  if(piece.bendProfile?.profile?.lengths?.length)return piece;
+
+  // Compatibilité avec d'anciennes clés utilisées dans certains projets/sauvegardes.
+  const candidate=
+    piece.bendingProfile ||
+    piece.bend_profile ||
+    piece.savedBendProfile ||
+    piece.drawingProfile ||
+    piece.profileDrawing ||
+    null;
+
+  if(candidate?.profile?.lengths?.length){
+    piece.bendProfile=cloneSafe(candidate);
+    return piece;
+  }
+
+  // Ancien format où le profil et ses paramètres étaient stockés directement sur la pièce.
+  const directProfile=piece.profile || piece.bendData || null;
+  if(directProfile?.lengths?.length){
+    piece.bendProfile={
+      profile:cloneSafe(directProfile),
+      roughPoints:cloneSafe(piece.roughPoints || []),
+      display:cloneSafe(piece.bendDisplay || {viewRotation:0,viewZoom:1,activeSegment:-1,activeBend:-1,drawingMode:false}),
+      settings:cloneSafe(piece.bendSettings || piece.settings || {}),
+      result:cloneSafe(piece.bendResult || {rounded:Number(piece.developed||0)})
+    };
+  }
+  return piece;
+}
+
+function pieceProfileKey(piece,index=0){
+  const id=String(piece?.id||"").trim();
+  if(id)return "id:"+id;
+  const dev=Number(piece?.developed||0).toFixed(3);
+  const len=Number(piece?.length||0).toFixed(3);
+  const qty=Number(piece?.qty||0).toFixed(0);
+  const folds=Number(piece?.folds||0).toFixed(0);
+  return `sig:${index}:${dev}:${len}:${qty}:${folds}`;
+}
+
+function collectBendProfilePool(extraPieces=[]){
+  const pool=new Map();
+  const addList=list=>{
+    if(!Array.isArray(list))return;
+    list.forEach((raw,index)=>{
+      const piece=normalizeLegacyBendProfile(cloneSafe(raw));
+      if(piece?.bendProfile?.profile?.lengths?.length){
+        pool.set(pieceProfileKey(piece,index),cloneSafe(piece.bendProfile));
+        // Deuxième index sans position pour récupérer un profil après réordonnancement.
+        const sig=`geom:${Number(piece.developed||0).toFixed(3)}:${Number(piece.length||0).toFixed(3)}:${Number(piece.folds||0).toFixed(0)}`;
+        if(!pool.has(sig))pool.set(sig,cloneSafe(piece.bendProfile));
+      }
+    });
+  };
+
+  addList(extraPieces);
+  addList(pieces);
+  try{addList(JSON.parse(localStorage.getItem(STORAGE_KEY_PIECES)||"[]"));}catch{}
+  try{
+    const allProjects=JSON.parse(localStorage.getItem(PROJECTS_KEY)||"[]");
+    allProjects.forEach(project=>addList(project?.pieces));
+  }catch{}
+  return pool;
+}
+
+function restoreBendProfiles(targetPieces,extraPieces=[]){
+  const list=Array.isArray(targetPieces)?cloneSafe(targetPieces):[];
+  const pool=collectBendProfilePool(extraPieces);
+  return list.map((raw,index)=>{
+    const piece=normalizeLegacyBendProfile(raw||{});
+    if(!piece.id)piece.id=crypto.randomUUID();
+    if(!piece.bendProfile?.profile?.lengths?.length){
+      const byKey=pool.get(pieceProfileKey(piece,index));
+      const sig=`geom:${Number(piece.developed||0).toFixed(3)}:${Number(piece.length||0).toFixed(3)}:${Number(piece.folds||0).toFixed(0)}`;
+      const recovered=byKey || pool.get(sig);
+      if(recovered)piece.bendProfile=cloneSafe(recovered);
+    }
+    return piece;
+  });
+}
+
+function projectPiecesWithPreservedDrawings(existingPieces,currentPieces){
+  return restoreBendProfiles(currentPieces,existingPieces);
+}
 
 function persistCurrentProjectRecord({createIfMissing=true}={}){
   syncPieceLengthsFromBendProfiles();
@@ -3134,7 +3227,7 @@ function persistCurrentProjectRecord({createIfMissing=true}={}){
     clientId:selectedClient.value,
     thickness:selectedThickness.value,
     sheetFormat:sheetFormat.value,
-    pieces:JSON.parse(JSON.stringify(pieces)),
+    pieces:projectPiecesWithPreservedDrawings(existing?.pieces||[],pieces),
     activeBendPieceIndex:(()=>{
       const runtime=Number(window.RML_ACTIVE_BEND_PIECE_INDEX);
       if(Number.isInteger(runtime) && runtime>=0 && runtime<pieces.length && pieces[runtime]?.bendProfile) return runtime;
@@ -3334,9 +3427,10 @@ function newProject(){
           sheetFormat.value;
       }
 
+      const runtimePiecesBeforeOpen=cloneSafe(pieces);
       pieces=
         Array.isArray(selected.pieces) && selected.pieces.length
-          ? JSON.parse(JSON.stringify(selected.pieces))
+          ? restoreBendProfiles(selected.pieces,runtimePiecesBeforeOpen)
           : [{
               id:crypto.randomUUID(),
               developed:"",
@@ -3347,6 +3441,11 @@ function newProject(){
               time:0,
               waste:""
             }];
+
+      // Réécrit uniquement le projet chargé avec les profils récupérés, sans toucher aux autres projets.
+      selected.pieces=cloneSafe(pieces);
+      projects[index]=selected;
+      localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
 
       renderClientForm();
       renderPieces();
