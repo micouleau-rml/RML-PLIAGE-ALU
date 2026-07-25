@@ -2564,6 +2564,65 @@ win.document.close();
     return packing;
   }
 
+  function mergeAdjacentFreeZones(inputZones){
+    const zones=inputZones.map(zone=>({...zone}));
+    const TOLERANCE=0.5;
+    let merged=true;
+
+    while(merged){
+      merged=false;
+      outer:
+      for(let i=0;i<zones.length;i++){
+        for(let j=i+1;j<zones.length;j++){
+          const a=zones[i];
+          const b=zones[j];
+
+          // Fusion verticale : même position X, même largeur et arêtes en contact.
+          const sameX=Math.abs(a.x-b.x)<=TOLERANCE;
+          const sameWidth=Math.abs(a.w-b.w)<=TOLERANCE;
+          const verticalTouch=Math.abs((a.y+a.h)-b.y)<=TOLERANCE || Math.abs((b.y+b.h)-a.y)<=TOLERANCE;
+
+          if(sameX && sameWidth && verticalTouch){
+            const minY=Math.min(a.y,b.y);
+            const maxY=Math.max(a.y+a.h,b.y+b.h);
+            zones[i]={
+              x:(a.x+b.x)/2,
+              y:minY,
+              w:(a.w+b.w)/2,
+              h:maxY-minY,
+              type:"zone-fusionnee"
+            };
+            zones.splice(j,1);
+            merged=true;
+            break outer;
+          }
+
+          // Fusion horizontale : même position Y, même hauteur et arêtes en contact.
+          const sameY=Math.abs(a.y-b.y)<=TOLERANCE;
+          const sameHeight=Math.abs(a.h-b.h)<=TOLERANCE;
+          const horizontalTouch=Math.abs((a.x+a.w)-b.x)<=TOLERANCE || Math.abs((b.x+b.w)-a.x)<=TOLERANCE;
+
+          if(sameY && sameHeight && horizontalTouch){
+            const minX=Math.min(a.x,b.x);
+            const maxX=Math.max(a.x+a.w,b.x+b.w);
+            zones[i]={
+              x:minX,
+              y:(a.y+b.y)/2,
+              w:maxX-minX,
+              h:(a.h+b.h)/2,
+              type:"zone-fusionnee"
+            };
+            zones.splice(j,1);
+            merged=true;
+            break outer;
+          }
+        }
+      }
+    }
+
+    return zones;
+  }
+
   function freeZonesForSheet(sheet){
     const zones=[];
     const offsetX=Number(sheet.offsetX||0);
@@ -2594,10 +2653,12 @@ win.document.close();
     if(sheet.usedWidth<sheetW-EPS && availableLength>EPS){
       zones.push({x:offsetX,y:sheet.usedWidth,w:availableLength,h:sheetW-sheet.usedWidth,type:"pleine-longueur"});
     }
-    // Élimine les zones parasites créées par les imprécisions décimales
-    // (par exemple 700 × 0 mm après arrondi d'affichage).
+
+    // Élimine les zones parasites, puis fusionne réellement les zones adjacentes
+    // afin d'obtenir les plus grandes chutes physiques récupérables.
     const MIN_ZONE_DIMENSION=0.5;
-    return zones.filter(z=>z.w>=MIN_ZONE_DIMENSION && z.h>=MIN_ZONE_DIMENSION);
+    const validZones=zones.filter(z=>z.w>=MIN_ZONE_DIMENSION && z.h>=MIN_ZONE_DIMENSION);
+    return mergeAdjacentFreeZones(validZones);
   }
 
   function zoneIsReusable(zone){
@@ -4709,7 +4770,13 @@ if(quotePdfBtn){
 
   function renderTargets(){
     const previous=targetSelect.value;targetSelect.innerHTML="";
-    pieces.forEach((p,i)=>{const o=document.createElement("option");o.value=i;o.textContent=`Pièce ${i+1}${p.developed?` — ${p.developed} mm`:''}`;targetSelect.appendChild(o)});
+    pieces.forEach((p,i)=>{
+      const o=document.createElement("option");
+      o.value=i;
+      const developed=Number(p.developed);
+      o.textContent=`Pièce ${i+1}${Number.isFinite(developed)&&developed>0?` — ${fmtNumber(developed,1)} mm`:''}`;
+      targetSelect.appendChild(o);
+    });
     targetSelect.value=previous&&Number(previous)<pieces.length?previous:String(Math.max(0,pieces.length-1));
   }
 
@@ -5208,11 +5275,19 @@ if(quotePdfBtn){
   function insertBendIntoQuote(){
     if(drawingMode&&!deriveProfileFromRough())return alert("Terminez d'abord le dessin.");
     drawingMode=false;
-    const result=calculate();const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+
+    const result=calculate();
+    const index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
     if(!pieces[index])return alert("Pièce cible introuvable.");
-    pieces[index].developed=result.rounded;pieces[index].folds=profile.angles.length;
+
+    pieces[index].developed=result.rounded;
+    pieces[index].folds=profile.angles.length;
+
     const pieceLengthMm=Math.max(0,Number(fields.length3D?.value)||0);
-    if(pieceLengthMm>0)pieces[index].length=String(Number((pieceLengthMm/1000).toFixed(3)));
+    if(pieceLengthMm>0){
+      pieces[index].length=String(Number((pieceLengthMm/1000).toFixed(3)));
+    }
+
     pieces[index].bendProfile=JSON.parse(JSON.stringify({
       profile,
       roughPoints,
@@ -5220,8 +5295,38 @@ if(quotePdfBtn){
       settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,cybFactor:fields.cybFactor?.value,calcMode:fields.calcMode?.value,round:fields.round.value,length3D:fields.length3D?.value},
       result
     }));
-    window.RML_ACTIVE_BEND_PIECE_INDEX=index;
-    savePieces();renderPieces();close();alert(`Développé ${fmtNumber(result.rounded,1)} mm inséré dans la pièce ${index+1}.`);
+
+    // Enregistre la pièce terminée, puis prépare immédiatement une nouvelle pièce.
+    const newPiece={
+      id:crypto.randomUUID(),
+      developed:"",
+      length:"",
+      qty:1,
+      folds:0,
+      cuts:0,
+      time:0,
+      waste:""
+    };
+    pieces.push(newPiece);
+    const newIndex=pieces.length-1;
+    window.RML_ACTIVE_BEND_PIECE_INDEX=newIndex;
+
+    savePieces();
+    renderPieces();
+    renderTargets();
+    targetSelect.value=String(newIndex);
+
+    // Le grand dessinateur reste ouvert et se remet à zéro pour enchaîner les pièces.
+    reset();
+    targetSelect.value=String(newIndex);
+    help.textContent=`Pièce ${index+1} enregistrée dans le devis. Nouvelle pièce ${newIndex+1} prête à dessiner.`;
+
+    const largeMode=modal.getAttribute("data-large-drawing")==="true";
+    if(largeMode){
+      setTimeout(()=>{resizeCanvas();draw();},80);
+    }
+
+    setStatus(`Pièce ${index+1} enregistrée — nouvelle pièce ${newIndex+1} prête.`);
   }
   document.getElementById("bendInsertBtn")?.addEventListener("click",insertBendIntoQuote);
   document.getElementById("bendLargeInsertProxyBtn")?.addEventListener("click",insertBendIntoQuote);
