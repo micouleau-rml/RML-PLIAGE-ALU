@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V37 Pli écrasé petit rayon</title>
+<title>RML PLIAGE ALU — V38 Pli écrasé parallèle</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1569,13 +1569,13 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 .bend-context-menu .bend-context-cancel{margin-top:5px;background:#f3f5f7;color:#233241;}
 
 
-/* ===== V37 : PLI ÉCRASÉ AVEC DEMI-CERCLE RÉEL ===== */
+/* ===== V38 : PLI ÉCRASÉ PARALLÈLE AVEC PETIT RAYON ===== */
 .bend-hem-toggle{display:flex;align-items:center;justify-content:center;gap:7px;min-height:42px;font-weight:800;color:#334155;white-space:nowrap}
 .bend-hem-toggle input{width:22px!important;min-width:22px!important;height:22px!important;min-height:22px!important;margin:0;accent-color:#0f62fe}
 .bend-hem-toggle input:checked + span{color:#b45309}
 #bendDesignerModal .bend-table input[data-role="angle"]:disabled{background:#fff7ed!important;color:#9a3412!important;border-color:#fdba74!important;font-weight:800!important}
 </style> 
-  <!-- V37 : pli écrasé — prépli 55° puis représentation par demi-cercle compact en 2D et 3D -->
+  <!-- V38 : calcul sur prépli 55°, affichage final avec retour strictement parallèle et petit rayon en 2D/3D -->
 </head>
 <body>
 <div class="container">
@@ -3914,9 +3914,15 @@ if(quotePdfBtn){
       const p=pts[pts.length-1];
       pts.push({x:p.x+Math.cos(heading)*len,y:p.y+Math.sin(heading)*len});
       if(i<profile.angles.length){
-        // Le calcul utilise le prépli 55°, mais le dessin montre l'ourlet fini presque fermé.
-        const displayInterior=profile.hemmed?.[i] ? 5 : Math.abs(Number(profile.angles[i])||90);
-        const turn=(180-displayInterior)*Math.PI/180;
+        const isHem=Boolean(profile.hemmed?.[i]);
+        // Le prépli à 55° reste réservé au calcul du développé dans getBendData().
+        // Pour l'affichage de la pièce terminée, un pli écrasé effectue un demi-tour
+        // exact de 180° : le segment suivant est donc strictement parallèle au précédent,
+        // orienté en sens inverse. Le petit rayon est ajouté ensuite par
+        // buildRoundedHemGeometry().
+        const turn=isHem
+          ? Math.PI
+          : (180-Math.abs(Number(profile.angles[i])||90))*Math.PI/180;
         heading+=profile.directions[i]==="haut"?-turn:turn;
       }
     });
@@ -4022,6 +4028,7 @@ if(quotePdfBtn){
     for(let y=0;y<=h;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
   }
 
+  // V38 : construit l'ourlet final après que buildExactPoints a rendu les deux ailes parallèles.
   function buildRoundedHemGeometry(points,radius=18){
     const source=Array.isArray(points)?points.map(point=>({...point})):[];
     if(source.length<3 || !profile.hemmed?.some(Boolean)){
@@ -4323,9 +4330,24 @@ if(quotePdfBtn){
       ctx.arc(p1.x,p1.y,angleRadius,a1,a1+diff,diff<0);
       ctx.stroke();
 
-      const label=profile.hemmed?.[i-1] ? "ÉCRASÉ" : `${fmtNumber(profile.angles[i-1],1)}°`;
-      let ax=p1.x+bx*textRadius;
-      let ay=p1.y+by*textRadius;
+      const isHem=Boolean(profile.hemmed?.[i-1]);
+      const label=isHem ? "ÉCRASÉ" : `${fmtNumber(profile.angles[i-1],1)}°`;
+      let ax;
+      let ay;
+
+      if(isHem){
+        // Place le libellé du côté extérieur de la boucle, au-delà du petit rayon.
+        const incomingX=(p1.x-p0.x)/l1;
+        const incomingY=(p1.y-p0.y)/l1;
+        const turnSign=profile.directions?.[i-1]==="haut"?-1:1;
+        const outsideX=-incomingY*turnSign;
+        const outsideY=incomingX*turnSign;
+        ax=p1.x+outsideX*62;
+        ay=p1.y+outsideY*62;
+      }else{
+        ax=p1.x+bx*textRadius;
+        ay=p1.y+by*textRadius;
+      }
 
       ctx.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
       ctx.textAlign="center";
@@ -4556,8 +4578,22 @@ if(quotePdfBtn){
       const l1=Math.hypot(v1.x,v1.y)||1, l2=Math.hypot(v2.x,v2.y)||1;
       let bx=v1.x/l1+v2.x/l2, by=v1.y/l1+v2.y/l2;
       const bl=Math.hypot(bx,by)||1; bx/=bl; by/=bl;
-      const ax=p1.x+bx*34, ay=p1.y+by*34;
-      const angle=profile.hemmed?.[i-1] ? "ÉCRASÉ" : `${fmtNumber(profile.angles[i-1],1)}°`;
+      const isHem=Boolean(profile.hemmed?.[i-1]);
+      let ax;
+      let ay;
+      if(isHem){
+        const incomingX=(p1.x-p0.x)/l1;
+        const incomingY=(p1.y-p0.y)/l1;
+        const turnSign=profile.directions?.[i-1]==="haut"?-1:1;
+        const outsideX=-incomingY*turnSign;
+        const outsideY=incomingX*turnSign;
+        ax=p1.x+outsideX*46;
+        ay=p1.y+outsideY*46;
+      }else{
+        ax=p1.x+bx*34;
+        ay=p1.y+by*34;
+      }
+      const angle=isHem ? "ÉCRASÉ" : `${fmtNumber(profile.angles[i-1],1)}°`;
       ctx3D.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
       const aw=ctx3D.measureText(angle).width;
       ctx3D.fillStyle="rgba(250,204,21,.96)";
