@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V38 Pli écrasé parallèle</title>
+<title>RML PLIAGE ALU — V39 repères épurés</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -4198,17 +4198,7 @@ if(quotePdfBtn){
     if(!mapped.length)return;
     drawActiveGeometry(mapped);
 
-    mapped.forEach((q,i)=>{
-    if(i!==0 && i!==mapped.length-1) return;
-
-    ctx.fillStyle=i===0 ? "#22c55e" : "#ef4444";
-    ctx.strokeStyle="#0f172a";
-    ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.arc(q.x,q.y,5,0,Math.PI*2);
-    ctx.fill();
-    ctx.stroke();
-});
+    // V39 : suppression de tous les points de sommet sur le profil 2D.
 
     // Centre visuel du profil : les numéros sont placés côté intérieur
     // et les cotes extérieures sur le côté opposé pour éviter tout chevauchement.
@@ -4284,13 +4274,11 @@ if(quotePdfBtn){
       ctx.textAlign="center";
       ctx.textBaseline="middle";
 
-      const tw=ctx.measureText(label).width;
-      ctx.fillStyle="rgba(15,23,42,.86)";
-      ctx.beginPath();
-      ctx.roundRect(-tw/2-6,-10,tw+12,20,5);
-      ctx.fill();
-
-      ctx.fillStyle="#fff";
+      // V39 : cote sans cartouche coloré, avec un léger contour pour rester lisible.
+      ctx.lineWidth=3.5;
+      ctx.strokeStyle="rgba(15,23,42,.92)";
+      ctx.strokeText(label,0,0);
+      ctx.fillStyle="#ffffff";
       ctx.fillText(label,0,0);
       ctx.restore();
     }
@@ -4360,12 +4348,10 @@ if(quotePdfBtn){
       ctx.textAlign="center";
       ctx.textBaseline="middle";
 
-      const tw=ctx.measureText(label).width;
-      ctx.fillStyle="rgba(15,23,42,.82)";
-      ctx.beginPath();
-      ctx.roundRect(ax-tw/2-6,ay-10,tw+12,20,5);
-      ctx.fill();
-
+      // V39 : angle sans cartouche coloré.
+      ctx.lineWidth=3.5;
+      ctx.strokeStyle="rgba(15,23,42,.95)";
+      ctx.strokeText(label,ax,ay);
       ctx.fillStyle="#facc15";
       ctx.fillText(label,ax,ay);
       ctx.restore();
@@ -4524,16 +4510,7 @@ if(quotePdfBtn){
       ctx3D.stroke();
     });
 
-    // Repères des plis
-    for(let i=1;i<front.length-1;i++){
-      ctx3D.fillStyle="#facc15";
-      ctx3D.strokeStyle="#17202a";
-      ctx3D.lineWidth=1.5;
-      ctx3D.beginPath();
-      ctx3D.arc(front[i].x,front[i].y,5,0,Math.PI*2);
-      ctx3D.fill();
-      ctx3D.stroke();
-    }
+    // V39 : suppression des points jaunes de repérage des plis en 3D.
 
     // ===== V29 : COTES EXTÉRIEURES ET ANGLES SUR LE PLAN 3D =====
     // Numéros de segments à l’intérieur, cotes à l’extérieur.
@@ -4554,13 +4531,10 @@ if(quotePdfBtn){
       const cy=my+ny*coteOffset;
       const cote=`${fmtNumber(profile.lengths[i],1)} mm`;
       ctx3D.font="800 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      const cw=ctx3D.measureText(cote).width;
-      ctx3D.fillStyle="rgba(255,255,255,.94)";
-      ctx3D.strokeStyle="#17324a";
-      ctx3D.lineWidth=1;
-      ctx3D.beginPath();
-      ctx3D.roundRect(cx-cw/2-6,cy-10,cw+12,20,5);
-      ctx3D.fill();ctx3D.stroke();
+      // V39 : cote 3D sans cartouche.
+      ctx3D.lineWidth=4;
+      ctx3D.strokeStyle="rgba(255,255,255,.98)";
+      ctx3D.strokeText(cote,cx,cy);
       ctx3D.fillStyle="#17324a";
       ctx3D.fillText(cote,cx,cy);
 
@@ -4602,11 +4576,10 @@ if(quotePdfBtn){
       }
       const angle=isHem ? "ÉCRASÉ" : `${fmtNumber(profile.angles[i-1],1)}°`;
       ctx3D.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      const aw=ctx3D.measureText(angle).width;
-      ctx3D.fillStyle="rgba(250,204,21,.96)";
-      ctx3D.strokeStyle="#17202a";
-      ctx3D.lineWidth=1;
-      ctx3D.beginPath();ctx3D.roundRect(ax-aw/2-6,ay-10,aw+12,20,5);ctx3D.fill();ctx3D.stroke();
+      // V39 : angle 3D sans cartouche coloré.
+      ctx3D.lineWidth=4;
+      ctx3D.strokeStyle="rgba(255,255,255,.98)";
+      ctx3D.strokeText(angle,ax,ay);
       ctx3D.fillStyle="#17202a";
       ctx3D.fillText(angle,ax,ay);
     }
@@ -4662,10 +4635,9 @@ if(quotePdfBtn){
       ctx3D.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
       ctx3D.textAlign="center";
       ctx3D.textBaseline="middle";
-      const lw=ctx3D.measureText(lengthText).width;
-      ctx3D.fillStyle="rgba(255,255,255,.96)";
-      ctx3D.strokeStyle="#0f172a";
-      ctx3D.beginPath();ctx3D.roundRect(-lw/2-8,-12,lw+16,24,6);ctx3D.fill();ctx3D.stroke();
+      ctx3D.lineWidth=4;
+      ctx3D.strokeStyle="rgba(255,255,255,.98)";
+      ctx3D.strokeText(lengthText,0,0);
       ctx3D.fillStyle="#0f172a";
       ctx3D.fillText(lengthText,0,0);
       ctx3D.restore();
