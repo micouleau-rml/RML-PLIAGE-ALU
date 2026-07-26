@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V36 Pli écrasé arrondi</title>
+<title>RML PLIAGE ALU — V37 Pli écrasé avec arc circulaire</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1569,13 +1569,13 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 .bend-context-menu .bend-context-cancel{margin-top:5px;background:#f3f5f7;color:#233241;}
 
 
-/* ===== V36 : PLI ÉCRASÉ ===== */
+/* ===== V37 : PLI ÉCRASÉ AVEC DEMI-CERCLE RÉEL ===== */
 .bend-hem-toggle{display:flex;align-items:center;justify-content:center;gap:7px;min-height:42px;font-weight:800;color:#334155;white-space:nowrap}
 .bend-hem-toggle input{width:22px!important;min-width:22px!important;height:22px!important;min-height:22px!important;margin:0;accent-color:#0f62fe}
 .bend-hem-toggle input:checked + span{color:#b45309}
 #bendDesignerModal .bend-table input[data-role="angle"]:disabled{background:#fff7ed!important;color:#9a3412!important;border-color:#fdba74!important;font-weight:800!important}
 </style> 
-  <!-- V36 : pli écrasé — prépli 55° puis écrasement avec arc circulaire en 2D et 3D -->
+  <!-- V37 : pli écrasé — prépli 55° puis représentation par demi-cercle réel en 2D et 3D -->
 </head>
 <body>
 <div class="container">
@@ -4022,64 +4022,67 @@ if(quotePdfBtn){
     for(let y=0;y<=h;y+=step){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
   }
 
-  function buildRoundedHemPolyline(points,radius=18){
-    if(!Array.isArray(points) || points.length<3 || !profile.hemmed?.some(Boolean)){
-      return Array.isArray(points)?points:[];
+  function buildRoundedHemGeometry(points,radius=18){
+    const source=Array.isArray(points)?points.map(point=>({...point})):[];
+    if(source.length<3 || !profile.hemmed?.some(Boolean)){
+      return {points:source,vertices:source.map(point=>({...point}))};
     }
 
-    const output=[{...points[0]}];
+    const vertices=source.map(point=>({...point}));
+    const output=[{...vertices[0]}];
+    const arcRadius=Math.max(3,Number(radius)||18);
 
-    for(let i=1;i<points.length-1;i++){
-      const previous=points[i-1];
-      const corner=points[i];
-      const next=points[i+1];
-      const isHem=Boolean(profile.hemmed?.[i-1]);
+    for(let i=1;i<vertices.length;i++){
+      const corner=vertices[i];
+      output.push({...corner});
 
-      if(!isHem){
-        output.push({...corner});
-        continue;
-      }
+      if(i>=vertices.length-1 || !profile.hemmed?.[i-1])continue;
 
-      const incomingLength=Math.hypot(previous.x-corner.x,previous.y-corner.y);
-      const outgoingLength=Math.hypot(next.x-corner.x,next.y-corner.y);
-      if(incomingLength<0.001 || outgoingLength<0.001){
-        output.push({...corner});
-        continue;
-      }
+      const previous=vertices[i-1];
+      const incomingLength=Math.hypot(corner.x-previous.x,corner.y-previous.y);
+      if(incomingLength<0.001)continue;
 
-      const tangentDistance=Math.min(
-        Math.max(2,Number(radius)||18),
-        incomingLength*0.28,
-        outgoingLength*0.28
-      );
+      const ux=(corner.x-previous.x)/incomingLength;
+      const uy=(corner.y-previous.y)/incomingLength;
+      const turnSign=profile.directions?.[i-1]==="haut"?-1:1;
+      const nx=-uy*turnSign;
+      const ny=ux*turnSign;
 
-      const start={
-        x:corner.x+(previous.x-corner.x)/incomingLength*tangentDistance,
-        y:corner.y+(previous.y-corner.y)/incomingLength*tangentDistance
-      };
-      const end={
-        x:corner.x+(next.x-corner.x)/outgoingLength*tangentDistance,
-        y:corner.y+(next.y-corner.y)/outgoingLength*tangentDistance
-      };
+      // Le pli écrasé fini est représenté par un véritable demi-cercle.
+      // Son diamètre correspond à l'écartement visuel entre les deux épaisseurs.
+      const availableIncoming=Math.max(3,incomingLength*.16);
+      const nextLength=Math.hypot(vertices[i+1].x-corner.x,vertices[i+1].y-corner.y);
+      const availableOutgoing=Math.max(3,nextLength*.16);
+      const r=Math.max(3,Math.min(arcRadius,availableIncoming,availableOutgoing));
+      const center={x:corner.x+nx*r,y:corner.y+ny*r};
+      const startAngle=Math.atan2(corner.y-center.y,corner.x-center.x);
+      const steps=24;
 
-      output.push(start);
-
-      // Arc circulaire simplifié : interpolation quadratique autour du sommet.
-      // Le calcul du développé reste basé sur le prépli à 55°.
-      const steps=12;
-      for(let step=1;step<steps;step++){
-        const t=step/steps;
-        const oneMinusT=1-t;
+      for(let step=1;step<=steps;step++){
+        const angle=startAngle+turnSign*Math.PI*(step/steps);
         output.push({
-          x:oneMinusT*oneMinusT*start.x+2*oneMinusT*t*corner.x+t*t*end.x,
-          y:oneMinusT*oneMinusT*start.y+2*oneMinusT*t*corner.y+t*t*end.y
+          x:center.x+Math.cos(angle)*r,
+          y:center.y+Math.sin(angle)*r
         });
       }
-      output.push(end);
+
+      const arcEnd=output[output.length-1];
+      const shiftX=arcEnd.x-corner.x;
+      const shiftY=arcEnd.y-corner.y;
+
+      // Toute la géométrie située après l'ourlet est translatée afin que le
+      // segment suivant démarre réellement à la sortie du demi-cercle.
+      for(let j=i+1;j<vertices.length;j++){
+        vertices[j].x+=shiftX;
+        vertices[j].y+=shiftY;
+      }
     }
 
-    output.push({...points[points.length-1]});
-    return output;
+    return {points:output,vertices};
+  }
+
+  function buildRoundedHemPolyline(points,radius=18){
+    return buildRoundedHemGeometry(points,radius).points;
   }
 
   function drawPolyline(points,rough=false){
@@ -4180,8 +4183,10 @@ if(quotePdfBtn){
     }
 
     buildExactPoints();
-    const mapped=fitPoints(profile.exactPoints,w,h,90);
-    const finishedProfilePoints=buildRoundedHemPolyline(mapped,22);
+    const fittedBasePoints=fitPoints(profile.exactPoints,w,h,90);
+    const finishedGeometry=buildRoundedHemGeometry(fittedBasePoints,24);
+    const finishedProfilePoints=finishedGeometry.points;
+    const mapped=finishedGeometry.vertices;
     drawPolyline(finishedProfilePoints,false);
     if(!mapped.length)return;
     drawActiveGeometry(mapped);
@@ -4411,8 +4416,13 @@ if(quotePdfBtn){
       y:p.y-(minY+maxY)/2
     }));
 
+    const hemRadiusModel=Math.max(4,Math.min(16,(Number(fields.radius.value)||1)+(Number(fields.thickness.value)||1)*5));
+    const roundedGeometry3D=buildRoundedHemGeometry(centeredPoints,hemRadiusModel);
+    const roundedModelPoints=roundedGeometry3D.points;
+    const finishedVertices3D=roundedGeometry3D.vertices;
+
     const rotatedBounds=[];
-    centeredPoints.forEach(p=>{
+    roundedModelPoints.forEach(p=>{
       rotatedBounds.push(rotate3DPoint(p.x,p.y,0));
       rotatedBounds.push(rotate3DPoint(p.x,p.y,visualDepth));
     });
@@ -4430,13 +4440,8 @@ if(quotePdfBtn){
     const originX=w/2;
     const originY=h/2;
 
-    const front=centeredPoints.map(p=>project3DPoint(p.x,p.y,0,scale,originX,originY));
-    const back=centeredPoints.map(p=>project3DPoint(p.x,p.y,visualDepth,scale,originX,originY));
-
-    // Géométrie arrondie uniquement pour le rendu du pli écrasé.
-    // Les points d'origine restent utilisés pour les cotes et les repères.
-    const hemRadiusModel=Math.max(3,Math.min(18,(Number(fields.radius.value)||1)+(Number(fields.thickness.value)||1)*4));
-    const roundedModelPoints=buildRoundedHemPolyline(centeredPoints,hemRadiusModel);
+    const front=finishedVertices3D.map(p=>project3DPoint(p.x,p.y,0,scale,originX,originY));
+    const back=finishedVertices3D.map(p=>project3DPoint(p.x,p.y,visualDepth,scale,originX,originY));
     const frontRounded=roundedModelPoints.map(p=>project3DPoint(p.x,p.y,0,scale,originX,originY));
     const backRounded=roundedModelPoints.map(p=>project3DPoint(p.x,p.y,visualDepth,scale,originX,originY));
 
