@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V37 Pli écrasé avec arc circulaire</title>
+<title>RML PLIAGE ALU — V37 Pli écrasé petit rayon</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1575,7 +1575,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 .bend-hem-toggle input:checked + span{color:#b45309}
 #bendDesignerModal .bend-table input[data-role="angle"]:disabled{background:#fff7ed!important;color:#9a3412!important;border-color:#fdba74!important;font-weight:800!important}
 </style> 
-  <!-- V37 : pli écrasé — prépli 55° puis représentation par demi-cercle réel en 2D et 3D -->
+  <!-- V37 : pli écrasé — prépli 55° puis représentation par demi-cercle compact en 2D et 3D -->
 </head>
 <body>
 <div class="container">
@@ -4030,7 +4030,7 @@ if(quotePdfBtn){
 
     const vertices=source.map(point=>({...point}));
     const output=[{...vertices[0]}];
-    const arcRadius=Math.max(3,Number(radius)||18);
+    const arcRadius=Math.max(1.5,Number(radius)||5);
 
     for(let i=1;i<vertices.length;i++){
       const corner=vertices[i];
@@ -4050,10 +4050,10 @@ if(quotePdfBtn){
 
       // Le pli écrasé fini est représenté par un véritable demi-cercle.
       // Son diamètre correspond à l'écartement visuel entre les deux épaisseurs.
-      const availableIncoming=Math.max(3,incomingLength*.16);
+      const availableIncoming=Math.max(1.5,incomingLength*.08);
       const nextLength=Math.hypot(vertices[i+1].x-corner.x,vertices[i+1].y-corner.y);
-      const availableOutgoing=Math.max(3,nextLength*.16);
-      const r=Math.max(3,Math.min(arcRadius,availableIncoming,availableOutgoing));
+      const availableOutgoing=Math.max(1.5,nextLength*.08);
+      const r=Math.max(1.5,Math.min(arcRadius,availableIncoming,availableOutgoing));
       const center={x:corner.x+nx*r,y:corner.y+ny*r};
       const startAngle=Math.atan2(corner.y-center.y,corner.x-center.x);
       const steps=24;
@@ -4184,7 +4184,7 @@ if(quotePdfBtn){
 
     buildExactPoints();
     const fittedBasePoints=fitPoints(profile.exactPoints,w,h,90);
-    const finishedGeometry=buildRoundedHemGeometry(fittedBasePoints,24);
+    const finishedGeometry=buildRoundedHemGeometry(fittedBasePoints,5);
     const finishedProfilePoints=finishedGeometry.points;
     const mapped=finishedGeometry.vertices;
     drawPolyline(finishedProfilePoints,false);
@@ -4416,7 +4416,7 @@ if(quotePdfBtn){
       y:p.y-(minY+maxY)/2
     }));
 
-    const hemRadiusModel=Math.max(4,Math.min(16,(Number(fields.radius.value)||1)+(Number(fields.thickness.value)||1)*5));
+    const hemRadiusModel=Math.max(1.2,Math.min(4,(Number(fields.radius.value)||1)+(Number(fields.thickness.value)||1)*1.2));
     const roundedGeometry3D=buildRoundedHemGeometry(centeredPoints,hemRadiusModel);
     const roundedModelPoints=roundedGeometry3D.points;
     const finishedVertices3D=roundedGeometry3D.vertices;
