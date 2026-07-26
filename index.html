@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V40 cotes adaptatives</title>
+<title>RML PLIAGE ALU — V41 angles repérés</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -4285,77 +4285,63 @@ if(quotePdfBtn){
       ctx.restore();
     }
 
-    // Angles éloignés des cotes et placés sur la bissectrice
+    // V41 : les valeurs d’angles sont retirées du profil pour éviter les chevauchements.
+    // Chaque pli reçoit un petit repère alphabétique et une légende compacte.
+    const angleLegend2D=[];
     for(let i=1;i<mapped.length-1;i++){
       const p0=mapped[i-1];
       const p1=mapped[i];
       const p2=mapped[i+1];
-
       const v1={x:p0.x-p1.x,y:p0.y-p1.y};
       const v2={x:p2.x-p1.x,y:p2.y-p1.y};
       const l1=Math.hypot(v1.x,v1.y)||1;
       const l2=Math.hypot(v2.x,v2.y)||1;
-      const u1={x:v1.x/l1,y:v1.y/l1};
-      const u2={x:v2.x/l2,y:v2.y/l2};
-
-      let bx=u1.x+u2.x;
-      let by=u1.y+u2.y;
+      let bx=v1.x/l1+v2.x/l2;
+      let by=v1.y/l1+v2.y/l2;
       let bl=Math.hypot(bx,by);
+      if(bl<0.001){bx=-(v1.y/l1);by=v1.x/l1;bl=1;}
+      bx/=bl;by/=bl;
 
-      if(bl<0.001){
-        bx=-u1.y;
-        by=u1.x;
-        bl=1;
-      }
-
-      bx/=bl;
-      by/=bl;
-
-      const angleRadius=30;
-      const textRadius=55;
-      const a1=Math.atan2(u1.y,u1.x);
-      const a2=Math.atan2(u2.y,u2.x);
-
-      let diff=a2-a1;
-      while(diff<=-Math.PI)diff+=Math.PI*2;
-      while(diff>Math.PI)diff-=Math.PI*2;
-
-      ctx.save();
-      ctx.strokeStyle="#facc15";
-      ctx.lineWidth=2.5;
-      ctx.beginPath();
-      ctx.arc(p1.x,p1.y,angleRadius,a1,a1+diff,diff<0);
-      ctx.stroke();
-
+      const letter=String.fromCharCode(64+i);
       const isHem=Boolean(profile.hemmed?.[i-1]);
-      const label=isHem ? "ÉCRASÉ" : `${fmtNumber(profile.angles[i-1],1)}°`;
-      let ax;
-      let ay;
+      const value=isHem ? "ÉCRASÉ — prépli 55°" : `${fmtNumber(profile.angles[i-1],1)}°`;
+      angleLegend2D.push({letter,value});
 
-      if(isHem){
-        // Place le libellé du côté extérieur de la boucle, au-delà du petit rayon.
-        const incomingX=(p1.x-p0.x)/l1;
-        const incomingY=(p1.y-p0.y)/l1;
-        const turnSign=profile.directions?.[i-1]==="haut"?-1:1;
-        const outsideX=-incomingY*turnSign;
-        const outsideY=incomingX*turnSign;
-        ax=p1.x+outsideX*62;
-        ay=p1.y+outsideY*62;
-      }else{
-        ax=p1.x+bx*textRadius;
-        ay=p1.y+by*textRadius;
-      }
+      // Repère très compact, placé à l’extérieur du profil.
+      const outward=((profileCenter.x-p1.x)*bx+(profileCenter.y-p1.y)*by)>=0 ? -1 : 1;
+      const markerX=p1.x+bx*22*outward;
+      const markerY=p1.y+by*22*outward;
+      ctx.save();
+      ctx.fillStyle="rgba(255,255,255,.96)";
+      ctx.strokeStyle="#0f62fe";
+      ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(markerX,markerY,8,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.fillStyle="#0f62fe";
+      ctx.font="800 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx.textAlign="center";ctx.textBaseline="middle";
+      ctx.fillText(letter,markerX,markerY+.5);
+      ctx.restore();
+    }
 
-      ctx.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      ctx.textAlign="center";
-      ctx.textBaseline="middle";
-
-      // V39 : angle sans cartouche coloré.
-      ctx.lineWidth=3.5;
-      ctx.strokeStyle="rgba(15,23,42,.95)";
-      ctx.strokeText(label,ax,ay);
-      ctx.fillStyle="#facc15";
-      ctx.fillText(label,ax,ay);
+    if(angleLegend2D.length){
+      ctx.save();
+      const pad=9;
+      const lineH=17;
+      ctx.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      const legendLines=angleLegend2D.map(item=>`${item.letter}  ${item.value}`);
+      const boxW=Math.max(112,...legendLines.map(line=>ctx.measureText(line).width+pad*2));
+      const boxH=25+legendLines.length*lineH+7;
+      const boxX=14,boxY=14;
+      ctx.fillStyle="rgba(255,255,255,.94)";
+      ctx.strokeStyle="rgba(15,98,254,.75)";
+      ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.roundRect(boxX,boxY,boxW,boxH,9);ctx.fill();ctx.stroke();
+      ctx.fillStyle="#17324a";
+      ctx.font="800 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx.textAlign="left";ctx.textBaseline="middle";
+      ctx.fillText("ANGLES",boxX+pad,boxY+14);
+      ctx.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      legendLines.forEach((line,index)=>ctx.fillText(line,boxX+pad,boxY+31+index*lineH));
       ctx.restore();
     }
   }
@@ -4562,39 +4548,56 @@ if(quotePdfBtn){
       ctx3D.fillText(String(i+1),sx,sy+.5);
     }
 
-    // Angles intérieurs aux sommets
+    // V41 : repères alphabétiques discrets sur le plan 3D + légende séparée.
+    const angleLegend3D=[];
     for(let i=1;i<front.length-1;i++){
       const p0=front[i-1], p1=front[i], p2=front[i+1];
       const v1={x:p0.x-p1.x,y:p0.y-p1.y};
       const v2={x:p2.x-p1.x,y:p2.y-p1.y};
       const l1=Math.hypot(v1.x,v1.y)||1, l2=Math.hypot(v2.x,v2.y)||1;
       let bx=v1.x/l1+v2.x/l2, by=v1.y/l1+v2.y/l2;
-      const bl=Math.hypot(bx,by)||1; bx/=bl; by/=bl;
+      let bl=Math.hypot(bx,by);
+      if(bl<0.001){bx=-(v1.y/l1);by=v1.x/l1;bl=1;}
+      bx/=bl;by/=bl;
+
+      const letter=String.fromCharCode(64+i);
       const isHem=Boolean(profile.hemmed?.[i-1]);
-      let ax;
-      let ay;
-      if(isHem){
-        const incomingX=(p1.x-p0.x)/l1;
-        const incomingY=(p1.y-p0.y)/l1;
-        const turnSign=profile.directions?.[i-1]==="haut"?-1:1;
-        const outsideX=-incomingY*turnSign;
-        const outsideY=incomingX*turnSign;
-        ax=p1.x+outsideX*46;
-        ay=p1.y+outsideY*46;
-      }else{
-        ax=p1.x+bx*34;
-        ay=p1.y+by*34;
-      }
-      const angle=isHem ? "ÉCRASÉ" : `${fmtNumber(profile.angles[i-1],1)}°`;
-      ctx3D.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      // V39 : angle 3D sans cartouche coloré.
-      ctx3D.lineWidth=4;
-      ctx3D.strokeStyle="rgba(255,255,255,.98)";
-      ctx3D.strokeText(angle,ax,ay);
-      ctx3D.fillStyle="#17202a";
-      ctx3D.fillText(angle,ax,ay);
+      const value=isHem ? "ÉCRASÉ — prépli 55°" : `${fmtNumber(profile.angles[i-1],1)}°`;
+      angleLegend3D.push({letter,value});
+
+      const markerX=p1.x+bx*18;
+      const markerY=p1.y+by*18;
+      ctx3D.fillStyle="rgba(255,255,255,.96)";
+      ctx3D.strokeStyle="#0f62fe";
+      ctx3D.lineWidth=1.5;
+      ctx3D.beginPath();ctx3D.arc(markerX,markerY,8,0,Math.PI*2);ctx3D.fill();ctx3D.stroke();
+      ctx3D.fillStyle="#0f62fe";
+      ctx3D.font="800 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.fillText(letter,markerX,markerY+.5);
     }
     ctx3D.restore();
+
+    if(angleLegend3D.length){
+      ctx3D.save();
+      const pad=9;
+      const lineH=17;
+      ctx3D.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      const legendLines=angleLegend3D.map(item=>`${item.letter}  ${item.value}`);
+      const boxW=Math.max(112,...legendLines.map(line=>ctx3D.measureText(line).width+pad*2));
+      const boxH=25+legendLines.length*lineH+7;
+      const boxX=14,boxY=14;
+      ctx3D.fillStyle="rgba(255,255,255,.94)";
+      ctx3D.strokeStyle="rgba(15,98,254,.75)";
+      ctx3D.lineWidth=1.2;
+      ctx3D.beginPath();ctx3D.roundRect(boxX,boxY,boxW,boxH,9);ctx3D.fill();ctx3D.stroke();
+      ctx3D.fillStyle="#17324a";
+      ctx3D.font="800 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.textAlign="left";ctx3D.textBaseline="middle";
+      ctx3D.fillText("ANGLES",boxX+pad,boxY+14);
+      ctx3D.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      legendLines.forEach((line,index)=>ctx3D.fillText(line,boxX+pad,boxY+31+index*lineH));
+      ctx3D.restore();
+    }
 
     // ===== V30 : COTE DE LONGUEUR DE LA PIÈCE SUR LA VUE 3D =====
     // La longueur est représentée parallèlement à la profondeur de la pièce,
