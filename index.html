@@ -4199,9 +4199,16 @@ if(quotePdfBtn){
     drawActiveGeometry(mapped);
 
     mapped.forEach((q,i)=>{
-      ctx.fillStyle=i===0?"#22c55e":i===mapped.length-1?"#ef4444":"#facc15";
-      ctx.strokeStyle="#0f172a";ctx.lineWidth=2;ctx.beginPath();ctx.arc(q.x,q.y,5,0,Math.PI*2);ctx.fill();ctx.stroke();
-    });
+    if(i!==0 && i!==mapped.length-1) return;
+
+    ctx.fillStyle=i===0 ? "#22c55e" : "#ef4444";
+    ctx.strokeStyle="#0f172a";
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.arc(q.x,q.y,5,0,Math.PI*2);
+    ctx.fill();
+    ctx.stroke();
+});
 
     // Centre visuel du profil : les numéros sont placés côté intérieur
     // et les cotes extérieures sur le côté opposé pour éviter tout chevauchement.
