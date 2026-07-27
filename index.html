@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V41 angles repérés</title>
+<title>RML PLIAGE ALU — V46 repères extérieurs</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -4207,41 +4207,7 @@ if(quotePdfBtn){
       y:mapped.reduce((sum,p)=>sum+p.y,0)/mapped.length
     };
 
-    // Numéro de chaque segment pour correspondre au tableau des cotes
-    for(let i=0;i<mapped.length-1;i++){
-      const a=mapped[i];
-      const b=mapped[i+1];
-      const dx=b.x-a.x;
-      const dy=b.y-a.y;
-      const length=Math.max(1,Math.hypot(dx,dy));
-      const mx=(a.x+b.x)/2;
-      const my=(a.y+b.y)/2;
-      const nx=-dy/length;
-      const ny=dx/length;
-
-      // Choisit la normale orientée vers le centre du profil : numéro intérieur.
-      const towardCenter=((profileCenter.x-mx)*nx+(profileCenter.y-my)*ny)>=0 ? 1 : -1;
-      const badgeOffset=17;
-      const bx=mx+nx*badgeOffset*towardCenter;
-      const by=my+ny*badgeOffset*towardCenter;
-      const radius=11;
-
-      ctx.save();
-      ctx.fillStyle="rgba(15,23,42,.95)";
-      ctx.strokeStyle="#ffffff";
-      ctx.lineWidth=1.5;
-      ctx.beginPath();
-      ctx.arc(bx,by,radius,0,Math.PI*2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle="#ffffff";
-      ctx.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      ctx.textAlign="center";
-      ctx.textBaseline="middle";
-      ctx.fillText(String(i+1),bx,by+.5);
-      ctx.restore();
-    }
+    // V46 : le numéro du segment est intégré à gauche de la cote extérieure.
 
     // Cotes parallèles aux segments
     for(let i=0;i<mapped.length-1;i++){
@@ -4260,14 +4226,14 @@ if(quotePdfBtn){
         rotation+=Math.PI;
       }
 
-      // V40 : cote adaptative presque posée sur le segment et toujours parallèle.
+      // V45 : cote toujours placée à l'extérieur de la pièce et parallèle au segment.
       const towardCenter=((profileCenter.x-mx)*nx+(profileCenter.y-my)*ny)>=0 ? 1 : -1;
       const fontSize=L>=120?13:L>=70?12:L>=38?11:10;
       const nearOffset=L>=70?11:L>=38?14:18;
       const offset=-nearOffset*towardCenter;
       const tx=mx+nx*offset;
       const ty=my+ny*offset;
-      const label=`${fmtNumber(profile.lengths[i],1)} mm`;
+      const label=`${i+1}   ${fmtNumber(profile.lengths[i],1)} mm`;
 
       ctx.save();
       ctx.translate(tx,ty);
@@ -4307,10 +4273,10 @@ if(quotePdfBtn){
       const value=isHem ? "ÉCRASÉ — prépli 55°" : `${fmtNumber(profile.angles[i-1],1)}°`;
       angleLegend2D.push({letter,value});
 
-      // Repère très compact, placé à l’extérieur du profil.
-      const outward=((profileCenter.x-p1.x)*bx+(profileCenter.y-p1.y)*by)>=0 ? -1 : 1;
-      const markerX=p1.x+bx*22*outward;
-      const markerY=p1.y+by*22*outward;
+      // V46 : repère alphabétique placé à l'intérieur du profil.
+      const inward=((profileCenter.x-p1.x)*bx+(profileCenter.y-p1.y)*by)>=0 ? 1 : -1;
+      const markerX=p1.x+bx*22*inward;
+      const markerY=p1.y+by*22*inward;
       ctx.save();
       ctx.fillStyle="rgba(255,255,255,.96)";
       ctx.strokeStyle="#0f62fe";
@@ -4500,11 +4466,17 @@ if(quotePdfBtn){
 
     // V39 : suppression des points jaunes de repérage des plis en 3D.
 
-    // ===== V29 : COTES EXTÉRIEURES ET ANGLES SUR LE PLAN 3D =====
-    // Numéros de segments à l’intérieur, cotes à l’extérieur.
+    // ===== V45 : COTES EXTÉRIEURES SUR LE PLAN 3D =====
+    // La position est calculée à l'opposé du centre visuel de la pièce :
+    // les cotes CybTouch restent donc toujours du côté extérieur.
     ctx3D.save();
     ctx3D.textAlign="center";
     ctx3D.textBaseline="middle";
+
+    const frontCenter={
+      x:front.reduce((sum,p)=>sum+p.x,0)/Math.max(1,front.length),
+      y:front.reduce((sum,p)=>sum+p.y,0)/Math.max(1,front.length)
+    };
 
     for(let i=0;i<front.length-1;i++){
       const a=front[i], b=front[i+1];
@@ -4513,14 +4485,17 @@ if(quotePdfBtn){
       const nx=-dy/segLen, ny=dx/segLen;
       const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
 
-      // V40 : cote 3D adaptative, proche du segment et parallèle à celui-ci.
+      // Choisit systématiquement la normale opposée au centre de la pièce.
+      const normalTowardCenter=((frontCenter.x-mx)*nx+(frontCenter.y-my)*ny)>=0 ? 1 : -1;
+      const exteriorSign=-normalTowardCenter;
+
       let coteRotation=Math.atan2(dy,dx);
       if(coteRotation>Math.PI/2 || coteRotation<-Math.PI/2)coteRotation+=Math.PI;
       const coteFontSize=segLen>=120?13:segLen>=70?12:segLen>=38?11:10;
-      const coteOffset=segLen>=70?11:segLen>=38?14:18;
-      const cx=mx+nx*coteOffset;
-      const cy=my+ny*coteOffset;
-      const cote=`${fmtNumber(profile.lengths[i],1)} mm`;
+      const coteOffset=segLen>=70?13:segLen>=38?17:22;
+      const cx=mx+nx*coteOffset*exteriorSign;
+      const cy=my+ny*coteOffset*exteriorSign;
+      const cote=`${i+1}   ${fmtNumber(profile.lengths[i],1)} mm`;
 
       ctx3D.save();
       ctx3D.translate(cx,cy);
@@ -4534,18 +4509,7 @@ if(quotePdfBtn){
       ctx3D.fillStyle="#17324a";
       ctx3D.fillText(cote,0,0);
       ctx3D.restore();
-
-      // Numéro du segment côté intérieur
-      const noOffset=-18;
-      const sx=mx+nx*noOffset;
-      const sy=my+ny*noOffset;
-      ctx3D.fillStyle="#0f172a";
-      ctx3D.strokeStyle="#fff";
-      ctx3D.lineWidth=1.5;
-      ctx3D.beginPath();ctx3D.arc(sx,sy,10,0,Math.PI*2);ctx3D.fill();ctx3D.stroke();
-      ctx3D.fillStyle="#fff";
-      ctx3D.font="800 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      ctx3D.fillText(String(i+1),sx,sy+.5);
+      // V46 : aucun numéro séparé ; il est placé à gauche de la cote extérieure.
     }
 
     // V41 : repères alphabétiques discrets sur le plan 3D + légende séparée.
@@ -4565,8 +4529,10 @@ if(quotePdfBtn){
       const value=isHem ? "ÉCRASÉ — prépli 55°" : `${fmtNumber(profile.angles[i-1],1)}°`;
       angleLegend3D.push({letter,value});
 
-      const markerX=p1.x+bx*18;
-      const markerY=p1.y+by*18;
+      // V46 : lettre placée à l'intérieur de la pièce.
+      const inward=((frontCenter.x-p1.x)*bx+(frontCenter.y-p1.y)*by)>=0 ? 1 : -1;
+      const markerX=p1.x+bx*18*inward;
+      const markerY=p1.y+by*18*inward;
       ctx3D.fillStyle="rgba(255,255,255,.96)";
       ctx3D.strokeStyle="#0f62fe";
       ctx3D.lineWidth=1.5;
@@ -5905,6 +5871,8 @@ if(quotePdfBtn){
 
 
 <!-- ===== V44 : LONGUEUR DANS ENCART 3D + RETOUR GRAND DESSIN ===== -->
+<!-- ===== V45 : COTES 2D/3D TOUJOURS POSITIONNÉES À L'EXTÉRIEUR ===== -->
+<!-- ===== V46 : NUMÉRO À GAUCHE DE LA COTE + LETTRES D'ANGLES À L'INTÉRIEUR ===== -->
 <style>
 /* Boutons du grand dessinateur : même hauteur, même rayon et même alignement. */
 #bendDesignerModal[data-large-drawing="true"] .bend-mini-actions button,
