@@ -4577,13 +4577,17 @@ if(quotePdfBtn){
     }
     ctx3D.restore();
 
-    if(angleLegend3D.length){
+    // ===== V44 : ANGLES + LONGUEUR DANS UN SEUL ENCART =====
+    // La cote graphique de longueur et ses lignes d’attache sont supprimées.
+    // La longueur est désormais intégrée à l’encart des angles.
+    {
       ctx3D.save();
       const pad=9;
       const lineH=17;
       ctx3D.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
       const legendLines=angleLegend3D.map(item=>`${item.letter}  ${item.value}`);
-      const boxW=Math.max(112,...legendLines.map(line=>ctx3D.measureText(line).width+pad*2));
+      legendLines.push(`Longueur  ${Math.round(extrusion).toLocaleString("fr-FR")} mm`);
+      const boxW=Math.max(132,...legendLines.map(line=>ctx3D.measureText(line).width+pad*2));
       const boxH=25+legendLines.length*lineH+7;
       const boxX=14,boxY=14;
       ctx3D.fillStyle="rgba(255,255,255,.94)";
@@ -4593,82 +4597,11 @@ if(quotePdfBtn){
       ctx3D.fillStyle="#17324a";
       ctx3D.font="800 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
       ctx3D.textAlign="left";ctx3D.textBaseline="middle";
-      ctx3D.fillText("ANGLES",boxX+pad,boxY+14);
+      ctx3D.fillText("ANGLES ET LONGUEUR",boxX+pad,boxY+14);
       ctx3D.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
       legendLines.forEach((line,index)=>ctx3D.fillText(line,boxX+pad,boxY+31+index*lineH));
       ctx3D.restore();
     }
-
-    // ===== V30 : COTE DE LONGUEUR DE LA PIÈCE SUR LA VUE 3D =====
-    // La longueur est représentée parallèlement à la profondeur de la pièce,
-    // avec deux lignes d’attache et une cote imprimable.
-    {
-      const f=front[0];
-      const b=back[0];
-      const dx=b.x-f.x;
-      const dy=b.y-f.y;
-      const dl=Math.max(1,Math.hypot(dx,dy));
-      const ux=dx/dl, uy=dy/dl;
-      const nx=-uy, ny=ux;
-      const offset=42;
-      const fDim={x:f.x+nx*offset,y:f.y+ny*offset};
-      const bDim={x:b.x+nx*offset,y:b.y+ny*offset};
-
-      ctx3D.save();
-      ctx3D.strokeStyle="#0f172a";
-      ctx3D.fillStyle="#0f172a";
-      ctx3D.lineWidth=1.5;
-
-      // Lignes d’attache
-      ctx3D.beginPath();ctx3D.moveTo(f.x,f.y);ctx3D.lineTo(fDim.x,fDim.y);ctx3D.stroke();
-      ctx3D.beginPath();ctx3D.moveTo(b.x,b.y);ctx3D.lineTo(bDim.x,bDim.y);ctx3D.stroke();
-
-      // Ligne de cote
-      ctx3D.beginPath();ctx3D.moveTo(fDim.x,fDim.y);ctx3D.lineTo(bDim.x,bDim.y);ctx3D.stroke();
-
-      function drawArrow3D(p,dir){
-        const size=9;
-        const px=-dir.y, py=dir.x;
-        ctx3D.beginPath();
-        ctx3D.moveTo(p.x,p.y);
-        ctx3D.lineTo(p.x+dir.x*size+px*size*.45,p.y+dir.y*size+py*size*.45);
-        ctx3D.lineTo(p.x+dir.x*size-px*size*.45,p.y+dir.y*size-py*size*.45);
-        ctx3D.closePath();
-        ctx3D.fill();
-      }
-      drawArrow3D(fDim,{x:ux,y:uy});
-      drawArrow3D(bDim,{x:-ux,y:-uy});
-
-      const lengthText=`Longueur ${Math.round(extrusion).toLocaleString("fr-FR")} mm`;
-      const mx=(fDim.x+bDim.x)/2;
-      const my=(fDim.y+bDim.y)/2;
-      let rotation=Math.atan2(dy,dx);
-      if(rotation>Math.PI/2 || rotation<-Math.PI/2)rotation+=Math.PI;
-      ctx3D.translate(mx,my);
-      ctx3D.rotate(rotation);
-      ctx3D.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      ctx3D.textAlign="center";
-      ctx3D.textBaseline="middle";
-      ctx3D.lineWidth=4;
-      ctx3D.strokeStyle="rgba(255,255,255,.98)";
-      ctx3D.strokeText(lengthText,0,0);
-      ctx3D.fillStyle="#0f172a";
-      ctx3D.fillText(lengthText,0,0);
-      ctx3D.restore();
-    }
-
-    // Cartouche longueur
-    const label=`Longueur : ${Math.round(extrusion).toLocaleString("fr-FR")} mm`;
-    ctx3D.font="800 14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-    const tw=ctx3D.measureText(label).width;
-    ctx3D.fillStyle="rgba(15,23,42,.82)";
-    ctx3D.beginPath();
-    ctx3D.roundRect(w-tw-34,h-42,tw+20,28,7);
-    ctx3D.fill();
-    ctx3D.fillStyle="#fff";
-    ctx3D.textAlign="left";
-    ctx3D.textBaseline="middle";
-    ctx3D.fillText(label,w-tw-24,h-28);
   }
 
   function deriveProfileFromRough(){
@@ -5971,7 +5904,7 @@ if(quotePdfBtn){
 
 
 
-<!-- ===== V43 : RETOUR GRAND DESSIN + BOUTONS UNIFORMES ===== -->
+<!-- ===== V44 : LONGUEUR DANS ENCART 3D + RETOUR GRAND DESSIN ===== -->
 <style>
 /* Boutons du grand dessinateur : même hauteur, même rayon et même alignement. */
 #bendDesignerModal[data-large-drawing="true"] .bend-mini-actions button,
