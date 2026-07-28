@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V46 repères extérieurs</title>
+<title>RML PLIAGE ALU — V47 repères noirs et cotes extérieures</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -4226,28 +4226,73 @@ if(quotePdfBtn){
         rotation+=Math.PI;
       }
 
-      // V45 : cote toujours placée à l'extérieur de la pièce et parallèle au segment.
-      const towardCenter=((profileCenter.x-mx)*nx+(profileCenter.y-my)*ny)>=0 ? 1 : -1;
+      // V47 : la cote est placée du côté offrant le plus d'espace libre.
+      // Cette méthode évite qu'une cote de pli fermé se retrouve dans la pièce.
       const fontSize=L>=120?13:L>=70?12:L>=38?11:10;
-      const nearOffset=L>=70?11:L>=38?14:18;
-      const offset=-nearOffset*towardCenter;
-      const tx=mx+nx*offset;
-      const ty=my+ny*offset;
-      const label=`${i+1}   ${fmtNumber(profile.lengths[i],1)} mm`;
+      const nearOffset=L>=70?13:L>=38?17:22;
+
+      const pointSegmentDistance=(px,py,s1,s2)=>{
+        const vx=s2.x-s1.x,vy=s2.y-s1.y;
+        const len2=vx*vx+vy*vy||1;
+        const t=Math.max(0,Math.min(1,((px-s1.x)*vx+(py-s1.y)*vy)/len2));
+        return Math.hypot(px-(s1.x+t*vx),py-(s1.y+t*vy));
+      };
+      const clearanceFor=(sign)=>{
+        const px=mx+nx*nearOffset*sign;
+        const py=my+ny*nearOffset*sign;
+        let clearance=Infinity;
+        for(let j=0;j<mapped.length-1;j++){
+          if(j===i)continue;
+          clearance=Math.min(clearance,pointSegmentDistance(px,py,mapped[j],mapped[j+1]));
+        }
+        return clearance;
+      };
+      const plusClearance=clearanceFor(1);
+      const minusClearance=clearanceFor(-1);
+      let exteriorSign;
+      if(Math.abs(plusClearance-minusClearance)>1){
+        exteriorSign=plusClearance>minusClearance?1:-1;
+      }else{
+        const towardCenter=((profileCenter.x-mx)*nx+(profileCenter.y-my)*ny)>=0 ? 1 : -1;
+        exteriorSign=-towardCenter;
+      }
+
+      const tx=mx+nx*nearOffset*exteriorSign;
+      const ty=my+ny*nearOffset*exteriorSign;
+      const dimensionText=`${fmtNumber(profile.lengths[i],1)} mm`;
 
       ctx.save();
       ctx.translate(tx,ty);
       ctx.rotate(rotation);
       ctx.font=`800 ${fontSize}px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
-      ctx.textAlign="center";
+      ctx.textAlign="left";
       ctx.textBaseline="middle";
 
-      // Aucun cartouche : léger halo uniquement pour garantir la lecture.
+      // Repère de dimension dans un rond noir, de même taille que les repères d'angles.
+      const markerRadius=8;
+      const markerGap=5;
+      const textWidth=ctx.measureText(dimensionText).width;
+      const totalWidth=markerRadius*2+markerGap+textWidth;
+      const startX=-totalWidth/2;
+      const markerX=startX+markerRadius;
+      const textX=startX+markerRadius*2+markerGap;
+
+      ctx.fillStyle="#111111";
+      ctx.beginPath();
+      ctx.arc(markerX,0,markerRadius,0,Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle="#ffffff";
+      ctx.font="800 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx.textAlign="center";
+      ctx.fillText(String(i+1),markerX,.5);
+
+      ctx.font=`800 ${fontSize}px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
+      ctx.textAlign="left";
       ctx.lineWidth=Math.max(2.5,fontSize*.28);
       ctx.strokeStyle="rgba(23,50,74,.94)";
-      ctx.strokeText(label,0,0);
+      ctx.strokeText(dimensionText,textX,0);
       ctx.fillStyle="#ffffff";
-      ctx.fillText(label,0,0);
+      ctx.fillText(dimensionText,textX,0);
       ctx.restore();
     }
 
@@ -4485,31 +4530,72 @@ if(quotePdfBtn){
       const nx=-dy/segLen, ny=dx/segLen;
       const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
 
-      // Choisit systématiquement la normale opposée au centre de la pièce.
-      const normalTowardCenter=((frontCenter.x-mx)*nx+(frontCenter.y-my)*ny)>=0 ? 1 : -1;
-      const exteriorSign=-normalTowardCenter;
-
       let coteRotation=Math.atan2(dy,dx);
       if(coteRotation>Math.PI/2 || coteRotation<-Math.PI/2)coteRotation+=Math.PI;
       const coteFontSize=segLen>=120?13:segLen>=70?12:segLen>=38?11:10;
       const coteOffset=segLen>=70?13:segLen>=38?17:22;
+
+      const pointSegmentDistance3D=(px,py,s1,s2)=>{
+        const vx=s2.x-s1.x,vy=s2.y-s1.y;
+        const len2=vx*vx+vy*vy||1;
+        const t=Math.max(0,Math.min(1,((px-s1.x)*vx+(py-s1.y)*vy)/len2));
+        return Math.hypot(px-(s1.x+t*vx),py-(s1.y+t*vy));
+      };
+      const clearanceFor3D=(sign)=>{
+        const px=mx+nx*coteOffset*sign;
+        const py=my+ny*coteOffset*sign;
+        let clearance=Infinity;
+        for(let j=0;j<front.length-1;j++){
+          if(j===i)continue;
+          clearance=Math.min(clearance,pointSegmentDistance3D(px,py,front[j],front[j+1]));
+        }
+        return clearance;
+      };
+      const plusClearance3D=clearanceFor3D(1);
+      const minusClearance3D=clearanceFor3D(-1);
+      let exteriorSign;
+      if(Math.abs(plusClearance3D-minusClearance3D)>1){
+        exteriorSign=plusClearance3D>minusClearance3D?1:-1;
+      }else{
+        const normalTowardCenter=((frontCenter.x-mx)*nx+(frontCenter.y-my)*ny)>=0 ? 1 : -1;
+        exteriorSign=-normalTowardCenter;
+      }
+
       const cx=mx+nx*coteOffset*exteriorSign;
       const cy=my+ny*coteOffset*exteriorSign;
-      const cote=`${i+1}   ${fmtNumber(profile.lengths[i],1)} mm`;
+      const dimensionText=`${fmtNumber(profile.lengths[i],1)} mm`;
 
       ctx3D.save();
       ctx3D.translate(cx,cy);
       ctx3D.rotate(coteRotation);
-      ctx3D.font=`800 ${coteFontSize}px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
-      ctx3D.textAlign="center";
       ctx3D.textBaseline="middle";
+
+      const markerRadius=8;
+      const markerGap=5;
+      ctx3D.font=`800 ${coteFontSize}px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
+      const textWidth=ctx3D.measureText(dimensionText).width;
+      const totalWidth=markerRadius*2+markerGap+textWidth;
+      const startX=-totalWidth/2;
+      const markerX=startX+markerRadius;
+      const textX=startX+markerRadius*2+markerGap;
+
+      ctx3D.fillStyle="#111111";
+      ctx3D.beginPath();
+      ctx3D.arc(markerX,0,markerRadius,0,Math.PI*2);
+      ctx3D.fill();
+      ctx3D.fillStyle="#ffffff";
+      ctx3D.font="800 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.textAlign="center";
+      ctx3D.fillText(String(i+1),markerX,.5);
+
+      ctx3D.font=`800 ${coteFontSize}px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif`;
+      ctx3D.textAlign="left";
       ctx3D.lineWidth=Math.max(2.5,coteFontSize*.28);
       ctx3D.strokeStyle="rgba(255,255,255,.98)";
-      ctx3D.strokeText(cote,0,0);
+      ctx3D.strokeText(dimensionText,textX,0);
       ctx3D.fillStyle="#17324a";
-      ctx3D.fillText(cote,0,0);
+      ctx3D.fillText(dimensionText,textX,0);
       ctx3D.restore();
-      // V46 : aucun numéro séparé ; il est placé à gauche de la cote extérieure.
     }
 
     // V41 : repères alphabétiques discrets sur le plan 3D + légende séparée.
@@ -5873,6 +5959,7 @@ if(quotePdfBtn){
 <!-- ===== V44 : LONGUEUR DANS ENCART 3D + RETOUR GRAND DESSIN ===== -->
 <!-- ===== V45 : COTES 2D/3D TOUJOURS POSITIONNÉES À L'EXTÉRIEUR ===== -->
 <!-- ===== V46 : NUMÉRO À GAUCHE DE LA COTE + LETTRES D'ANGLES À L'INTÉRIEUR ===== -->
+<!-- ===== V47 : COTES DE PLIS FERMÉS À L'EXTÉRIEUR + REPÈRES DE DIMENSIONS NOIRS ===== -->
 <style>
 /* Boutons du grand dessinateur : même hauteur, même rayon et même alignement. */
 #bendDesignerModal[data-large-drawing="true"] .bend-mini-actions button,
