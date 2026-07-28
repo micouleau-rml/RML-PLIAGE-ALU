@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V47 repères noirs et cotes extérieures</title>
+<title>RML PLIAGE ALU — V48 dossier de fabrication</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -6021,6 +6021,304 @@ if(quotePdfBtn){
     }
     window.dispatchEvent(new Event('resize'));
   });
+})();
+</script>
+
+<!-- ===== V48 : DOSSIER DE FABRICATION — 3 PIÈCES DIFFÉRENTES PAR FEUILLE A4 ===== -->
+<style>
+#rmlFabModal{
+  position:fixed;inset:0;z-index:100000;display:none;background:rgba(15,32,48,.72);
+  padding:18px;box-sizing:border-box;overflow:auto
+}
+#rmlFabModal.open{display:block}
+#rmlFabPanel{
+  width:min(1040px,100%);margin:0 auto;background:#fff;border-radius:18px;
+  box-shadow:0 22px 70px rgba(0,0,0,.28);overflow:hidden
+}
+#rmlFabHead{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 18px;border-bottom:1px solid #d8e1ea;background:#f7fafc
+}
+#rmlFabHead h2{margin:0;font-size:20px;color:#17324a}
+#rmlFabBody{padding:16px 18px}
+#rmlFabIntro{margin:0 0 14px;color:#53677a}
+#rmlFabList{display:grid;gap:10px}
+.rml-fab-row{
+  display:grid;grid-template-columns:auto minmax(180px,1fr) 110px 120px auto;
+  gap:10px;align-items:center;padding:12px;border:1px solid #dbe4ec;border-radius:12px;background:#fff
+}
+.rml-fab-row.no-plan{opacity:.55;background:#f5f7f9}
+.rml-fab-row input[type="text"],.rml-fab-row input[type="number"]{
+  width:100%;box-sizing:border-box;border:1px solid #c9d5df;border-radius:9px;padding:9px 10px;font:inherit
+}
+.rml-fab-meta{font-size:12px;color:#607284;line-height:1.35}
+.rml-fab-tools{display:flex;gap:6px}
+.rml-fab-tools button{min-width:38px;height:38px;border:0;border-radius:9px;background:#edf2f6;color:#17324a;font-weight:800;cursor:pointer}
+#rmlFabActions{
+  display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;
+  padding:14px 18px;border-top:1px solid #d8e1ea;background:#f7fafc
+}
+#rmlFabActions button,#rmlFabOpenBtn{
+  border:0;border-radius:11px;padding:11px 16px;font-weight:800;cursor:pointer
+}
+#rmlFabPrintBtn{background:#0f62fe;color:#fff}
+#rmlFabCloseBtn{background:#e9eef3;color:#17324a}
+#rmlFabSelectAllBtn{background:#17324a;color:#fff}
+#rmlFabOpenBtn{background:#17324a;color:#fff;margin-left:8px}
+#rmlFabEmpty{padding:28px;text-align:center;border:1px dashed #b9c8d5;border-radius:12px;color:#607284}
+@media(max-width:760px){
+  #rmlFabModal{padding:0}
+  #rmlFabPanel{min-height:100%;border-radius:0}
+  .rml-fab-row{grid-template-columns:auto 1fr 84px}
+  .rml-fab-meta{grid-column:2/-1}
+  .rml-fab-tools{grid-column:2/-1}
+}
+</style>
+
+<div id="rmlFabModal" aria-hidden="true">
+  <div id="rmlFabPanel" role="dialog" aria-modal="true" aria-labelledby="rmlFabTitle">
+    <div id="rmlFabHead">
+      <h2 id="rmlFabTitle">Dossier de fabrication</h2>
+      <button type="button" id="rmlFabCloseTop" class="btn-light">Fermer</button>
+    </div>
+    <div id="rmlFabBody">
+      <p id="rmlFabIntro">Sélectionnez les plans à imprimer. L'application place automatiquement trois pièces différentes sur chaque feuille A4.</p>
+      <div id="rmlFabList"></div>
+    </div>
+    <div id="rmlFabActions">
+      <button type="button" id="rmlFabSelectAllBtn">Tout sélectionner</button>
+      <button type="button" id="rmlFabPrintBtn">Imprimer les plans — 3 par feuille</button>
+      <button type="button" id="rmlFabCloseBtn">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const modal=document.getElementById("rmlFabModal");
+  const list=document.getElementById("rmlFabList");
+  if(!modal||!list)return;
+
+  function esc(value){
+    return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+  }
+  function deepCopy(v){return JSON.parse(JSON.stringify(v));}
+  function getPieces(){return Array.isArray(window.pieces)?window.pieces:(typeof pieces!=="undefined"&&Array.isArray(pieces)?pieces:[]);}
+  function persist(){
+    try{
+      if(typeof savePieces==="function")savePieces();
+      if(typeof saveCurrentProjectState==="function")saveCurrentProjectState();
+      if(window.currentLoadedProjectId&&typeof persistCurrentProjectRecord==="function")persistCurrentProjectRecord({createIfMissing:false});
+    }catch(e){console.warn("Sauvegarde dossier fabrication :",e)}
+  }
+  function ensureButton(){
+    if(document.getElementById("rmlFabOpenBtn"))return;
+    const btn=document.createElement("button");
+    btn.type="button";btn.id="rmlFabOpenBtn";btn.textContent="Dossier de fabrication";
+    const anchor=document.getElementById("printBtn")||document.getElementById("quotePdfBtn")||document.getElementById("devisPdfBtn");
+    if(anchor&&anchor.parentElement)anchor.insertAdjacentElement("afterend",btn);
+    else document.body.insertBefore(btn,document.body.firstChild);
+    btn.addEventListener("click",openModal);
+  }
+
+  function renderList(){
+    const arr=getPieces();
+    list.innerHTML="";
+    if(!arr.length){
+      list.innerHTML='<div id="rmlFabEmpty">Aucune pièce disponible.</div>';
+      return;
+    }
+    arr.forEach((piece,index)=>{
+      const hasPlan=!!piece?.bendProfile?.profile?.lengths?.length;
+      if(piece.planSelected===undefined)piece.planSelected=hasPlan;
+      const row=document.createElement("div");
+      row.className="rml-fab-row"+(hasPlan?"":" no-plan");
+      const developed=Number(piece.developed||piece?.bendProfile?.result?.rounded||0);
+      const lengthMm=Math.round(Number(piece?.bendProfile?.settings?.length3D||0) || Number(piece.length||0)*1000);
+      row.innerHTML=`
+        <input type="checkbox" data-role="select" ${piece.planSelected&&hasPlan?"checked":""} ${hasPlan?"":"disabled"} aria-label="Sélectionner la pièce ${index+1}">
+        <div>
+          <input type="text" data-role="name" value="${esc(piece.planName||`Pièce ${index+1}`)}" aria-label="Nom de la pièce">
+          <div class="rml-fab-meta">${hasPlan?`${developed||"—"} mm développé · ${lengthMm||"—"} mm de longueur · ${piece?.bendProfile?.profile?.angles?.length||0} pli(s)`:"Aucun dessin mémorisé pour cette ligne"}</div>
+        </div>
+        <input type="number" min="1" step="1" data-role="qty" value="${Math.max(1,Number(piece.qty)||1)}" aria-label="Quantité">
+        <div class="rml-fab-meta">${hasPlan?"Plan 2D prêt":"Non imprimable"}</div>
+        <div class="rml-fab-tools">
+          <button type="button" data-role="up" title="Monter">↑</button>
+          <button type="button" data-role="down" title="Descendre">↓</button>
+        </div>`;
+      row.querySelector('[data-role="select"]')?.addEventListener("change",e=>{piece.planSelected=e.target.checked;persist()});
+      row.querySelector('[data-role="name"]')?.addEventListener("input",e=>{piece.planName=e.target.value;persist()});
+      row.querySelector('[data-role="qty"]')?.addEventListener("input",e=>{piece.qty=Math.max(1,Number(e.target.value)||1);persist()});
+      row.querySelector('[data-role="up"]')?.addEventListener("click",()=>{
+        if(index<=0)return;
+        [arr[index-1],arr[index]]=[arr[index],arr[index-1]];
+        persist();renderList();
+        if(typeof renderPieces==="function")renderPieces();
+      });
+      row.querySelector('[data-role="down"]')?.addEventListener("click",()=>{
+        if(index>=arr.length-1)return;
+        [arr[index+1],arr[index]]=[arr[index],arr[index+1]];
+        persist();renderList();
+        if(typeof renderPieces==="function")renderPieces();
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function openModal(){renderList();modal.classList.add("open");modal.setAttribute("aria-hidden","false")}
+  function closeModal(){modal.classList.remove("open");modal.setAttribute("aria-hidden","true")}
+  document.getElementById("rmlFabCloseTop")?.addEventListener("click",closeModal);
+  document.getElementById("rmlFabCloseBtn")?.addEventListener("click",closeModal);
+  modal.addEventListener("click",e=>{if(e.target===modal)closeModal()});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&modal.classList.contains("open"))closeModal()});
+
+  document.getElementById("rmlFabSelectAllBtn")?.addEventListener("click",()=>{
+    const arr=getPieces();const printable=arr.filter(p=>p?.bendProfile?.profile?.lengths?.length);
+    const all=printable.length&&printable.every(p=>p.planSelected);
+    printable.forEach(p=>p.planSelected=!all);persist();renderList();
+  });
+
+  function buildPoints(profile){
+    if(Array.isArray(profile.exactPoints)&&profile.exactPoints.length===profile.lengths.length+1){
+      return profile.exactPoints.map(p=>({x:Number(p.x)||0,y:Number(p.y)||0}));
+    }
+    const pts=[{x:0,y:0}];
+    let heading=0;
+    for(let i=0;i<profile.lengths.length;i++){
+      const len=Math.max(1,Number(profile.lengths[i])||1);
+      if(i>0){
+        const angle=Number(profile.angles[i-1]??90);
+        const dir=profile.directions?.[i-1]==="bas"?1:-1;
+        heading+=dir*(180-angle)*Math.PI/180;
+      }
+      pts.push({x:pts[i].x+Math.cos(heading)*len,y:pts[i].y+Math.sin(heading)*len});
+    }
+    return pts;
+  }
+
+  function distPointSegment(px,py,a,b){
+    const vx=b.x-a.x,vy=b.y-a.y,l2=vx*vx+vy*vy||1;
+    const t=Math.max(0,Math.min(1,((px-a.x)*vx+(py-a.y)*vy)/l2));
+    return Math.hypot(px-(a.x+t*vx),py-(a.y+t*vy));
+  }
+
+  function svgForPiece(piece,index){
+    const bp=piece.bendProfile;
+    const profile=bp.profile;
+    const raw=buildPoints(profile);
+    const W=920,H=245;
+    const infoW=220;
+    const drawW=W-infoW-28;
+    const pad=48;
+    const xs=raw.map(p=>p.x),ys=raw.map(p=>p.y);
+    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const scale=Math.min((drawW-pad*2)/Math.max(1,maxX-minX),(H-pad*2)/Math.max(1,maxY-minY));
+    const ox=pad-minX*scale,oy=H/2-(minY+maxY)*scale/2;
+    const pts=raw.map(p=>({x:p.x*scale+ox,y:p.y*scale+oy}));
+    const center={x:pts.reduce((s,p)=>s+p.x,0)/pts.length,y:pts.reduce((s,p)=>s+p.y,0)/pts.length};
+    const dims=[];
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i],b=pts[i+1],dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy)||1;
+      const nx=-dy/L,ny=dx/L,mx=(a.x+b.x)/2,my=(a.y+b.y)/2,off=24;
+      const clear=sign=>{
+        const px=mx+nx*off*sign,py=my+ny*off*sign;
+        let d=Infinity;
+        for(let j=0;j<pts.length-1;j++)if(j!==i)d=Math.min(d,distPointSegment(px,py,pts[j],pts[j+1]));
+        return d;
+      };
+      const cp=clear(1),cm=clear(-1);
+      let sign;
+      if(Math.abs(cp-cm)>1)sign=cp>cm?1:-1;
+      else sign=((center.x-mx)*nx+(center.y-my)*ny)>=0?-1:1;
+      let ang=Math.atan2(dy,dx)*180/Math.PI;
+      if(ang>90||ang<-90)ang+=180;
+      dims.push({x:mx+nx*off*sign,y:my+ny*off*sign,ang,num:i+1,value:`${Number(profile.lengths[i]||0).toLocaleString("fr-FR",{maximumFractionDigits:1})} mm`});
+    }
+    const bends=[];
+    for(let i=1;i<pts.length-1;i++){
+      const p0=pts[i-1],p=pts[i],p2=pts[i+1];
+      let v1={x:p0.x-p.x,y:p0.y-p.y},v2={x:p2.x-p.x,y:p2.y-p.y};
+      const l1=Math.hypot(v1.x,v1.y)||1,l2=Math.hypot(v2.x,v2.y)||1;
+      let bx=v1.x/l1+v2.x/l2,by=v1.y/l1+v2.y/l2,bl=Math.hypot(bx,by);
+      if(bl<.001){bx=-v1.y/l1;by=v1.x/l1;bl=1}
+      bx/=bl;by/=bl;
+      const inward=((center.x-p.x)*bx+(center.y-p.y)*by)>=0?1:-1;
+      bends.push({x:p.x+bx*18*inward,y:p.y+by*18*inward,letter:String.fromCharCode(64+i)});
+    }
+    const poly=pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const dimSvg=dims.map(d=>`<g transform="translate(${d.x.toFixed(1)} ${d.y.toFixed(1)}) rotate(${d.ang.toFixed(1)})"><circle cx="-34" cy="0" r="10" fill="#111"/><text x="-34" y="4" text-anchor="middle" class="num">${d.num}</text><text x="-19" y="4" class="dim">${esc(d.value)}</text></g>`).join("");
+    const bendSvg=bends.map(b=>`<g><circle cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="9" fill="#fff" stroke="#0f62fe" stroke-width="2"/><text x="${b.x.toFixed(1)}" y="${(b.y+4).toFixed(1)}" text-anchor="middle" class="angle-letter">${b.letter}</text></g>`).join("");
+    const angleLines=(profile.angles||[]).map((a,i)=>{
+      const hem=!!profile.hemmed?.[i];
+      return `<text x="${drawW+24}" y="${76+i*18}" class="info">${String.fromCharCode(65+i)} = ${hem?"ÉCRASÉ — prépli 55°":`${Number(a).toLocaleString("fr-FR",{maximumFractionDigits:1})}°`}</text>`;
+    }).join("");
+    const name=piece.planName||`Pièce ${index+1}`;
+    const qty=Math.max(1,Number(piece.qty)||1);
+    const lengthMm=Math.round(Number(bp.settings?.length3D||0)||Number(piece.length||0)*1000);
+    const developed=Number(piece.developed||bp.result?.rounded||0);
+    const material=bp.settings?.material||"Aluminium";
+    const thickness=bp.settings?.thickness||"—";
+    return `<section class="plan">
+      <div class="plan-head"><strong>${esc(name)}</strong><span>Qté : ${qty}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Plan 2D coté de ${esc(name)}">
+        <style>
+          .profile{fill:none;stroke:#17324a;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+          .dim{font:800 15px Arial,sans-serif;fill:#111;paint-order:stroke;stroke:#fff;stroke-width:4px}
+          .num{font:800 12px Arial,sans-serif;fill:#fff}
+          .angle-letter{font:800 12px Arial,sans-serif;fill:#0f62fe}
+          .info{font:700 13px Arial,sans-serif;fill:#17324a}
+          .info-title{font:800 14px Arial,sans-serif;fill:#17324a}
+        </style>
+        <polyline points="${poly}" class="profile"/>
+        ${dimSvg}${bendSvg}
+        <line x1="${drawW+10}" y1="20" x2="${drawW+10}" y2="${H-20}" stroke="#c7d2dc"/>
+        <text x="${drawW+24}" y="38" class="info-title">ANGLES</text>
+        ${angleLines}
+        <text x="${drawW+24}" y="${H-55}" class="info">Longueur : ${lengthMm.toLocaleString("fr-FR")} mm</text>
+        <text x="${drawW+24}" y="${H-37}" class="info">Développé : ${developed.toLocaleString("fr-FR")} mm</text>
+        <text x="${drawW+24}" y="${H-19}" class="info">${esc(material)} · ${esc(thickness)} mm</text>
+      </svg>
+    </section>`;
+  }
+
+  function printPlans(){
+    const selected=getPieces().map((p,i)=>({p,i})).filter(x=>x.p.planSelected&&x.p?.bendProfile?.profile?.lengths?.length);
+    if(!selected.length)return alert("Sélectionnez au moins une pièce possédant un dessin mémorisé.");
+    persist();
+    const pages=[];
+    for(let i=0;i<selected.length;i+=3){
+      const group=selected.slice(i,i+3);
+      pages.push(`<div class="page">${group.map(x=>svgForPiece(x.p,x.i)).join("")}</div>`);
+    }
+    const project=(document.getElementById("projectName")?.value||document.getElementById("quoteProject")?.value||"Dossier de fabrication").trim();
+    const win=window.open("","_blank");
+    if(!win)return alert("Autorisez les fenêtres surgissantes pour imprimer les plans.");
+    win.document.open();
+    win.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(project)} — Plans de pliage</title>
+      <style>
+        @page{size:A4 portrait;margin:7mm}
+        *{box-sizing:border-box}
+        html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111;background:#fff}
+        .page{width:196mm;height:283mm;display:grid;grid-template-rows:repeat(3,1fr);gap:3mm;page-break-after:always}
+        .page:last-child{page-break-after:auto}
+        .plan{border:1px solid #9eacb8;border-radius:3mm;overflow:hidden;min-height:0;display:flex;flex-direction:column}
+        .plan-head{height:9mm;padding:1.8mm 3mm;display:flex;justify-content:space-between;align-items:center;background:#eef3f7;border-bottom:1px solid #c8d3dc;font-size:12pt}
+        .plan svg{display:block;width:100%;height:calc(100% - 9mm)}
+        .screen-actions{position:fixed;right:14px;bottom:14px;display:flex;gap:8px}
+        .screen-actions button{border:0;border-radius:9px;padding:11px 15px;font-weight:800;cursor:pointer}
+        .screen-actions button:first-child{background:#0f62fe;color:#fff}.screen-actions button:last-child{background:#e8edf2;color:#17324a}
+        @media print{.screen-actions{display:none}}
+      </style></head><body>${pages.join("")}<div class="screen-actions"><button onclick="window.print()">Imprimer / Enregistrer PDF</button><button onclick="window.close()">Fermer</button></div></body></html>`);
+    win.document.close();
+    setTimeout(()=>win.focus(),100);
+  }
+
+  document.getElementById("rmlFabPrintBtn")?.addEventListener("click",printPlans);
+  ensureButton();
+
+  // Rend la fonction accessible à d'autres boutons éventuels.
+  window.RML_OPEN_FABRICATION_FOLDER=openModal;
 })();
 </script>
 </body>
