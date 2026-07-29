@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V56 plus grande dimension horizontale</title>
+<title>RML PLIAGE ALU — V57 aperçu fabrication et plis écrasés</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1576,6 +1576,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal .bend-table input[data-role="angle"]:disabled{background:#fff7ed!important;color:#9a3412!important;border-color:#fdba74!important;font-weight:800!important}
 </style> 
   <!-- V38 : calcul sur prépli 55°, affichage final avec retour strictement parallèle et petit rayon en 2D/3D -->
+<!-- V57 : aperçu avant impression, cadrage élargi et représentation des plis écrasés dans le dossier de fabrication -->
 </head>
 <body>
 <div class="container">
@@ -6072,6 +6073,7 @@ if(quotePdfBtn){
 #rmlFabActions button,#rmlFabOpenBtn{
   border:0;border-radius:11px;padding:11px 16px;font-weight:800;cursor:pointer
 }
+#rmlFabPreviewBtn{background:#eaf2ff;color:#0f62fe}
 #rmlFabPrintBtn{background:#0f62fe;color:#fff}
 #rmlFabCloseBtn{background:#e9eef3;color:#17324a}
 #rmlFabSelectAllBtn{background:#17324a;color:#fff}
@@ -6134,6 +6136,7 @@ if(quotePdfBtn){
     </div>
     <div id="rmlFabActions">
       <button type="button" id="rmlFabSelectAllBtn">Tout sélectionner</button>
+      <button type="button" id="rmlFabPreviewBtn">Visualiser avant impression</button>
       <button type="button" id="rmlFabPrintBtn">Imprimer les plans — 3 par feuille</button>
       <button type="button" id="rmlFabCloseBtn">Fermer</button>
     </div>
@@ -6212,7 +6215,7 @@ if(quotePdfBtn){
         <input type="checkbox" data-role="select" ${piece.planSelected&&hasPlan?"checked":""} ${hasPlan?"":"disabled"} aria-label="Sélectionner la pièce ${index+1}">
         <div>
           <input type="text" data-role="name" value="${esc(piece.planName||`Pièce ${index+1}`)}" aria-label="Nom de la pièce">
-          <div class="rml-fab-meta">${hasPlan?`${developed||"—"} mm développé · ${lengthMm||"—"} mm de longueur · ${piece?.bendProfile?.profile?.angles?.length||0} pli(s)`:"Aucun dessin mémorisé pour cette ligne"}</div>
+          <div class="rml-fab-meta">${hasPlan?`${developed||"—"} mm développé · ${lengthMm||"—"} mm de longueur · ${piece?.bendProfile?.profile?.angles?.length||0} pli(s)${piece?.bendProfile?.profile?.hemmed?.some(Boolean)?" · PLI ÉCRASÉ":""}`:"Aucun dessin mémorisé pour cette ligne"}</div>
         </div>
         <input type="number" min="1" step="1" data-role="qty" value="${Math.max(1,Number(piece.qty)||1)}" aria-label="Quantité">
         <button type="button" data-role="color-place" class="rml-arrow-place ${piece.colorArrowPoint?"active":""}" ${hasPlan?"":"disabled"}>
@@ -6422,23 +6425,76 @@ if(quotePdfBtn){
     };
   }
 
+
+  // V57 : géométrie de fabrication avec représentation réelle d'un pli écrasé.
+  // Le retour est déplacé après un demi-cercle afin qu'il reste parallèle au segment précédent.
+  function fabricationGeometry(points,profile){
+    const vertices=(points||[]).map(p=>({x:Number(p.x)||0,y:Number(p.y)||0}));
+    const hems=new Map();
+
+    for(let i=1;i<vertices.length-1;i++){
+      if(!profile.hemmed?.[i-1])continue;
+
+      const previous=vertices[i-1];
+      const corner=vertices[i];
+      const incomingLength=Math.hypot(corner.x-previous.x,corner.y-previous.y)||1;
+      const ux=(corner.x-previous.x)/incomingLength;
+      const uy=(corner.y-previous.y)/incomingLength;
+      const turnSign=profile.directions?.[i-1]==="haut"?-1:1;
+      const nx=-uy*turnSign;
+      const ny=ux*turnSign;
+
+      const nextLength=Math.hypot(vertices[i+1].x-corner.x,vertices[i+1].y-corner.y)||1;
+      const radius=Math.max(3,Math.min(9,incomingLength*.10,nextLength*.10));
+      const arcEnd={x:corner.x+nx*radius*2,y:corner.y+ny*radius*2};
+      const shiftX=arcEnd.x-corner.x;
+      const shiftY=arcEnd.y-corner.y;
+
+      hems.set(i,{
+        radius,
+        sweep:turnSign>0?1:0,
+        start:{...corner},
+        end:{...arcEnd}
+      });
+
+      for(let j=i+1;j<vertices.length;j++){
+        vertices[j].x+=shiftX;
+        vertices[j].y+=shiftY;
+      }
+    }
+
+    return {vertices,hems};
+  }
+
   function roundedProfilePath(points,profile){
     if(!points.length)return "";
     if(points.length===1)return `M ${points[0].x} ${points[0].y}`;
-    let d=`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
-    for(let i=1;i<points.length-1;i++){
-      const prev=points[i-1],cur=points[i],next=points[i+1];
+
+    const geometry=fabricationGeometry(points,profile);
+    const vertices=geometry.vertices;
+    let d=`M ${vertices[0].x.toFixed(1)} ${vertices[0].y.toFixed(1)}`;
+
+    for(let i=1;i<vertices.length-1;i++){
+      const prev=vertices[i-1],cur=vertices[i],next=vertices[i+1];
+      const hem=geometry.hems.get(i);
+
+      if(hem){
+        d+=` L ${hem.start.x.toFixed(1)} ${hem.start.y.toFixed(1)}`;
+        d+=` A ${hem.radius.toFixed(1)} ${hem.radius.toFixed(1)} 0 0 ${hem.sweep} ${hem.end.x.toFixed(1)} ${hem.end.y.toFixed(1)}`;
+        continue;
+      }
+
       const lenIn=Math.hypot(cur.x-prev.x,cur.y-prev.y)||1;
       const lenOut=Math.hypot(next.x-cur.x,next.y-cur.y)||1;
-      const isHem=!!profile.hemmed?.[i-1];
-      const radius=Math.min(isHem?12:6,lenIn*.22,lenOut*.22);
+      const radius=Math.min(6,lenIn*.22,lenOut*.22);
       const inX=cur.x+(prev.x-cur.x)*(radius/lenIn);
       const inY=cur.y+(prev.y-cur.y)*(radius/lenIn);
       const outX=cur.x+(next.x-cur.x)*(radius/lenOut);
       const outY=cur.y+(next.y-cur.y)*(radius/lenOut);
       d+=` L ${inX.toFixed(1)} ${inY.toFixed(1)} Q ${cur.x.toFixed(1)} ${cur.y.toFixed(1)} ${outX.toFixed(1)} ${outY.toFixed(1)}`;
     }
-    const last=points[points.length-1];
+
+    const last=vertices[vertices.length-1];
     d+=` L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
     return d;
   }
@@ -6461,9 +6517,9 @@ if(quotePdfBtn){
     const originalRaw=buildPoints(profile);
 
     const W=920,H=245;
-    const infoW=132;
-    const drawW=W-infoW-28;
-    const printPad=18;
+    const infoW=112;
+    const drawW=W-infoW-18;
+    const printPad=30;
 
     // V56 : le segment possédant la plus grande dimension est toujours horizontal.
     let longestIndex=0;
@@ -6511,7 +6567,9 @@ if(quotePdfBtn){
     const ox=(drawW-renderedW)/2-minX*scale;
     const oy=(H-renderedH)/2-minY*scale;
     const toScreen=p=>({x:p.x*scale+ox,y:p.y*scale+oy});
-    const pts=raw.map(toScreen);
+    const basePts=raw.map(toScreen);
+    const displayGeometry=fabricationGeometry(basePts,profile);
+    const pts=displayGeometry.vertices;
 
     const center={
       x:pts.reduce((s,p)=>s+p.x,0)/pts.length,
@@ -6666,38 +6724,55 @@ if(quotePdfBtn){
     </section>`;
   }
 
-  function printPlans(){
+  function openPlansDocument(autoPrint=false){
     const selected=getPieces().map((p,i)=>({p,i})).filter(x=>x.p.planSelected&&x.p?.bendProfile?.profile?.lengths?.length);
     if(!selected.length)return alert("Sélectionnez au moins une pièce possédant un dessin mémorisé.");
+
     persist();
     const pages=[];
     for(let i=0;i<selected.length;i+=3){
       const group=selected.slice(i,i+3);
       pages.push(`<div class="page">${group.map(x=>svgForPiece(x.p,x.i)).join("")}</div>`);
     }
+
     const project=(document.getElementById("projectName")?.value||document.getElementById("quoteProject")?.value||"Dossier de fabrication").trim();
     const win=window.open("","_blank");
-    if(!win)return alert("Autorisez les fenêtres surgissantes pour imprimer les plans.");
+    if(!win)return alert("Autorisez les fenêtres surgissantes pour visualiser ou imprimer les plans.");
+
     win.document.open();
     win.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${esc(project)} — Plans de pliage</title>
       <style>
         @page{size:A4 portrait;margin:7mm}
         *{box-sizing:border-box}
-        html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111;background:#fff}
-        .page{width:196mm;height:283mm;display:grid;grid-template-rows:repeat(3,1fr);gap:3mm;page-break-after:always}
+        html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111;background:#eef2f6}
+        body{padding:14px 14px 82px 28px}
+        .page{width:196mm;height:283mm;margin:0 auto 14px;background:#fff;display:grid;grid-template-rows:repeat(3,1fr);gap:3mm;page-break-after:always}
         .page:last-child{page-break-after:auto}
         .plan{border:1px solid #9eacb8;border-radius:3mm;overflow:hidden;min-height:0;display:flex;flex-direction:column}
         .plan-head{height:9mm;padding:1.8mm 3mm;display:flex;justify-content:space-between;align-items:center;background:#eef3f7;border-bottom:1px solid #c8d3dc;font-size:12pt}
         .plan svg{display:block;width:100%;height:calc(100% - 9mm)}
-        .screen-actions{position:fixed;right:14px;bottom:14px;display:flex;gap:8px}
+        .screen-actions{position:fixed;right:18px;bottom:16px;display:flex;gap:8px;padding:9px;background:rgba(255,255,255,.96);border:1px solid #cbd5df;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.16)}
         .screen-actions button{border:0;border-radius:9px;padding:11px 15px;font-weight:800;cursor:pointer}
         .screen-actions button:first-child{background:#0f62fe;color:#fff}.screen-actions button:last-child{background:#e8edf2;color:#17324a}
-        @media print{.screen-actions{display:none}}
-      </style></head><body>${pages.join("")}<div class="screen-actions"><button onclick="window.print()">Imprimer / Enregistrer PDF</button><button onclick="window.close()">Fermer</button></div></body></html>`);
+        @media print{
+          html,body{background:#fff;padding:0}
+          .page{margin:0;width:196mm;height:283mm}
+          .screen-actions{display:none}
+        }
+      </style></head><body>${pages.join("")}<div class="screen-actions"><button id="printPlansAction">Imprimer / Enregistrer PDF</button><button id="closePlansAction">Fermer</button></div>
+      <script>
+        document.getElementById("printPlansAction").addEventListener("click",()=>window.print());
+        document.getElementById("closePlansAction").addEventListener("click",()=>window.close());
+        ${autoPrint ? 'window.addEventListener("load",()=>setTimeout(()=>window.print(),250));' : ''}
+      <\/script></body></html>`);
     win.document.close();
     setTimeout(()=>win.focus(),100);
   }
 
+  function previewPlans(){openPlansDocument(false)}
+  function printPlans(){openPlansDocument(true)}
+
+  document.getElementById("rmlFabPreviewBtn")?.addEventListener("click",previewPlans);
   document.getElementById("rmlFabPrintBtn")?.addEventListener("click",printPlans);
   ensureButton();
 
