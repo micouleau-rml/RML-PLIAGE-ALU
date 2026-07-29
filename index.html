@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V52 échelle uniforme lisible</title>
+<title>RML PLIAGE ALU — V53 pliages arrondis et flèche couleur</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -6029,6 +6029,7 @@ if(quotePdfBtn){
 <!-- ===== V50 : ÉCHELLE COMMUNE PAR FEUILLE + BOUTON DOSSIER EN HAUT ===== -->
 <!-- ===== V51 : PLANS AGRANDIS INDIVIDUELLEMENT + REPÈRES D'ANGLES RÉDUITS + MENU DOSSIER EN HAUT ===== -->
 <!-- ===== V52 : ÉCHELLE IDENTIQUE POUR LES 3 PIÈCES + DIMENSIONS AGRANDIES ET LISIBLES ===== -->
+<!-- ===== V53 : PLIS ARRONDIS SUR PLAN D'EXÉCUTION + FLÈCHE CÔTÉ COULEUR PAR PIÈCE ===== -->
 <style>
 #rmlFabModal{
   position:fixed;inset:0;z-index:100000;display:none;background:rgba(15,32,48,.72);
@@ -6050,12 +6051,12 @@ if(quotePdfBtn){
 #rmlFabIntro{margin:0 0 14px;color:#53677a}
 #rmlFabList{display:grid;gap:10px}
 .rml-fab-row{
-  display:grid;grid-template-columns:auto minmax(180px,1fr) 110px 120px auto;
+  display:grid;grid-template-columns:auto minmax(180px,1fr) 90px 150px 110px auto;
   gap:10px;align-items:center;padding:12px;border:1px solid #dbe4ec;border-radius:12px;background:#fff
 }
 .rml-fab-row.no-plan{opacity:.55;background:#f5f7f9}
-.rml-fab-row input[type="text"],.rml-fab-row input[type="number"]{
-  width:100%;box-sizing:border-box;border:1px solid #c9d5df;border-radius:9px;padding:9px 10px;font:inherit
+.rml-fab-row input[type="text"],.rml-fab-row input[type="number"],.rml-fab-row select{
+  width:100%;box-sizing:border-box;border:1px solid #c9d5df;border-radius:9px;padding:9px 10px;font:inherit;background:#fff
 }
 .rml-fab-meta{font-size:12px;color:#607284;line-height:1.35}
 .rml-fab-tools{display:flex;gap:6px}
@@ -6152,6 +6153,13 @@ if(quotePdfBtn){
           <div class="rml-fab-meta">${hasPlan?`${developed||"—"} mm développé · ${lengthMm||"—"} mm de longueur · ${piece?.bendProfile?.profile?.angles?.length||0} pli(s)`:"Aucun dessin mémorisé pour cette ligne"}</div>
         </div>
         <input type="number" min="1" step="1" data-role="qty" value="${Math.max(1,Number(piece.qty)||1)}" aria-label="Quantité">
+        <select data-role="color-side" aria-label="Flèche côté couleur">
+          <option value="" ${!piece.colorArrow?"selected":""}>Sans flèche</option>
+          <option value="up" ${piece.colorArrow==="up"?"selected":""}>Couleur ↑</option>
+          <option value="down" ${piece.colorArrow==="down"?"selected":""}>Couleur ↓</option>
+          <option value="left" ${piece.colorArrow==="left"?"selected":""}>Couleur ←</option>
+          <option value="right" ${piece.colorArrow==="right"?"selected":""}>Couleur →</option>
+        </select>
         <div class="rml-fab-meta">${hasPlan?"Plan 2D prêt":"Non imprimable"}</div>
         <div class="rml-fab-tools">
           <button type="button" data-role="up" title="Monter">↑</button>
@@ -6160,6 +6168,7 @@ if(quotePdfBtn){
       row.querySelector('[data-role="select"]')?.addEventListener("change",e=>{piece.planSelected=e.target.checked;persist()});
       row.querySelector('[data-role="name"]')?.addEventListener("input",e=>{piece.planName=e.target.value;persist()});
       row.querySelector('[data-role="qty"]')?.addEventListener("input",e=>{piece.qty=Math.max(1,Number(e.target.value)||1);persist()});
+      row.querySelector('[data-role="color-side"]')?.addEventListener("change",e=>{piece.colorArrow=e.target.value;persist()});
       row.querySelector('[data-role="up"]')?.addEventListener("click",()=>{
         if(index<=0)return;
         [arr[index-1],arr[index]]=[arr[index],arr[index-1]];
@@ -6223,6 +6232,54 @@ if(quotePdfBtn){
     };
   }
 
+  function roundedProfilePath(points,profile){
+    if(!points.length)return "";
+    if(points.length===1)return `M ${points[0].x} ${points[0].y}`;
+    let d=`M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for(let i=1;i<points.length-1;i++){
+      const prev=points[i-1],cur=points[i],next=points[i+1];
+      const lenIn=Math.hypot(cur.x-prev.x,cur.y-prev.y)||1;
+      const lenOut=Math.hypot(next.x-cur.x,next.y-cur.y)||1;
+      const isHem=!!profile.hemmed?.[i-1];
+      const radius=Math.min(isHem?12:6,lenIn*.22,lenOut*.22);
+      const inX=cur.x+(prev.x-cur.x)*(radius/lenIn);
+      const inY=cur.y+(prev.y-cur.y)*(radius/lenIn);
+      const outX=cur.x+(next.x-cur.x)*(radius/lenOut);
+      const outY=cur.y+(next.y-cur.y)*(radius/lenOut);
+      d+=` L ${inX.toFixed(1)} ${inY.toFixed(1)} Q ${cur.x.toFixed(1)} ${cur.y.toFixed(1)} ${outX.toFixed(1)} ${outY.toFixed(1)}`;
+    }
+    const last=points[points.length-1];
+    d+=` L ${last.x.toFixed(1)} ${last.y.toFixed(1)}`;
+    return d;
+  }
+
+  function colorArrowSvg(piece,pts,drawW,H){
+    const dir=piece.colorArrow;
+    if(!dir)return "";
+    const minX=Math.min(...pts.map(p=>p.x)),maxX=Math.max(...pts.map(p=>p.x));
+    const minY=Math.min(...pts.map(p=>p.y)),maxY=Math.max(...pts.map(p=>p.y));
+    const cx=Math.max(32,Math.min(drawW-32,(minX+maxX)/2));
+    const cy=Math.max(28,Math.min(H-28,(minY+maxY)/2));
+    const vectors={
+      up:{dx:0,dy:-1,label:"↑"},
+      down:{dx:0,dy:1,label:"↓"},
+      left:{dx:-1,dy:0,label:"←"},
+      right:{dx:1,dy:0,label:"→"}
+    };
+    const v=vectors[dir]||vectors.up;
+    const sx=cx-v.dx*34,sy=cy-v.dy*34;
+    const ex=cx-v.dx*10,ey=cy-v.dy*10;
+    const angle=Math.atan2(ey-sy,ex-sx);
+    const size=7;
+    const ax1=ex-Math.cos(angle-.55)*size, ay1=ey-Math.sin(angle-.55)*size;
+    const ax2=ex-Math.cos(angle+.55)*size, ay2=ey-Math.sin(angle+.55)*size;
+    return `<g class="color-arrow">
+      <line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"/>
+      <path d="M ${ax1.toFixed(1)} ${ay1.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)} L ${ax2.toFixed(1)} ${ay2.toFixed(1)}"/>
+      <text x="${(sx-4).toFixed(1)}" y="${(sy-8).toFixed(1)}">COULEUR</text>
+    </g>`;
+  }
+
   function svgForPiece(piece,index,commonScale){
     const bp=piece.bendProfile;
     const profile=bp.profile;
@@ -6281,7 +6338,8 @@ if(quotePdfBtn){
       const inward=((center.x-p.x)*bx+(center.y-p.y)*by)>=0?1:-1;
       bends.push({x:p.x+bx*18*inward,y:p.y+by*18*inward,letter:String.fromCharCode(64+i)});
     }
-    const poly=pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    const profilePath=roundedProfilePath(pts,profile);
+    const colorArrow=colorArrowSvg(piece,pts,drawW,H);
     // V49 : numéro de cote plus discret pour alléger le plan imprimé.
     const dimSvg=dims.map(d=>`<g transform="translate(${d.x.toFixed(1)} ${d.y.toFixed(1)}) rotate(${d.ang.toFixed(1)})"><circle cx="-27" cy="0" r="6.5" fill="#111"/><text x="-27" y="2.8" text-anchor="middle" class="num">${d.num}</text><text x="-16" y="4" class="dim">${esc(d.value)}</text></g>`).join("");
     const bendSvg=bends.map(b=>`<g><circle cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="6.5" fill="#fff" stroke="#0f62fe" stroke-width="1.8"/><text x="${b.x.toFixed(1)}" y="${(b.y+2.8).toFixed(1)}" text-anchor="middle" class="angle-letter">${b.letter}</text></g>`).join("");
@@ -6300,13 +6358,16 @@ if(quotePdfBtn){
       <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Plan 2D coté de ${esc(name)}">
         <style>
           .profile{fill:none;stroke:#17324a;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+          .color-arrow line,.color-arrow path{fill:none;stroke:#d62828;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+          .color-arrow text{font:800 10px Arial,sans-serif;fill:#d62828}
           .dim{font:800 16px Arial,sans-serif;fill:#111;paint-order:stroke;stroke:#fff;stroke-width:4px}
           .num{font:800 8px Arial,sans-serif;fill:#fff}
           .angle-letter{font:800 8px Arial,sans-serif;fill:#0f62fe}
           .info{font:700 12px Arial,sans-serif;fill:#17324a}
           .info-title{font:800 13px Arial,sans-serif;fill:#17324a}
         </style>
-        <polyline points="${poly}" class="profile"/>
+        <path d="${profilePath}" class="profile"/>
+        ${colorArrow}
         ${dimSvg}${bendSvg}
         <line x1="${drawW+10}" y1="20" x2="${drawW+10}" y2="${H-20}" stroke="#c7d2dc"/>
         <text x="${drawW+24}" y="38" class="info-title">ANGLES</text>
