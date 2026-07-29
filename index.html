@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V54 plans pleine surface</title>
+<title>RML PLIAGE ALU — V55 flèche couleur interactive</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -6031,6 +6031,7 @@ if(quotePdfBtn){
 <!-- ===== V52 : ÉCHELLE IDENTIQUE POUR LES 3 PIÈCES + DIMENSIONS AGRANDIES ET LISIBLES ===== -->
 <!-- ===== V53 : PLIS ARRONDIS SUR PLAN D'EXÉCUTION + FLÈCHE CÔTÉ COULEUR PAR PIÈCE ===== -->
 <!-- ===== V54 : CHAQUE PIÈCE OCCUPE AU MAXIMUM SON ENCADRÉ D'IMPRESSION ===== -->
+<!-- ===== V55 : FLÈCHE COULEUR PLACÉE DIRECTEMENT SUR LE DESSIN ET DÉCALÉE HORS DES COTES ===== -->
 <style>
 #rmlFabModal{
   position:fixed;inset:0;z-index:100000;display:none;background:rgba(15,32,48,.72);
@@ -6056,7 +6057,7 @@ if(quotePdfBtn){
   gap:10px;align-items:center;padding:12px;border:1px solid #dbe4ec;border-radius:12px;background:#fff
 }
 .rml-fab-row.no-plan{opacity:.55;background:#f5f7f9}
-.rml-fab-row input[type="text"],.rml-fab-row input[type="number"],.rml-fab-row select{
+.rml-fab-row input[type="text"],.rml-fab-row input[type="number"]{
   width:100%;box-sizing:border-box;border:1px solid #c9d5df;border-radius:9px;padding:9px 10px;font:inherit;background:#fff
 }
 .rml-fab-meta{font-size:12px;color:#607284;line-height:1.35}
@@ -6075,11 +6076,47 @@ if(quotePdfBtn){
 #rmlFabSelectAllBtn{background:#17324a;color:#fff}
 #rmlFabOpenBtn{background:#17324a;color:#fff;margin-left:0}
 #rmlFabEmpty{padding:28px;text-align:center;border:1px dashed #b9c8d5;border-radius:12px;color:#607284}
+.rml-arrow-place{
+  width:100%;min-height:38px;border:0;border-radius:9px;padding:8px 10px;
+  background:#eaf2ff;color:#0f62fe;font-weight:800;cursor:pointer
+}
+.rml-arrow-place.active{background:#fff0f0;color:#b42318}
+#rmlArrowEditor{
+  position:fixed;inset:0;z-index:100010;display:none;background:rgba(15,32,48,.82);
+  padding:18px;box-sizing:border-box;overflow:auto
+}
+#rmlArrowEditor.open{display:flex;align-items:flex-start;justify-content:center}
+#rmlArrowPanel{
+  width:min(980px,100%);margin:24px auto;background:#fff;border-radius:16px;
+  overflow:hidden;box-shadow:0 22px 70px rgba(0,0,0,.34)
+}
+#rmlArrowHead{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 16px;background:#f7fafc;border-bottom:1px solid #d8e1ea
+}
+#rmlArrowHead h3{margin:0;color:#17324a;font-size:18px}
+#rmlArrowHelp{padding:10px 16px;margin:0;color:#53677a;background:#fbfdff}
+#rmlArrowCanvasWrap{padding:14px}
+#rmlArrowCanvas{
+  display:block;width:100%;height:auto;border:1px solid #cbd7e1;border-radius:12px;
+  background:#fff;cursor:crosshair;touch-action:none
+}
+#rmlArrowActions{
+  display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;
+  padding:12px 16px;background:#f7fafc;border-top:1px solid #d8e1ea
+}
+#rmlArrowActions button{
+  border:0;border-radius:10px;padding:10px 15px;font-weight:800;cursor:pointer
+}
+#rmlArrowClear{background:#fff0f0;color:#b42318}
+#rmlArrowDone{background:#0f62fe;color:#fff}
+#rmlArrowCancel{background:#e9eef3;color:#17324a}
 @media(max-width:760px){
   #rmlFabModal{padding:0}
   #rmlFabPanel{min-height:100%;border-radius:0}
   .rml-fab-row{grid-template-columns:auto 1fr 84px}
   .rml-fab-meta{grid-column:2/-1}
+  .rml-arrow-place{grid-column:2/-1}
   .rml-fab-tools{grid-column:2/-1}
 }
 </style>
@@ -6102,10 +6139,33 @@ if(quotePdfBtn){
   </div>
 </div>
 
+<div id="rmlArrowEditor" aria-hidden="true">
+  <div id="rmlArrowPanel" role="dialog" aria-modal="true" aria-labelledby="rmlArrowTitle">
+    <div id="rmlArrowHead">
+      <h3 id="rmlArrowTitle">Placer la flèche du côté couleur</h3>
+      <button type="button" id="rmlArrowCancelTop">Fermer</button>
+    </div>
+    <p id="rmlArrowHelp">Touchez directement le côté couleur sur le dessin. La flèche se place automatiquement à l’extérieur et suffisamment loin des dimensions.</p>
+    <div id="rmlArrowCanvasWrap">
+      <svg id="rmlArrowCanvas" viewBox="0 0 900 360" role="img" aria-label="Sélection du côté couleur"></svg>
+    </div>
+    <div id="rmlArrowActions">
+      <button type="button" id="rmlArrowClear">Supprimer la flèche</button>
+      <button type="button" id="rmlArrowCancel">Annuler</button>
+      <button type="button" id="rmlArrowDone">Valider</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   const modal=document.getElementById("rmlFabModal");
   const list=document.getElementById("rmlFabList");
+  const arrowEditor=document.getElementById("rmlArrowEditor");
+  const arrowCanvas=document.getElementById("rmlArrowCanvas");
+  let arrowPiece=null;
+  let arrowPieceIndex=-1;
+  let arrowDraft=null;
   if(!modal||!list)return;
 
   function esc(value){
@@ -6154,13 +6214,9 @@ if(quotePdfBtn){
           <div class="rml-fab-meta">${hasPlan?`${developed||"—"} mm développé · ${lengthMm||"—"} mm de longueur · ${piece?.bendProfile?.profile?.angles?.length||0} pli(s)`:"Aucun dessin mémorisé pour cette ligne"}</div>
         </div>
         <input type="number" min="1" step="1" data-role="qty" value="${Math.max(1,Number(piece.qty)||1)}" aria-label="Quantité">
-        <select data-role="color-side" aria-label="Flèche côté couleur">
-          <option value="" ${!piece.colorArrow?"selected":""}>Sans flèche</option>
-          <option value="up" ${piece.colorArrow==="up"?"selected":""}>Couleur ↑</option>
-          <option value="down" ${piece.colorArrow==="down"?"selected":""}>Couleur ↓</option>
-          <option value="left" ${piece.colorArrow==="left"?"selected":""}>Couleur ←</option>
-          <option value="right" ${piece.colorArrow==="right"?"selected":""}>Couleur →</option>
-        </select>
+        <button type="button" data-role="color-place" class="rml-arrow-place ${piece.colorArrowPoint?"active":""}" ${hasPlan?"":"disabled"}>
+          ${piece.colorArrowPoint?"Modifier flèche":"Placer flèche"}
+        </button>
         <div class="rml-fab-meta">${hasPlan?"Plan 2D prêt":"Non imprimable"}</div>
         <div class="rml-fab-tools">
           <button type="button" data-role="up" title="Monter">↑</button>
@@ -6169,7 +6225,7 @@ if(quotePdfBtn){
       row.querySelector('[data-role="select"]')?.addEventListener("change",e=>{piece.planSelected=e.target.checked;persist()});
       row.querySelector('[data-role="name"]')?.addEventListener("input",e=>{piece.planName=e.target.value;persist()});
       row.querySelector('[data-role="qty"]')?.addEventListener("input",e=>{piece.qty=Math.max(1,Number(e.target.value)||1);persist()});
-      row.querySelector('[data-role="color-side"]')?.addEventListener("change",e=>{piece.colorArrow=e.target.value;persist()});
+      row.querySelector('[data-role="color-place"]')?.addEventListener("click",()=>openArrowEditor(piece,index));
       row.querySelector('[data-role="up"]')?.addEventListener("click",()=>{
         if(index<=0)return;
         [arr[index-1],arr[index]]=[arr[index],arr[index-1]];
@@ -6217,6 +6273,138 @@ if(quotePdfBtn){
     return pts;
   }
 
+
+  function arrowPreviewGeometry(piece){
+    const profile=piece.bendProfile.profile;
+    const raw=buildPoints(profile);
+    const W=900,H=360,pad=70;
+    const xs=raw.map(p=>p.x),ys=raw.map(p=>p.y);
+    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const profileW=Math.max(1,maxX-minX),profileH=Math.max(1,maxY-minY);
+    const scale=Math.min((W-pad*2)/profileW,(H-pad*2)/profileH);
+    const renderedW=profileW*scale,renderedH=profileH*scale;
+    const ox=(W-renderedW)/2-minX*scale;
+    const oy=(H-renderedH)/2-minY*scale;
+    const pts=raw.map(p=>({x:p.x*scale+ox,y:p.y*scale+oy}));
+    return {
+      profile,pts,W,H,
+      minX:Math.min(...pts.map(p=>p.x)),maxX:Math.max(...pts.map(p=>p.x)),
+      minY:Math.min(...pts.map(p=>p.y)),maxY:Math.max(...pts.map(p=>p.y))
+    };
+  }
+
+  function arrowPlacementFromClick(geom,x,y){
+    const dTop=Math.abs(y-geom.minY);
+    const dBottom=Math.abs(y-geom.maxY);
+    const dLeft=Math.abs(x-geom.minX);
+    const dRight=Math.abs(x-geom.maxX);
+    const best=Math.min(dTop,dBottom,dLeft,dRight);
+    let side="top",t=.5;
+    if(best===dTop){side="top";t=(x-geom.minX)/Math.max(1,geom.maxX-geom.minX)}
+    else if(best===dBottom){side="bottom";t=(x-geom.minX)/Math.max(1,geom.maxX-geom.minX)}
+    else if(best===dLeft){side="left";t=(y-geom.minY)/Math.max(1,geom.maxY-geom.minY)}
+    else {side="right";t=(y-geom.minY)/Math.max(1,geom.maxY-geom.minY)}
+    return {side,t:Math.max(.08,Math.min(.92,t))};
+  }
+
+  function arrowMarkupFromPlacement(placement,geom,preview){
+    if(!placement)return "";
+    const gap=preview?58:46;
+    const len=preview?34:28;
+    let ex,ey,sx,sy,labelX,labelY;
+    const t=placement.t??.5;
+    if(placement.side==="top"){
+      ex=geom.minX+(geom.maxX-geom.minX)*t;ey=geom.minY-gap+len;
+      sx=ex;sy=geom.minY-gap;labelX=sx;labelY=sy-10;
+    }else if(placement.side==="bottom"){
+      ex=geom.minX+(geom.maxX-geom.minX)*t;ey=geom.maxY+gap-len;
+      sx=ex;sy=geom.maxY+gap;labelX=sx;labelY=sy+18;
+    }else if(placement.side==="left"){
+      ex=geom.minX-gap+len;ey=geom.minY+(geom.maxY-geom.minY)*t;
+      sx=geom.minX-gap;sy=ey;labelX=sx-4;labelY=sy-12;
+    }else{
+      ex=geom.maxX+gap-len;ey=geom.minY+(geom.maxY-geom.minY)*t;
+      sx=geom.maxX+gap;sy=ey;labelX=sx+4;labelY=sy-12;
+    }
+    const angle=Math.atan2(ey-sy,ex-sx);
+    const size=preview?9:7;
+    const ax1=ex-Math.cos(angle-.55)*size,ay1=ey-Math.sin(angle-.55)*size;
+    const ax2=ex-Math.cos(angle+.55)*size,ay2=ey-Math.sin(angle+.55)*size;
+    return `<g class="color-arrow">
+      <line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"/>
+      <path d="M ${ax1.toFixed(1)} ${ay1.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)} L ${ax2.toFixed(1)} ${ay2.toFixed(1)}"/>
+      <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">COULEUR</text>
+    </g>`;
+  }
+
+  function renderArrowEditor(){
+    if(!arrowPiece||!arrowCanvas)return;
+    const geom=arrowPreviewGeometry(arrowPiece);
+    const profilePath=roundedProfilePath(geom.pts,geom.profile);
+    arrowCanvas.innerHTML=`
+      <style>
+        .editor-profile{fill:none;stroke:#17324a;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+        .editor-zone{fill:none;stroke:#d8e1ea;stroke-width:1;stroke-dasharray:6 6}
+        .color-arrow line,.color-arrow path{fill:none;stroke:#d62828;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+        .color-arrow text{font:800 14px Arial,sans-serif;fill:#d62828}
+      </style>
+      <rect x="${geom.minX-48}" y="${geom.minY-48}" width="${geom.maxX-geom.minX+96}" height="${geom.maxY-geom.minY+96}" rx="12" class="editor-zone"/>
+      <path d="${profilePath}" class="editor-profile"/>
+      ${arrowMarkupFromPlacement(arrowDraft,geom,true)}
+    `;
+    arrowCanvas._rmlGeom=geom;
+  }
+
+  function openArrowEditor(piece,index){
+    arrowPiece=piece;
+    arrowPieceIndex=index;
+    arrowDraft=piece.colorArrowPoint?deepCopy(piece.colorArrowPoint):null;
+    renderArrowEditor();
+    arrowEditor.classList.add("open");
+    arrowEditor.setAttribute("aria-hidden","false");
+  }
+
+  function closeArrowEditor(){
+    arrowEditor.classList.remove("open");
+    arrowEditor.setAttribute("aria-hidden","true");
+    arrowPiece=null;arrowPieceIndex=-1;arrowDraft=null;
+  }
+
+  function arrowCanvasPoint(evt){
+    const rect=arrowCanvas.getBoundingClientRect();
+    const touch=evt.touches?.[0]||evt.changedTouches?.[0];
+    const clientX=touch?touch.clientX:evt.clientX;
+    const clientY=touch?touch.clientY:evt.clientY;
+    return {
+      x:(clientX-rect.left)*900/rect.width,
+      y:(clientY-rect.top)*360/rect.height
+    };
+  }
+
+  if(arrowCanvas){
+    const chooseArrow=e=>{
+      e.preventDefault();
+      if(!arrowCanvas._rmlGeom)return;
+      const p=arrowCanvasPoint(e);
+      arrowDraft=arrowPlacementFromClick(arrowCanvas._rmlGeom,p.x,p.y);
+      renderArrowEditor();
+    };
+    arrowCanvas.addEventListener("click",chooseArrow);
+    arrowCanvas.addEventListener("touchend",chooseArrow,{passive:false});
+  }
+  document.getElementById("rmlArrowClear")?.addEventListener("click",()=>{arrowDraft=null;renderArrowEditor()});
+  document.getElementById("rmlArrowDone")?.addEventListener("click",()=>{
+    if(arrowPiece){
+      arrowPiece.colorArrowPoint=arrowDraft?deepCopy(arrowDraft):null;
+      delete arrowPiece.colorArrow;
+      persist();renderList();
+    }
+    closeArrowEditor();
+  });
+  document.getElementById("rmlArrowCancel")?.addEventListener("click",closeArrowEditor);
+  document.getElementById("rmlArrowCancelTop")?.addEventListener("click",closeArrowEditor);
+  arrowEditor?.addEventListener("click",e=>{if(e.target===arrowEditor)closeArrowEditor()});
+
   function distPointSegment(px,py,a,b){
     const vx=b.x-a.x,vy=b.y-a.y,l2=vx*vx+vy*vy||1;
     const t=Math.max(0,Math.min(1,((px-a.x)*vx+(py-a.y)*vy)/l2));
@@ -6255,30 +6443,15 @@ if(quotePdfBtn){
   }
 
   function colorArrowSvg(piece,pts,drawW,H){
-    const dir=piece.colorArrow;
-    if(!dir)return "";
-    const minX=Math.min(...pts.map(p=>p.x)),maxX=Math.max(...pts.map(p=>p.x));
-    const minY=Math.min(...pts.map(p=>p.y)),maxY=Math.max(...pts.map(p=>p.y));
-    const cx=Math.max(32,Math.min(drawW-32,(minX+maxX)/2));
-    const cy=Math.max(28,Math.min(H-28,(minY+maxY)/2));
-    const vectors={
-      up:{dx:0,dy:-1,label:"↑"},
-      down:{dx:0,dy:1,label:"↓"},
-      left:{dx:-1,dy:0,label:"←"},
-      right:{dx:1,dy:0,label:"→"}
+    const placement=piece.colorArrowPoint;
+    if(!placement)return "";
+    const geom={
+      minX:Math.min(...pts.map(p=>p.x)),
+      maxX:Math.max(...pts.map(p=>p.x)),
+      minY:Math.min(...pts.map(p=>p.y)),
+      maxY:Math.max(...pts.map(p=>p.y))
     };
-    const v=vectors[dir]||vectors.up;
-    const sx=cx-v.dx*34,sy=cy-v.dy*34;
-    const ex=cx-v.dx*10,ey=cy-v.dy*10;
-    const angle=Math.atan2(ey-sy,ex-sx);
-    const size=7;
-    const ax1=ex-Math.cos(angle-.55)*size, ay1=ey-Math.sin(angle-.55)*size;
-    const ax2=ex-Math.cos(angle+.55)*size, ay2=ey-Math.sin(angle+.55)*size;
-    return `<g class="color-arrow">
-      <line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"/>
-      <path d="M ${ax1.toFixed(1)} ${ay1.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)} L ${ax2.toFixed(1)} ${ay2.toFixed(1)}"/>
-      <text x="${(sx-4).toFixed(1)}" y="${(sy-8).toFixed(1)}">COULEUR</text>
-    </g>`;
+    return arrowMarkupFromPlacement(placement,geom,false);
   }
 
   function svgForPiece(piece,index,commonScale){
