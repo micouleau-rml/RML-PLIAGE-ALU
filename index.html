@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V57 aperçu fabrication et plis écrasés</title>
+<title>RML PLIAGE ALU — V58 plans de fabrication optimisés</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1576,7 +1576,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal .bend-table input[data-role="angle"]:disabled{background:#fff7ed!important;color:#9a3412!important;border-color:#fdba74!important;font-weight:800!important}
 </style> 
   <!-- V38 : calcul sur prépli 55°, affichage final avec retour strictement parallèle et petit rayon en 2D/3D -->
-<!-- V57 : aperçu avant impression, cadrage élargi et représentation des plis écrasés dans le dossier de fabrication -->
+<!-- V58 : plis écrasés parallèles, cotes anti-chevauchement, légende élargie et commandes d’aperçu en haut -->
 </head>
 <body>
 <div class="container">
@@ -2434,6 +2434,7 @@ function generatePdfDocument(type){
   Retour à l'application
 </button>
 </div>
+<!-- V58 validée : corrections plans de fabrication -->
 </body>
 </html>`;
 
@@ -3026,6 +3027,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
     <button onclick="window.close()">Retour à l'application</button>
   </div>
 </div>
+<!-- V58 validée : corrections plans de fabrication -->
 </body>
 </html>`;
 
@@ -6516,10 +6518,11 @@ if(quotePdfBtn){
     const profile=bp.profile;
     const originalRaw=buildPoints(profile);
 
-    const W=920,H=245;
-    const infoW=112;
-    const drawW=W-infoW-18;
-    const printPad=30;
+    const W=980,H=245;
+    const infoW=198;
+    const infoGap=24;
+    const drawW=W-infoW-infoGap;
+    const printPad=36;
 
     // V56 : le segment possédant la plus grande dimension est toujours horizontal.
     let longestIndex=0;
@@ -6582,10 +6585,10 @@ if(quotePdfBtn){
       const dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dx,dy)||1;
       const nx=-dy/L,ny=dx/L;
       const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
-      const off=22;
+      const dimensionValue=`${Number(profile.lengths[i]||0).toLocaleString("fr-FR",{maximumFractionDigits:1})} mm`;
 
-      const clear=sign=>{
-        const px=mx+nx*off*sign,py=my+ny*off*sign;
+      const clear=(sign,offset)=>{
+        const px=mx+nx*offset*sign,py=my+ny*offset*sign;
         let d=Infinity;
         for(let j=0;j<pts.length-1;j++){
           if(j!==i)d=Math.min(d,distPointSegment(px,py,pts[j],pts[j+1]));
@@ -6593,7 +6596,8 @@ if(quotePdfBtn){
         return d;
       };
 
-      const cp=clear(1),cm=clear(-1);
+      const baseOff=22;
+      const cp=clear(1,baseOff),cm=clear(-1,baseOff);
       let sign;
       if(Math.abs(cp-cm)>1)sign=cp>cm?1:-1;
       else sign=((center.x-mx)*nx+(center.y-my)*ny)>=0?-1:1;
@@ -6601,12 +6605,28 @@ if(quotePdfBtn){
       let ang=Math.atan2(dy,dx)*180/Math.PI;
       if(ang>90||ang<-90)ang+=180;
 
+      // V58 : conserve le placement naturel des cotes, mais décale uniquement
+      // celles dont les libellés seraient trop proches d'une cote déjà placée.
+      let off=baseOff;
+      const estimatedRadius=Math.max(34,dimensionValue.length*5.2);
+      for(let level=0;level<4;level++){
+        const candidateX=mx+nx*off*sign;
+        const candidateY=my+ny*off*sign;
+        const collision=dims.some(previous=>{
+          const required=estimatedRadius+(previous.labelRadius||34)-16;
+          return Math.hypot(candidateX-previous.x,candidateY-previous.y)<required;
+        });
+        if(!collision)break;
+        off+=14;
+      }
+
       dims.push({
         x:mx+nx*off*sign,
         y:my+ny*off*sign,
         ang,
         num:i+1,
-        value:`${Number(profile.lengths[i]||0).toLocaleString("fr-FR",{maximumFractionDigits:1})} mm`
+        value:dimensionValue,
+        labelRadius:estimatedRadius
       });
     }
 
@@ -6621,14 +6641,32 @@ if(quotePdfBtn){
       if(bl<.001){bx=-v1.y/l1;by=v1.x/l1;bl=1}
       bx/=bl;by/=bl;
       const inward=((center.x-p.x)*bx+(center.y-p.y)*by)>=0?1:-1;
+      const hem=!!profile.hemmed?.[i-1];
+      const hemArc=displayGeometry.hems.get(i);
+      let markerX=p.x+bx*18*inward;
+      let markerY=p.y+by*18*inward;
+
+      // V58 : sur un pli écrasé, le repère est placé juste à côté du demi-cercle
+      // au lieu d'être repoussé par la bissectrice de deux segments opposés.
+      if(hem && hemArc){
+        const arcMidX=(hemArc.start.x+hemArc.end.x)/2;
+        const arcMidY=(hemArc.start.y+hemArc.end.y)/2;
+        const incomingX=p.x-p0.x, incomingY=p.y-p0.y;
+        const incomingL=Math.hypot(incomingX,incomingY)||1;
+        markerX=arcMidX-(incomingX/incomingL)*11;
+        markerY=arcMidY-(incomingY/incomingL)*11;
+      }
+
       bends.push({
-        x:p.x+bx*18*inward,
-        y:p.y+by*18*inward,
+        x:markerX,
+        y:markerY,
         letter:String.fromCharCode(64+i)
       });
     }
 
-    const profilePath=roundedProfilePath(pts,profile);
+    // V58 : le chemin est construit une seule fois depuis les points de base.
+    // Cela évite de translater deux fois le retour du pli écrasé.
+    const profilePath=roundedProfilePath(basePts,profile);
 
     // La flèche couleur suit exactement la rotation appliquée à la pièce.
     let colorArrow="";
@@ -6688,7 +6726,7 @@ if(quotePdfBtn){
 
     const angleLines=(profile.angles||[]).map((a,i)=>{
       const hem=!!profile.hemmed?.[i];
-      return `<text x="${drawW+24}" y="${76+i*18}" class="info">${String.fromCharCode(65+i)} = ${hem?"ÉCRASÉ — prépli 55°":`${Number(a).toLocaleString("fr-FR",{maximumFractionDigits:1})}°`}</text>`;
+      return `<text x="${drawW+30}" y="${76+i*18}" class="info">${String.fromCharCode(65+i)} = ${hem?"ÉCRASÉ — prépli 55°":`${Number(a).toLocaleString("fr-FR",{maximumFractionDigits:1})}°`}</text>`;
     }).join("");
 
     const name=piece.planName||`Pièce ${index+1}`;
@@ -6714,12 +6752,12 @@ if(quotePdfBtn){
         <path d="${profilePath}" class="profile"/>
         ${colorArrow}
         ${dimSvg}${bendSvg}
-        <line x1="${drawW+10}" y1="20" x2="${drawW+10}" y2="${H-20}" stroke="#c7d2dc"/>
-        <text x="${drawW+24}" y="38" class="info-title">ANGLES</text>
+        <line x1="${drawW+12}" y1="20" x2="${drawW+12}" y2="${H-20}" stroke="#c7d2dc"/>
+        <text x="${drawW+30}" y="38" class="info-title">ANGLES</text>
         ${angleLines}
-        <text x="${drawW+24}" y="${H-55}" class="info">Longueur : ${lengthMm.toLocaleString("fr-FR")} mm</text>
-        <text x="${drawW+24}" y="${H-37}" class="info">Développé : ${developed.toLocaleString("fr-FR")} mm</text>
-        <text x="${drawW+24}" y="${H-19}" class="info">${esc(material)} · ${esc(thickness)} mm</text>
+        <text x="${drawW+30}" y="${H-55}" class="info">Longueur : ${lengthMm.toLocaleString("fr-FR")} mm</text>
+        <text x="${drawW+30}" y="${H-37}" class="info">Développé : ${developed.toLocaleString("fr-FR")} mm</text>
+        <text x="${drawW+30}" y="${H-19}" class="info">${esc(material)} · ${esc(thickness)} mm</text>
       </svg>
     </section>`;
   }
@@ -6745,13 +6783,13 @@ if(quotePdfBtn){
         @page{size:A4 portrait;margin:7mm}
         *{box-sizing:border-box}
         html,body{margin:0;padding:0;font-family:Arial,sans-serif;color:#111;background:#eef2f6}
-        body{padding:14px 14px 82px 28px}
+        body{padding:82px 14px 14px 28px}
         .page{width:196mm;height:283mm;margin:0 auto 14px;background:#fff;display:grid;grid-template-rows:repeat(3,1fr);gap:3mm;page-break-after:always}
         .page:last-child{page-break-after:auto}
         .plan{border:1px solid #9eacb8;border-radius:3mm;overflow:hidden;min-height:0;display:flex;flex-direction:column}
         .plan-head{height:9mm;padding:1.8mm 3mm;display:flex;justify-content:space-between;align-items:center;background:#eef3f7;border-bottom:1px solid #c8d3dc;font-size:12pt}
         .plan svg{display:block;width:100%;height:calc(100% - 9mm)}
-        .screen-actions{position:fixed;right:18px;bottom:16px;display:flex;gap:8px;padding:9px;background:rgba(255,255,255,.96);border:1px solid #cbd5df;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.16)}
+        .screen-actions{position:fixed;right:18px;top:16px;bottom:auto;display:flex;gap:8px;padding:9px;background:rgba(255,255,255,.96);border:1px solid #cbd5df;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.16)}
         .screen-actions button{border:0;border-radius:9px;padding:11px 15px;font-weight:800;cursor:pointer}
         .screen-actions button:first-child{background:#0f62fe;color:#fff}.screen-actions button:last-child{background:#e8edf2;color:#17324a}
         @media print{
@@ -6780,5 +6818,6 @@ if(quotePdfBtn){
   window.RML_OPEN_FABRICATION_FOLDER=openModal;
 })();
 </script>
+<!-- V58 validée : corrections plans de fabrication -->
 </body>
 </html>
