@@ -6712,8 +6712,10 @@ if(quotePdfBtn){
     // V68.1 : les profils occupent davantage l'encart. L'algorithme de placement
     // des cotes conserve ensuite leur décalage extérieur et les éloigne seulement
     // lorsqu'une collision réelle est détectée.
-    const annotationMarginX=64;
-    const annotationMarginY=42;
+    // V68.3 : exploitation renforcée de l'encart pour améliorer la lecture à
+    // l'atelier. Les petites pièces gagnent environ 20 à 30 % selon leur forme.
+    const annotationMarginX=46;
+    const annotationMarginY=28;
 
     // V56 : le segment possédant la plus grande dimension est toujours horizontal.
     let longestIndex=0;
