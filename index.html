@@ -6746,24 +6746,12 @@ if(quotePdfBtn){
 
       const numericLength=Number(profile.lengths[i]||0);
       const isVeryShortDimension=numericLength<=32;
-      const baseOff=isVeryShortDimension?12:22;
-      const cp=clear(1,baseOff),cm=clear(-1,baseOff);
+      const baseOff=isVeryShortDimension?28:30;
       const towardCenter=((center.x-mx)*nx+(center.y-my)*ny)>=0?1:-1;
-      let sign;
 
-      // V64 : pour une petite aile, la cote est d’abord placée côté intérieur, sans empiéter sur la cote voisine.
-      // Elle ne sort de la pièce que si cet emplacement est réellement encombré.
-      if(isVeryShortDimension){
-        const insideClearance=towardCenter===1?cp:cm;
-        const outsideClearance=towardCenter===1?cm:cp;
-        sign=insideClearance>=9 || insideClearance>=outsideClearance-2
-          ? towardCenter
-          : -towardCenter;
-      }else if(Math.abs(cp-cm)>1){
-        sign=cp>cm?1:-1;
-      }else{
-        sign=-towardCenter;
-      }
+      // V65 : toutes les cotes sont obligatoirement à l'extérieur de la pièce.
+      // Le centre du profil sert uniquement à choisir le côté opposé.
+      const sign=-towardCenter;
 
       let ang=Math.atan2(dy,dx)*180/Math.PI;
       if(ang>90||ang<-90)ang+=180;
@@ -6792,24 +6780,16 @@ if(quotePdfBtn){
       let dimX=mx+nx*off*sign;
       let dimY=my+ny*off*sign;
 
-      // V59 : une petite aile verticale (ex. 40 mm) reste proche de son segment
-      // et sa cote est remontée vers l'extrémité haute pour libérer la cote courte.
-      const isShortVertical=numericLength>=33 && numericLength<=60 && Math.abs(dy)>Math.abs(dx)*1.5;
-      if(isShortVertical){
-        off=13;
-        dimX=mx+nx*off*sign;
-        dimY=my+ny*off*sign;
-        const upper=b.y<a.y?b:a;
-        dimY+=(upper.y-my)*0.36;
-      }
-
       dims.push({
         x:dimX,
         y:dimY,
         ang,
         num:i+1,
         value:dimensionValue,
-        labelRadius:estimatedRadius
+        labelRadius:estimatedRadius,
+        a:{x:a.x,y:a.y},
+        b:{x:b.x,y:b.y},
+        nx,ny,sign,off
       });
     }
 
@@ -6846,9 +6826,8 @@ if(quotePdfBtn){
       const angleValue=Math.abs(Number(profile.angles?.[i-1])||90);
       const hemArc=displayGeometry.hems.get(i);
 
-      // V64 : le vecteur bisecteur local désigne directement l’intérieur géométrique
-      // du pli. On n’utilise plus le centre global de la pièce, qui inversait les
-      // repères situés aux extrémités (A et D).
+      // V65 : le repère d'un pli ordinaire reste côté intérieur.
+      // Seul un pli écrasé est recherché en priorité à l'extérieur.
       let insideVector={x:bx,y:by};
       let outsideVector={x:-bx,y:-by};
       let origin={x:p.x,y:p.y};
@@ -6869,21 +6848,17 @@ if(quotePdfBtn){
         y:origin.y+vector.y*distance
       }));
 
-      // V64 : tous les repères ordinaires restent presque contre le sommet,
-      // côté intérieur. Un pli écrasé garde une recherche extérieure prioritaire.
       if(hem){
-        addCandidates(outsideVector,[8,11,15,20,27]);
-        addCandidates(insideVector,[8,11,15]);
+        addCandidates(outsideVector,[10,14,18,24,30]);
+        addCandidates(insideVector,[10,14]);
       }else{
-        addCandidates(insideVector,[7,9,12,16,21]);
-        addCandidates(outsideVector,[9,13,18,25]);
+        addCandidates(insideVector,[10,13,16,20,25]);
       }
 
       let chosen=candidates.find(candidate=>angleMarkerIsFree(candidate.x,candidate.y,i));
       if(!chosen){
-        // Ne jamais expulser arbitrairement A ou D : on garde le premier point
-        // intérieur, légèrement rapproché, même si l’espace est serré.
-        chosen={x:origin.x+insideVector.x*8,y:origin.y+insideVector.y*8};
+        const preferred=hem?outsideVector:insideVector;
+        chosen={x:origin.x+preferred.x*12,y:origin.y+preferred.y*12};
       }
 
       bends.push({
@@ -6956,7 +6931,28 @@ if(quotePdfBtn){
       </g>`;
     }
 
-    const dimSvg=dims.map(d=>`<g transform="translate(${d.x.toFixed(1)} ${d.y.toFixed(1)}) rotate(${d.ang.toFixed(1)})"><circle cx="-30" cy="0" r="7.5" fill="#111"/><text x="-30" y="3.2" text-anchor="middle" class="num">${d.num}</text><text x="-18" y="5" class="dim">${esc(d.value)}</text></g>`).join("");
+    const dimSvg=dims.map(d=>{
+      const ox=d.nx*d.off*d.sign,oy=d.ny*d.off*d.sign;
+      const a2={x:d.a.x+ox,y:d.a.y+oy};
+      const b2={x:d.b.x+ox,y:d.b.y+oy};
+      const ux=(d.b.x-d.a.x)/(Math.hypot(d.b.x-d.a.x,d.b.y-d.a.y)||1);
+      const uy=(d.b.y-d.a.y)/(Math.hypot(d.b.x-d.a.x,d.b.y-d.a.y)||1);
+      const arrow=6;
+      const aHead1={x:a2.x+ux*arrow+d.nx*3*d.sign,y:a2.y+uy*arrow+d.ny*3*d.sign};
+      const aHead2={x:a2.x+ux*arrow-d.nx*3*d.sign,y:a2.y+uy*arrow-d.ny*3*d.sign};
+      const bHead1={x:b2.x-ux*arrow+d.nx*3*d.sign,y:b2.y-uy*arrow+d.ny*3*d.sign};
+      const bHead2={x:b2.x-ux*arrow-d.nx*3*d.sign,y:b2.y-uy*arrow-d.ny*3*d.sign};
+      return `<g class="dimension-line">
+        <line x1="${d.a.x.toFixed(1)}" y1="${d.a.y.toFixed(1)}" x2="${a2.x.toFixed(1)}" y2="${a2.y.toFixed(1)}"/>
+        <line x1="${d.b.x.toFixed(1)}" y1="${d.b.y.toFixed(1)}" x2="${b2.x.toFixed(1)}" y2="${b2.y.toFixed(1)}"/>
+        <line x1="${a2.x.toFixed(1)}" y1="${a2.y.toFixed(1)}" x2="${b2.x.toFixed(1)}" y2="${b2.y.toFixed(1)}"/>
+        <path d="M ${aHead1.x.toFixed(1)} ${aHead1.y.toFixed(1)} L ${a2.x.toFixed(1)} ${a2.y.toFixed(1)} L ${aHead2.x.toFixed(1)} ${aHead2.y.toFixed(1)}"/>
+        <path d="M ${bHead1.x.toFixed(1)} ${bHead1.y.toFixed(1)} L ${b2.x.toFixed(1)} ${b2.y.toFixed(1)} L ${bHead2.x.toFixed(1)} ${bHead2.y.toFixed(1)}"/>
+        <g transform="translate(${d.x.toFixed(1)} ${d.y.toFixed(1)}) rotate(${d.ang.toFixed(1)})">
+          <circle cx="-30" cy="0" r="7.5" fill="#111"/><text x="-30" y="3.2" text-anchor="middle" class="num">${d.num}</text><text x="-18" y="5" class="dim">${esc(d.value)}</text>
+        </g>
+      </g>`;
+    }).join("");
 
     const bendSvg=bends.map(b=>`<g><circle cx="${b.x.toFixed(1)}" cy="${b.y.toFixed(1)}" r="7.5" fill="#fff" stroke="#0f62fe" stroke-width="2"/><text x="${b.x.toFixed(1)}" y="${(b.y+3.2).toFixed(1)}" text-anchor="middle" class="angle-letter">${b.letter}</text></g>`).join("");
 
@@ -6980,6 +6976,7 @@ if(quotePdfBtn){
           .color-arrow line,.color-arrow path{fill:none;stroke:#d62828;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
           .color-arrow text{font:800 10px Arial,sans-serif;fill:#d62828}
           .dim{font:800 18px Arial,sans-serif;fill:#111;paint-order:stroke;stroke:#fff;stroke-width:5px}
+          .dimension-line line,.dimension-line path{fill:none;stroke:#111;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
           .num{font:800 9px Arial,sans-serif;fill:#fff}
           .angle-letter{font:800 9px Arial,sans-serif;fill:#0f62fe}
           .info{font:700 12px Arial,sans-serif;fill:#17324a}
