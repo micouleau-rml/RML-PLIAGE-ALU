@@ -6751,7 +6751,7 @@ if(quotePdfBtn){
       const towardCenter=((center.x-mx)*nx+(center.y-my)*ny)>=0?1:-1;
       let sign;
 
-      // V63 : pour une petite aile, la cote est d’abord placée côté intérieur.
+      // V64 : pour une petite aile, la cote est d’abord placée côté intérieur, sans empiéter sur la cote voisine.
       // Elle ne sort de la pièce que si cet emplacement est réellement encombré.
       if(isVeryShortDimension){
         const insideClearance=towardCenter===1?cp:cm;
@@ -6777,12 +6777,12 @@ if(quotePdfBtn){
 
       // Placement standard anti-chevauchement.
       let off=baseOff;
-      const estimatedRadius=Math.max(34,dimensionValue.length*5.2);
+      const estimatedRadius=Math.max(25,dimensionValue.length*4.2);
       for(let level=0;level<4;level++){
         const candidateX=mx+nx*off*sign;
         const candidateY=my+ny*off*sign;
         const collision=dims.some(previous=>{
-          const required=estimatedRadius+(previous.labelRadius||34)-16;
+          const required=estimatedRadius+(previous.labelRadius||25)-12;
           return Math.hypot(candidateX-previous.x,candidateY-previous.y)<required;
         });
         if(!collision)break;
@@ -6842,17 +6842,15 @@ if(quotePdfBtn){
       let bl=Math.hypot(bx,by);
       if(bl<.001){bx=-v1.y/l1;by=v1.x/l1;bl=1}
       bx/=bl;by/=bl;
-      const inward=((center.x-p.x)*bx+(center.y-p.y)*by)>=0?1:-1;
       const hem=!!profile.hemmed?.[i-1];
       const angleValue=Math.abs(Number(profile.angles?.[i-1])||90);
-      const veryClosed=angleValue<=55;
-      // V63 : même un angle fermé reste prioritairement repéré à l’intérieur.
-      // Seul un pli écrasé impose une recherche extérieure en premier.
-      const preferOutside=hem;
       const hemArc=displayGeometry.hems.get(i);
 
-      let insideVector={x:bx*inward,y:by*inward};
-      let outsideVector={x:-insideVector.x,y:-insideVector.y};
+      // V64 : le vecteur bisecteur local désigne directement l’intérieur géométrique
+      // du pli. On n’utilise plus le centre global de la pièce, qui inversait les
+      // repères situés aux extrémités (A et D).
+      let insideVector={x:bx,y:by};
+      let outsideVector={x:-bx,y:-by};
       let origin={x:p.x,y:p.y};
 
       if(hemArc){
@@ -6871,19 +6869,22 @@ if(quotePdfBtn){
         y:origin.y+vector.y*distance
       }));
 
-      // Priorité demandée : intérieur lorsque la place est suffisante ;
-      // extérieur pour les plis écrasés et les angles très fermés.
-      if(preferOutside){
-        addCandidates(outsideVector,[10,14,19,25,32]);
-        addCandidates(insideVector,[9,13,18]);
+      // V64 : tous les repères ordinaires restent presque contre le sommet,
+      // côté intérieur. Un pli écrasé garde une recherche extérieure prioritaire.
+      if(hem){
+        addCandidates(outsideVector,[8,11,15,20,27]);
+        addCandidates(insideVector,[8,11,15]);
       }else{
-        // V63 : le repère est presque contre le sommet, comme B et C sur la pièce 4.
-        addCandidates(insideVector,[9,12,16,21,27]);
-        addCandidates(outsideVector,[11,15,20,27,35]);
+        addCandidates(insideVector,[7,9,12,16,21]);
+        addCandidates(outsideVector,[9,13,18,25]);
       }
 
       let chosen=candidates.find(candidate=>angleMarkerIsFree(candidate.x,candidate.y,i));
-      if(!chosen)chosen=candidates[0]||{x:p.x+insideVector.x*13,y:p.y+insideVector.y*13};
+      if(!chosen){
+        // Ne jamais expulser arbitrairement A ou D : on garde le premier point
+        // intérieur, légèrement rapproché, même si l’espace est serré.
+        chosen={x:origin.x+insideVector.x*8,y:origin.y+insideVector.y*8};
+      }
 
       bends.push({
         x:chosen.x,
