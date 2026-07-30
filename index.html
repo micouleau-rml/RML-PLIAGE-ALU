@@ -6670,7 +6670,7 @@ if(quotePdfBtn){
     const infoW=198;
     const infoGap=24;
     const drawW=W-infoW-infoGap;
-    const printPad=36;
+    const printPad=72;
 
     // V56 : le segment possédant la plus grande dimension est toujours horizontal.
     let longestIndex=0;
@@ -6749,9 +6749,23 @@ if(quotePdfBtn){
       const baseOff=isVeryShortDimension?28:30;
       const towardCenter=((center.x-mx)*nx+(center.y-my)*ny)>=0?1:-1;
 
-      // V65 : toutes les cotes sont obligatoirement à l'extérieur de la pièce.
-      // Le centre du profil sert uniquement à choisir le côté opposé.
-      const sign=-towardCenter;
+      // V66 : toutes les cotes restent à l'extérieur de la pièce.
+      // Pour les segments courts et les plis fermés (notamment 55°), le côté
+      // extérieur est déterminé localement par l'espace réellement libre autour
+      // du segment. Le centre global ne sert plus que de solution de départage.
+      const plusClearance=clear(1,baseOff);
+      const minusClearance=clear(-1,baseOff);
+      const angleBefore=Math.abs(Number(profile.angles?.[i-1])||180);
+      const angleAfter=Math.abs(Number(profile.angles?.[i])||180);
+      const nearClosedBend=Math.min(angleBefore,angleAfter)<=60;
+      let sign;
+      if(nearClosedBend || isVeryShortDimension){
+        sign=Math.abs(plusClearance-minusClearance)>0.5
+          ? (plusClearance>minusClearance?1:-1)
+          : -towardCenter;
+      }else{
+        sign=-towardCenter;
+      }
 
       let ang=Math.atan2(dy,dx)*180/Math.PI;
       if(ang>90||ang<-90)ang+=180;
@@ -6826,7 +6840,7 @@ if(quotePdfBtn){
       const angleValue=Math.abs(Number(profile.angles?.[i-1])||90);
       const hemArc=displayGeometry.hems.get(i);
 
-      // V65 : le repère d'un pli ordinaire reste côté intérieur.
+      // V66 : le repère d'un pli ordinaire reste côté intérieur.
       // Seul un pli écrasé est recherché en priorité à l'extérieur.
       let insideVector={x:bx,y:by};
       let outsideVector={x:-bx,y:-by};
