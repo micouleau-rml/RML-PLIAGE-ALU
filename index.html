@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V63 repères rapprochés et cotes courtes intérieures</title>
+<title>RML PLIAGE ALU — V68 plans cotés adaptatifs</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -6670,7 +6670,13 @@ if(quotePdfBtn){
     const infoW=198;
     const infoGap=24;
     const drawW=W-infoW-infoGap;
-    const printPad=72;
+
+    // V68 : chaque profil occupe toute la zone réellement disponible, quelle que
+    // soit sa taille réelle. Les marges sont réservées avant le calcul d'échelle :
+    // elles appartiennent aux cotes extérieures et ne peuvent pas être mangées par
+    // l'agrandissement d'une petite pièce. La légende possède déjà sa propre zone.
+    const annotationMarginX=92;
+    const annotationMarginY=58;
 
     // V56 : le segment possédant la plus grande dimension est toujours horizontal.
     let longestIndex=0;
@@ -6709,8 +6715,8 @@ if(quotePdfBtn){
     const profileH=Math.max(1,maxY-minY);
 
     const scale=Math.min(
-      (drawW-printPad*2)/profileW,
-      (H-printPad*2)/profileH
+      Math.max(1,drawW-annotationMarginX*2)/profileW,
+      Math.max(1,H-annotationMarginY*2)/profileH
     );
 
     const renderedW=profileW*scale;
@@ -6746,7 +6752,7 @@ if(quotePdfBtn){
 
       const numericLength=Number(profile.lengths[i]||0);
       const isVeryShortDimension=numericLength<=32;
-      const baseOff=isVeryShortDimension?28:30;
+      const baseOff=isVeryShortDimension?26:32;
       const towardCenter=((center.x-mx)*nx+(center.y-my)*ny)>=0?1:-1;
 
       // V66 : toutes les cotes restent à l'extérieur de la pièce.
@@ -6758,41 +6764,61 @@ if(quotePdfBtn){
       const angleBefore=Math.abs(Number(profile.angles?.[i-1])||180);
       const angleAfter=Math.abs(Number(profile.angles?.[i])||180);
       const nearClosedBend=Math.min(angleBefore,angleAfter)<=60;
-      let sign;
+      let preferredSign;
       if(nearClosedBend || isVeryShortDimension){
-        sign=Math.abs(plusClearance-minusClearance)>0.5
+        preferredSign=Math.abs(plusClearance-minusClearance)>0.5
           ? (plusClearance>minusClearance?1:-1)
           : -towardCenter;
       }else{
-        sign=-towardCenter;
+        preferredSign=-towardCenter;
       }
 
       let ang=Math.atan2(dy,dx)*180/Math.PI;
       if(ang>90||ang<-90)ang+=180;
 
-      // V59 : les petites cotes horizontales proches d'un pli écrasé
-      // restent parfaitement horizontales, même si le segment graphique
-      // est très légèrement incliné par la construction du demi-cercle.
-      const adjacentToHem=Boolean(profile.hemmed?.[i] || profile.hemmed?.[i-1]);
-      const forceHorizontalShortDimension=adjacentToHem && numericLength<=32;
-      if(forceHorizontalShortDimension)ang=0;
+      // V68 : l'orientation du texte et de la ligne de cote provient toujours du
+      // segment affiché. Aucune cote n'a le droit de redresser ou de modifier le
+      // segment, y compris à proximité d'un pli écrasé.
+      const estimatedRadius=Math.max(31,dimensionValue.length*4.8+18);
+      const candidateOffsets=[baseOff,baseOff+14,baseOff+28,baseOff+42,baseOff+58];
+      const candidateSigns=[preferredSign,-preferredSign];
+      let bestCandidate=null;
 
-      // Placement standard anti-chevauchement.
-      let off=baseOff;
-      const estimatedRadius=Math.max(25,dimensionValue.length*4.2);
-      for(let level=0;level<4;level++){
-        const candidateX=mx+nx*off*sign;
-        const candidateY=my+ny*off*sign;
-        const collision=dims.some(previous=>{
-          const required=estimatedRadius+(previous.labelRadius||25)-12;
-          return Math.hypot(candidateX-previous.x,candidateY-previous.y)<required;
-        });
-        if(!collision)break;
-        off+=14;
+      for(const sign of candidateSigns){
+        for(const off of candidateOffsets){
+          const x=mx+nx*off*sign;
+          const y=my+ny*off*sign;
+          let penalty=sign===preferredSign?0:220;
+
+          // Garder le libellé et le numéro dans la zone de dessin.
+          const edgeX=Math.min(x-12,drawW-12-x);
+          const edgeY=Math.min(y-12,H-12-y);
+          if(edgeX<estimatedRadius)penalty+=(estimatedRadius-edgeX)*35;
+          if(edgeY<15)penalty+=(15-edgeY)*45;
+
+          // Une cote reste hors du profil et s'éloigne si elle rencontre un trait.
+          for(let j=0;j<pts.length-1;j++){
+            const distance=distPointSegment(x,y,pts[j],pts[j+1]);
+            const required=j===i?off-2:18;
+            if(distance<required)penalty+=(required-distance)*55;
+          }
+
+          // Les libellés sont séparés en tenant compte de leur longueur.
+          for(const previous of dims){
+            const required=estimatedRadius+(previous.labelRadius||31)-8;
+            const distance=Math.hypot(x-previous.x,y-previous.y);
+            if(distance<required)penalty+=(required-distance)*70;
+          }
+
+          // À pénalité égale, conserver la cote la plus proche de son segment.
+          penalty+=off*.08;
+          if(!bestCandidate||penalty<bestCandidate.penalty){
+            bestCandidate={x,y,sign,off,penalty};
+          }
+        }
       }
 
-      let dimX=mx+nx*off*sign;
-      let dimY=my+ny*off*sign;
+      const {x:dimX,y:dimY,sign,off}=bestCandidate;
 
       dims.push({
         x:dimX,
