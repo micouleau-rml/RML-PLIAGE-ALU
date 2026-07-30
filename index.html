@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V60 grand dessinateur optimisé</title>
+<title>RML PLIAGE ALU — V61 restauration complète corrigée</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1586,7 +1586,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 
 </style> 
   <!-- V38 : calcul sur prépli 55°, affichage final avec retour strictement parallèle et petit rayon en 2D/3D -->
-<!-- V60 : nouvelle pièce, enregistrement des modifications, longueur dans le tableau et interface simplifiée -->
+<!-- V61 : restauration complète clients, projets et pièces corrigée -->
 </head>
 <body>
 <div class="container">
@@ -3061,95 +3061,168 @@ selectedThickness.addEventListener("change",updatePriceDisplay);
 document.getElementById("exportJsonBtn").addEventListener("click",exportClients);
 document.getElementById("exportFullBackupBtn").addEventListener("click",exportFullBackup);
 document.getElementById("exportProjectBackupBtn").addEventListener("click",exportProjectBackup);
-document.getElementById("importJsonFile").addEventListener("change",async e=>{alert("Fichier détecté par l’application");
-                                                                              
-    const file=e.target.files?.[0];
+document.getElementById("importJsonFile").addEventListener("change",async e=>{
+  const input=e.target;
+  const file=input.files?.[0];
   if(!file) return;
 
   try{
     const text=await file.text();
     const data=JSON.parse(text);
 
-    if(data.projects){
-      localStorage.setItem(PROJECTS_KEY,JSON.stringify(data.projects));
-      alert("Liste des projets restaurée.");
-      return;
-    }
+    const hasClients=Array.isArray(data.clients) && data.clients.length>0;
+    const hasProjects=Array.isArray(data.projects);
+    const hasPieces=Array.isArray(data.pieces);
+    const isFullBackup=hasClients && (hasProjects || hasPieces);
 
-    if((data.name || data.projectName) && (data.pieces || data.lines || data.items)){
-    const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
-    const importedProject={
-  id:data.id || crypto.randomUUID(),
-  name:data.name || data.projectName || "Projet importé",
-  color:data.projectColor || data.color || "",      
-  clientId:data.clientId || data.selectedClientId || data.client?.id || selectedClient.value,
-  thickness:data.thickness || data.selectedThickness || selectedThickness.value,
-  sheetFormat:data.sheetFormat || data.selectedSheetFormat || sheetFormat.value,
-  pieces:data.pieces || data.lines || data.items || data.project?.pieces || data.data?.pieces || data.payload?.pieces || [],
-  date:data.date || data.exportedAt || new Date().toISOString()
-};
-
-projects.push(importedProject);
-localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-
-if(data.client){
-  const exists=clients.some(c=>c.id===data.client.id);
-  if(!exists){
-    clients.push(data.client);
-    saveClients();
-  }
-}
-
-currentLoadedProjectId=importedProject.id || "";
-projectNameInput.value=importedProject.name;
-renderClientSelect();
-
-selectedClient.value=importedProject.clientId;
-selectedThickness.value=importedProject.thickness;
-sheetFormat.value=importedProject.sheetFormat;
-pieces=Array.isArray(importedProject.pieces) && importedProject.pieces.length
-  ? importedProject.pieces
-  : [{
-      id:crypto.randomUUID(),
-      developed:"",
-      length:"",
-      qty:1,
-      folds:0,
-      cuts:0,
-      time:0,
-      waste:""
-    }];
-
-renderClientForm();
-renderPieces();
-updatePriceDisplay();
-savePieces();
-
-const colorField=document.getElementById("projectColor");
-if(colorField){
-  colorField.value=importedProject.color || "";
-}
-
-alert("Projet restauré et ouvert : " + importedProject.name);
-e.target.value="";
-return;
-    }
-
-    if(data.clients && data.pieces){
-      clients=data.clients;
-      pieces=restoreBendProfiles(data.pieces,[]);
+    /* ===== V61 : RESTAURATION COMPLÈTE =====
+       Une sauvegarde complète contient aussi "projects". En V60, le premier
+       test sur data.projects provoquait un return immédiat : les projets étaient
+       restaurés, mais jamais les clients. La V61 restaure désormais toutes les
+       rubriques avant de rafraîchir l'interface. */
+    if(isFullBackup){
+      clients=data.clients.map(normalizeClient);
       saveClients();
-      savePieces();
+
+      if(hasProjects){
+        const restoredProjects=data.projects.map(project=>({
+          ...project,
+          id:project.id || crypto.randomUUID(),
+          pieces:restoreBendProfiles(
+            Array.isArray(project.pieces) ? project.pieces : [],
+            []
+          )
+        }));
+        localStorage.setItem(PROJECTS_KEY,JSON.stringify(restoredProjects));
+      }
+
+      if(hasPieces){
+        pieces=restoreBendProfiles(data.pieces,[]);
+        if(!pieces.length){
+          pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+        }
+        savePieces();
+      }
+
       renderClientSelect();
+
+      if(data.selectedClientId && clients.some(c=>c.id===data.selectedClientId)){
+        selectedClient.value=data.selectedClientId;
+      }else{
+        selectedClient.value="";
+      }
+
+      if(["7/10","10/10","15/10"].includes(data.selectedThickness)){
+        selectedThickness.value=data.selectedThickness;
+      }
+
+      if(data.sheetFormat && sheetFormat){
+        sheetFormat.value=data.sheetFormat;
+      }
+
+      if(projectNameInput){
+        projectNameInput.value=data.projectName || "";
+      }
+
+      if(projectColor){
+        projectColor.value=data.projectColor || data.color || "";
+      }
+
+      currentLoadedProjectId="";
+      renderClientForm();
       renderPieces();
       updatePriceDisplay();
-      alert("Sauvegarde complète restaurée.");
+      saveCurrentProjectState();
+
+      setStatus(`Sauvegarde complète restaurée : ${clients.length} client(s), ${hasProjects ? data.projects.length : 0} projet(s).`);
+      alert(`Restauration terminée.\n\nClients : ${clients.length}\nProjets : ${hasProjects ? data.projects.length : 0}\nPièces courantes : ${pieces.length}`);
+      input.value="";
       return;
     }
 
-    alert("Format de sauvegarde non reconnu.");
+    /* Sauvegarde clients seule */
+    if(hasClients){
+      clients=data.clients.map(normalizeClient);
+      saveClients();
+      renderClientSelect();
+      selectedClient.value="";
+      renderClientForm();
+      updatePriceDisplay();
+      setStatus(`${clients.length} client(s) restauré(s).`);
+      alert(`Restauration des clients terminée : ${clients.length} client(s).`);
+      input.value="";
+      return;
+    }
+
+    /* Sauvegarde projet seule */
+    const projectPieces=data.pieces || data.lines || data.items || data.project?.pieces || data.data?.pieces || data.payload?.pieces;
+    if((data.name || data.projectName) && Array.isArray(projectPieces)){
+      const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY) || "[]");
+
+      if(data.client){
+        const normalizedClient=normalizeClient(data.client);
+        const existingIndex=clients.findIndex(c=>c.id===normalizedClient.id);
+        if(existingIndex>=0) clients[existingIndex]=normalizedClient;
+        else clients.push(normalizedClient);
+        saveClients();
+      }
+
+      const importedProject={
+        id:data.id || crypto.randomUUID(),
+        name:data.name || data.projectName || "Projet importé",
+        color:data.projectColor || data.color || "",
+        clientId:data.clientId || data.selectedClientId || data.client?.id || "",
+        thickness:data.thickness || data.selectedThickness || "7/10",
+        sheetFormat:data.sheetFormat || data.selectedSheetFormat || "1500x3000",
+        pieces:restoreBendProfiles(projectPieces,[]),
+        date:data.date || data.exportedAt || new Date().toISOString(),
+        modifiedAt:new Date().toISOString()
+      };
+
+      const existingProjectIndex=projects.findIndex(p=>p.id===importedProject.id);
+      if(existingProjectIndex>=0) projects[existingProjectIndex]=importedProject;
+      else projects.push(importedProject);
+      localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+
+      currentLoadedProjectId=importedProject.id;
+      renderClientSelect();
+      selectedClient.value=clients.some(c=>c.id===importedProject.clientId) ? importedProject.clientId : "";
+      selectedThickness.value=importedProject.thickness;
+      if(sheetFormat) sheetFormat.value=importedProject.sheetFormat;
+      projectNameInput.value=importedProject.name;
+      if(projectColor) projectColor.value=importedProject.color;
+
+      pieces=importedProject.pieces.length
+        ? importedProject.pieces
+        : [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+
+      savePieces();
+      renderClientForm();
+      renderPieces();
+      updatePriceDisplay();
+      saveCurrentProjectState();
+
+      setStatus(`Projet restauré : ${importedProject.name}`);
+      alert("Projet restauré et ouvert : " + importedProject.name);
+      input.value="";
+      return;
+    }
+
+    /* Ancienne sauvegarde contenant uniquement une liste de projets */
+    if(hasProjects){
+      localStorage.setItem(PROJECTS_KEY,JSON.stringify(data.projects));
+      setStatus(`${data.projects.length} projet(s) restauré(s).`);
+      alert(`Liste des projets restaurée : ${data.projects.length} projet(s).`);
+      input.value="";
+      return;
+    }
+
+    throw new Error("Format de sauvegarde non reconnu.");
   }catch(err){
-    alert("La restauration a échoué. Vérifiez que vous avez bien choisi un fichier JSON de sauvegarde créé par l'application.");
+    console.error("Erreur de restauration V61 :",err);
+    setStatus("La restauration a échoué : " + (err?.message || "fichier invalide"),false);
+    alert("La restauration a échoué. Vérifiez que vous avez choisi un fichier JSON créé par l’application.\n\nDétail : " + (err?.message || "erreur inconnue"));
+    input.value="";
   }
 });
 
