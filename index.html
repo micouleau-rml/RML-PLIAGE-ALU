@@ -6675,8 +6675,11 @@ if(quotePdfBtn){
     // soit sa taille réelle. Les marges sont réservées avant le calcul d'échelle :
     // elles appartiennent aux cotes extérieures et ne peuvent pas être mangées par
     // l'agrandissement d'une petite pièce. La légende possède déjà sa propre zone.
-    const annotationMarginX=92;
-    const annotationMarginY=58;
+    // V68.1 : les profils occupent davantage l'encart. L'algorithme de placement
+    // des cotes conserve ensuite leur décalage extérieur et les éloigne seulement
+    // lorsqu'une collision réelle est détectée.
+    const annotationMarginX=64;
+    const annotationMarginY=42;
 
     // V56 : le segment possédant la plus grande dimension est toujours horizontal.
     let longestIndex=0;
