@@ -6731,9 +6731,11 @@ if(quotePdfBtn){
     const displayGeometry=fabricationGeometry(basePts,profile);
     const pts=displayGeometry.vertices;
 
+    // Centre de l'enveloppe géométrique (et non moyenne des sommets). Ainsi les
+    // nombreux petits retours d'un côté ne faussent pas le choix extérieur.
     const center={
-      x:pts.reduce((s,p)=>s+p.x,0)/pts.length,
-      y:pts.reduce((s,p)=>s+p.y,0)/pts.length
+      x:(Math.min(...pts.map(p=>p.x))+Math.max(...pts.map(p=>p.x)))/2,
+      y:(Math.min(...pts.map(p=>p.y))+Math.max(...pts.map(p=>p.y)))/2
     };
 
     const dims=[];
@@ -6758,23 +6760,16 @@ if(quotePdfBtn){
       const baseOff=isVeryShortDimension?26:32;
       const towardCenter=((center.x-mx)*nx+(center.y-my)*ny)>=0?1:-1;
 
-      // V66 : toutes les cotes restent à l'extérieur de la pièce.
-      // Pour les segments courts et les plis fermés (notamment 55°), le côté
-      // extérieur est déterminé localement par l'espace réellement libre autour
-      // du segment. Le centre global ne sert plus que de solution de départage.
+      // V68.2 : toutes les cotes sont impérativement extérieures pour la
+      // programmation CybTouch. Le côté extérieur est celui opposé au centre du
+      // profil. Une cote peut s'éloigner pour éviter une collision, mais elle ne
+      // peut jamais traverser le segment ni basculer de l'autre côté.
       const plusClearance=clear(1,baseOff);
       const minusClearance=clear(-1,baseOff);
-      const angleBefore=Math.abs(Number(profile.angles?.[i-1])||180);
-      const angleAfter=Math.abs(Number(profile.angles?.[i])||180);
-      const nearClosedBend=Math.min(angleBefore,angleAfter)<=60;
-      let preferredSign;
-      if(nearClosedBend || isVeryShortDimension){
-        preferredSign=Math.abs(plusClearance-minusClearance)>0.5
-          ? (plusClearance>minusClearance?1:-1)
-          : -towardCenter;
-      }else{
-        preferredSign=-towardCenter;
-      }
+      const centerProjection=(center.x-mx)*nx+(center.y-my)*ny;
+      const preferredSign=Math.abs(centerProjection)>.5
+        ? -towardCenter
+        : (plusClearance>=minusClearance?1:-1);
 
       let ang=Math.atan2(dy,dx)*180/Math.PI;
       if(ang>90||ang<-90)ang+=180;
@@ -6784,14 +6779,16 @@ if(quotePdfBtn){
       // segment, y compris à proximité d'un pli écrasé.
       const estimatedRadius=Math.max(31,dimensionValue.length*4.8+18);
       const candidateOffsets=[baseOff,baseOff+14,baseOff+28,baseOff+42,baseOff+58];
-      const candidateSigns=[preferredSign,-preferredSign];
+      // Un seul côté est proposé : l'extérieur. L'anticollision n'est donc plus
+      // capable de remettre une cote à l'intérieur du profil.
+      const candidateSigns=[preferredSign];
       let bestCandidate=null;
 
       for(const sign of candidateSigns){
         for(const off of candidateOffsets){
           const x=mx+nx*off*sign;
           const y=my+ny*off*sign;
-          let penalty=sign===preferredSign?0:220;
+          let penalty=0;
 
           // Garder le libellé et le numéro dans la zone de dessin.
           const edgeX=Math.min(x-12,drawW-12-x);
