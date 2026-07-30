@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V62 repères et flèche corrigés</title>
+<title>RML PLIAGE ALU — V63 repères rapprochés et cotes courtes intérieures</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1586,7 +1586,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 
 </style> 
   <!-- V38 : calcul sur prépli 55°, affichage final avec retour strictement parallèle et petit rayon en 2D/3D -->
-<!-- V62 : repères d’angles intelligents et fenêtre de flèche horizontale -->
+<!-- V63 : repères d’angles rapprochés et cotes courtes placées à l’intérieur -->
 </head>
 <body>
 <div class="container">
@@ -6744,11 +6744,26 @@ if(quotePdfBtn){
         return d;
       };
 
-      const baseOff=22;
+      const numericLength=Number(profile.lengths[i]||0);
+      const isVeryShortDimension=numericLength<=32;
+      const baseOff=isVeryShortDimension?12:22;
       const cp=clear(1,baseOff),cm=clear(-1,baseOff);
+      const towardCenter=((center.x-mx)*nx+(center.y-my)*ny)>=0?1:-1;
       let sign;
-      if(Math.abs(cp-cm)>1)sign=cp>cm?1:-1;
-      else sign=((center.x-mx)*nx+(center.y-my)*ny)>=0?-1:1;
+
+      // V63 : pour une petite aile, la cote est d’abord placée côté intérieur.
+      // Elle ne sort de la pièce que si cet emplacement est réellement encombré.
+      if(isVeryShortDimension){
+        const insideClearance=towardCenter===1?cp:cm;
+        const outsideClearance=towardCenter===1?cm:cp;
+        sign=insideClearance>=9 || insideClearance>=outsideClearance-2
+          ? towardCenter
+          : -towardCenter;
+      }else if(Math.abs(cp-cm)>1){
+        sign=cp>cm?1:-1;
+      }else{
+        sign=-towardCenter;
+      }
 
       let ang=Math.atan2(dy,dx)*180/Math.PI;
       if(ang>90||ang<-90)ang+=180;
@@ -6756,7 +6771,6 @@ if(quotePdfBtn){
       // V59 : les petites cotes horizontales proches d'un pli écrasé
       // restent parfaitement horizontales, même si le segment graphique
       // est très légèrement incliné par la construction du demi-cercle.
-      const numericLength=Number(profile.lengths[i]||0);
       const adjacentToHem=Boolean(profile.hemmed?.[i] || profile.hemmed?.[i-1]);
       const forceHorizontalShortDimension=adjacentToHem && numericLength<=32;
       if(forceHorizontalShortDimension)ang=0;
@@ -6832,7 +6846,9 @@ if(quotePdfBtn){
       const hem=!!profile.hemmed?.[i-1];
       const angleValue=Math.abs(Number(profile.angles?.[i-1])||90);
       const veryClosed=angleValue<=55;
-      const preferOutside=hem||veryClosed;
+      // V63 : même un angle fermé reste prioritairement repéré à l’intérieur.
+      // Seul un pli écrasé impose une recherche extérieure en premier.
+      const preferOutside=hem;
       const hemArc=displayGeometry.hems.get(i);
 
       let insideVector={x:bx*inward,y:by*inward};
@@ -6858,11 +6874,12 @@ if(quotePdfBtn){
       // Priorité demandée : intérieur lorsque la place est suffisante ;
       // extérieur pour les plis écrasés et les angles très fermés.
       if(preferOutside){
-        addCandidates(outsideVector,[18,24,31,39,48]);
-        addCandidates(insideVector,[15,21]);
+        addCandidates(outsideVector,[10,14,19,25,32]);
+        addCandidates(insideVector,[9,13,18]);
       }else{
-        addCandidates(insideVector,[13,18,24,31]);
-        addCandidates(outsideVector,[18,25,33,42]);
+        // V63 : le repère est presque contre le sommet, comme B et C sur la pièce 4.
+        addCandidates(insideVector,[9,12,16,21,27]);
+        addCandidates(outsideVector,[11,15,20,27,35]);
       }
 
       let chosen=candidates.find(candidate=>angleMarkerIsFree(candidate.x,candidate.y,i));
