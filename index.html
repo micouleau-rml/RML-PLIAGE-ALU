@@ -5717,6 +5717,7 @@ if(quotePdfBtn){
         persistCurrentProjectRecord({createIfMissing:false});
       }
       setStatus(`Modifications de la pièce ${index+1} enregistrées.`);
+      window.dispatchEvent(new CustomEvent("rml:choose-exterior",{detail:{pieceIndex:index}}));
       return;
     }
 
@@ -5737,6 +5738,7 @@ if(quotePdfBtn){
       persistCurrentProjectRecord({createIfMissing:false});
     }
     setStatus(`Pièce ${index+1} enregistrée — nouvelle pièce ${newIndex+1} prête.`);
+    window.dispatchEvent(new CustomEvent("rml:choose-exterior",{detail:{pieceIndex:index}}));
   }
   document.getElementById("bendInsertBtn")?.addEventListener("click",insertBendIntoQuote);
   document.getElementById("bendLargeInsertProxyBtn")?.addEventListener("click",insertBendIntoQuote);
@@ -5782,7 +5784,8 @@ if(quotePdfBtn){
     renderTargets();
     targetSelect.value=String(index);
 
-    alert(`Pièce ${index+1} mémorisée${savedProject ? ` dans le projet « ${savedProject.name} »` : ""}.`);
+    alert(`Pièce ${index+1} mémorisée${savedProject ? ` dans le projet « ${savedProject.name} »` : ""}. Choisissez maintenant son côté extérieur.`);
+    window.dispatchEvent(new CustomEvent("rml:choose-exterior",{detail:{pieceIndex:index}}));
   }
   document.getElementById("bendSaveProfileBtn")?.addEventListener("click",saveBendProfile);
   document.getElementById("bendLargeSaveProxyBtn")?.addEventListener("click",saveBendProfile);
@@ -6180,7 +6183,7 @@ if(quotePdfBtn){
 #rmlFabIntro{margin:0 0 14px;color:#53677a}
 #rmlFabList{display:grid;gap:10px}
 .rml-fab-row{
-  display:grid;grid-template-columns:auto minmax(180px,1fr) 90px 150px 110px auto;
+  display:grid;grid-template-columns:auto minmax(180px,1fr) 90px 140px 150px 110px auto;
   gap:10px;align-items:center;padding:12px;border:1px solid #dbe4ec;border-radius:12px;background:#fff
 }
 .rml-fab-row.no-plan{opacity:.55;background:#f5f7f9}
@@ -6295,6 +6298,7 @@ if(quotePdfBtn){
   let arrowPiece=null;
   let arrowPieceIndex=-1;
   let arrowDraft=null;
+  let arrowMode="color";
   if(!modal||!list)return;
 
   function esc(value){
@@ -6346,6 +6350,9 @@ if(quotePdfBtn){
         <button type="button" data-role="color-place" class="rml-arrow-place ${piece.colorArrowPoint?"active":""}" ${hasPlan?"":"disabled"}>
           ${piece.colorArrowPoint?"Modifier flèche":"Placer flèche"}
         </button>
+        <button type="button" data-role="exterior-place" class="rml-arrow-place ${piece.exteriorSidePoint?"active":""}" ${hasPlan?"":"disabled"}>
+          ${piece.exteriorSidePoint?"Modifier extérieur":"Définir l’extérieur"}
+        </button>
         <div class="rml-fab-meta">${hasPlan?"Plan 2D prêt":"Non imprimable"}</div>
         <div class="rml-fab-tools">
           <button type="button" data-role="up" title="Monter">↑</button>
@@ -6354,7 +6361,8 @@ if(quotePdfBtn){
       row.querySelector('[data-role="select"]')?.addEventListener("change",e=>{piece.planSelected=e.target.checked;persist()});
       row.querySelector('[data-role="name"]')?.addEventListener("input",e=>{piece.planName=e.target.value;persist()});
       row.querySelector('[data-role="qty"]')?.addEventListener("input",e=>{piece.qty=Math.max(1,Number(e.target.value)||1);persist()});
-      row.querySelector('[data-role="color-place"]')?.addEventListener("click",()=>openArrowEditor(piece,index));
+      row.querySelector('[data-role="color-place"]')?.addEventListener("click",()=>openArrowEditor(piece,index,"color"));
+      row.querySelector('[data-role="exterior-place"]')?.addEventListener("click",()=>openArrowEditor(piece,index,"exterior"));
       row.querySelector('[data-role="up"]')?.addEventListener("click",()=>{
         if(index<=0)return;
         [arr[index-1],arr[index]]=[arr[index],arr[index-1]];
@@ -6454,7 +6462,7 @@ if(quotePdfBtn){
     return {segmentIndex:best.segmentIndex,t:best.t,normalSign:best.normalSign};
   }
 
-  function arrowMarkupFromPlacement(placement,geom,preview){
+  function arrowMarkupFromPlacement(placement,geom,preview,label="COULEUR"){
     if(!placement)return "";
     const gap=preview?58:46;
     const len=preview?34:28;
@@ -6487,7 +6495,7 @@ if(quotePdfBtn){
     return `<g class="color-arrow">
       <line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"/>
       <path d="M ${ax1.toFixed(1)} ${ay1.toFixed(1)} L ${ex.toFixed(1)} ${ey.toFixed(1)} L ${ax2.toFixed(1)} ${ay2.toFixed(1)}"/>
-      <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">COULEUR</text>
+      <text x="${labelX.toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="middle">${esc(label)}</text>
     </g>`;
   }
 
@@ -6504,15 +6512,30 @@ if(quotePdfBtn){
       </style>
       <rect x="${geom.minX-48}" y="${geom.minY-48}" width="${geom.maxX-geom.minX+96}" height="${geom.maxY-geom.minY+96}" rx="12" class="editor-zone"/>
       <path d="${profilePath}" class="editor-profile"/>
-      ${arrowMarkupFromPlacement(arrowDraft,geom,true)}
+      ${arrowMarkupFromPlacement(arrowDraft,geom,true,arrowMode==="exterior"?"EXTÉRIEUR":"COULEUR")}
     `;
     arrowCanvas._rmlGeom=geom;
   }
 
-  function openArrowEditor(piece,index){
+  function openArrowEditor(piece,index,mode="color"){
     arrowPiece=piece;
     arrowPieceIndex=index;
-    arrowDraft=piece.colorArrowPoint?deepCopy(piece.colorArrowPoint):null;
+    arrowMode=mode;
+    arrowDraft=mode==="exterior"
+      ? (piece.exteriorSidePoint?deepCopy(piece.exteriorSidePoint):null)
+      : (piece.colorArrowPoint?deepCopy(piece.colorArrowPoint):null);
+    const title=document.getElementById("rmlArrowTitle");
+    const help=document.getElementById("rmlArrowHelp");
+    const clear=document.getElementById("rmlArrowClear");
+    if(mode==="exterior"){
+      if(title)title.textContent="Indiquer le côté extérieur de la pièce";
+      if(help)help.textContent="Touchez le côté extérieur du profil. Ce choix détermine obligatoirement le côté de toutes les cotes du plan CybTouch.";
+      if(clear)clear.textContent="Effacer le choix";
+    }else{
+      if(title)title.textContent="Placer la flèche du côté couleur";
+      if(help)help.textContent="Touchez directement le côté couleur sur le dessin.";
+      if(clear)clear.textContent="Supprimer la flèche";
+    }
     renderArrowEditor();
     arrowEditor.classList.add("open");
     arrowEditor.setAttribute("aria-hidden","false");
@@ -6549,8 +6572,12 @@ if(quotePdfBtn){
   document.getElementById("rmlArrowClear")?.addEventListener("click",()=>{arrowDraft=null;renderArrowEditor()});
   document.getElementById("rmlArrowDone")?.addEventListener("click",()=>{
     if(arrowPiece){
-      arrowPiece.colorArrowPoint=arrowDraft?deepCopy(arrowDraft):null;
-      delete arrowPiece.colorArrow;
+      if(arrowMode==="exterior"){
+        arrowPiece.exteriorSidePoint=arrowDraft?deepCopy(arrowDraft):null;
+      }else{
+        arrowPiece.colorArrowPoint=arrowDraft?deepCopy(arrowDraft):null;
+        delete arrowPiece.colorArrow;
+      }
       persist();renderList();
     }
     closeArrowEditor();
@@ -6558,6 +6585,13 @@ if(quotePdfBtn){
   document.getElementById("rmlArrowCancel")?.addEventListener("click",closeArrowEditor);
   document.getElementById("rmlArrowCancelTop")?.addEventListener("click",closeArrowEditor);
   arrowEditor?.addEventListener("click",e=>{if(e.target===arrowEditor)closeArrowEditor()});
+  window.addEventListener("rml:choose-exterior",event=>{
+    const index=Number(event.detail?.pieceIndex);
+    const piece=getPieces()[index];
+    if(piece?.bendProfile?.profile?.lengths?.length){
+      setTimeout(()=>openArrowEditor(piece,index,"exterior"),0);
+    }
+  });
 
   function distPointSegment(px,py,a,b){
     const vx=b.x-a.x,vy=b.y-a.y,l2=vx*vx+vy*vy||1;
@@ -6767,9 +6801,12 @@ if(quotePdfBtn){
       const plusClearance=clear(1,baseOff);
       const minusClearance=clear(-1,baseOff);
       const centerProjection=(center.x-mx)*nx+(center.y-my)*ny;
-      const preferredSign=Math.abs(centerProjection)>.5
-        ? -towardCenter
-        : (plusClearance>=minusClearance?1:-1);
+      const savedExteriorSign=Number(piece.exteriorSidePoint?.normalSign);
+      const preferredSign=Number.isFinite(savedExteriorSign)
+        ? (savedExteriorSign>=0?1:-1)
+        : (Math.abs(centerProjection)>.5
+          ? -towardCenter
+          : (plusClearance>=minusClearance?1:-1));
 
       let ang=Math.atan2(dy,dx)*180/Math.PI;
       if(ang>90||ang<-90)ang+=180;
@@ -7038,6 +7075,12 @@ if(quotePdfBtn){
   function openPlansDocument(autoPrint=false){
     const selected=getPieces().map((p,i)=>({p,i})).filter(x=>x.p.planSelected&&x.p?.bendProfile?.profile?.lengths?.length);
     if(!selected.length)return alert("Sélectionnez au moins une pièce possédant un dessin mémorisé.");
+    const missingExterior=selected.find(x=>!x.p.exteriorSidePoint);
+    if(missingExterior){
+      alert(`Indiquez d’abord le côté extérieur de la pièce ${missingExterior.i+1}. Cette information est obligatoire pour produire un plan CybTouch sans ambiguïté.`);
+      openArrowEditor(missingExterior.p,missingExterior.i,"exterior");
+      return;
+    }
 
     persist();
     const pages=[];
