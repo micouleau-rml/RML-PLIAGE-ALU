@@ -1,4 +1,4 @@
-const CACHE_NAME = "rml-pliage-v69-sync-indicator-2026-08-20";
+const CACHE_NAME = "rml-pliage-v69-developed-rounding-2026-08-20";
 
 const FILES_TO_CACHE = [
   "./",

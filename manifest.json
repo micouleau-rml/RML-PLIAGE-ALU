@@ -2,7 +2,7 @@
   "name": "RML PLIAGE ALU",
   "short_name": "RML Pliage",
   "description": "Application iPhone de calcul pliage aluminium RML",
-  "start_url": "./index.html?v=69-sync-indicator",
+  "start_url": "./index.html?v=69-developed-rounding",
   "scope": "./",
   "display": "standalone",
   "background_color": "#eef3f8",

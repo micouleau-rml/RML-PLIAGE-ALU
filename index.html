@@ -1904,6 +1904,12 @@ if ("serviceWorker" in navigator) { window.addEventListener("load", () => naviga
 const STORAGE_KEY_CLIENTS="pliage_clients_v7";
 const STORAGE_KEY_PIECES="pliage_pieces_v7";
 
+function normalizeDevelopedValue(value){
+  if(value==="" || value==null)return "";
+  const number=Number(value);
+  return Number.isFinite(number)?Number(number.toFixed(2)):value;
+}
+
 const defaultClients=[{
   id:crypto.randomUUID(),
   name:"Client standard",
@@ -1963,7 +1969,9 @@ function loadPieces(){
     const raw=localStorage.getItem(STORAGE_KEY_PIECES);
     if(!raw) return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
     const parsed=JSON.parse(raw);
-    return Array.isArray(parsed)&&parsed.length ? parsed : [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+    return Array.isArray(parsed)&&parsed.length
+      ? parsed.map(piece=>({...piece,developed:normalizeDevelopedValue(piece.developed)}))
+      : [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
   }catch{return [{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}]}
 }
 function syncPieceLengthsFromBendProfiles(){
@@ -1976,6 +1984,7 @@ function syncPieceLengthsFromBendProfiles(){
 }
 function savePieces(){
   syncPieceLengthsFromBendProfiles();
+  pieces.forEach(piece=>{piece.developed=normalizeDevelopedValue(piece.developed)});
   localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces));
 }
 function saveCurrentProjectState(){
@@ -2107,7 +2116,7 @@ function createPieceRow(piece,index){
   wrap.className="piece";
   wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools">${piece.bendProfile?'<button class="btn-secondary" data-action="open-drawing">Modifier le dessin</button>':''}<button class="btn-light" data-action="duplicate">Dupliquer</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
   <div class="row">
-    <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
+    <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="0.01" value="${normalizeDevelopedValue(piece.developed)}" data-field="developed" placeholder="Ex. 320"/></div>
     <div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
     <div class="field col-2"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div>
     <div class="field col-2"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div>
@@ -4019,7 +4028,8 @@ if(quotePdfBtn){
     profile.angles.forEach((_,i)=>deduction+=getBendData(i).deduction);
     const developed=Math.max(0,outer-deduction);
     const increment=Math.max(.01,Number(fields.round.value)||.1);
-    const rounded=Math.round(developed/increment)*increment;
+    const precision=Math.abs(increment-.01)<.001?2:(increment<1?1:0);
+    const rounded=Number((Math.round((developed+Number.EPSILON)/increment)*increment).toFixed(precision));
     document.getElementById("bendOuterSum").textContent=fmtNumber(outer,2)+" mm";
     document.getElementById("bendTotalDeduction").textContent=fmtNumber(deduction,2)+" mm";
     document.getElementById("bendFoldCount").textContent=profile.angles.length+(profile.hemmed?.some(Boolean)?` (${profile.hemmed.filter(Boolean).length} écrasé${profile.hemmed.filter(Boolean).length>1?"s":""})`:"");
@@ -7328,7 +7338,7 @@ if(quotePdfBtn){
       if(changed){
         clients=[...locals.client.values()].map(normalizeClient);
         if(!clients.length)clients=structuredClone(defaultClients);
-        pieces=restoreBendProfiles([...locals.piece.values()],pieces);
+        pieces=restoreBendProfiles([...locals.piece.values()],pieces).map(piece=>({...piece,developed:normalizeDevelopedValue(piece.developed)}));
         if(!pieces.length)pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
         nativeSetItem.call(localStorage,STORAGE_KEY_CLIENTS,JSON.stringify(clients));
         nativeSetItem.call(localStorage,STORAGE_KEY_PIECES,JSON.stringify(pieces));
