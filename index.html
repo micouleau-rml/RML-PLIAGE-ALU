@@ -18,6 +18,13 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 .hero{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:20px;margin:0 auto 18px auto;text-align:center}
 .brand{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;width:100%;margin:0 auto}
 .brand .header-logo{height:95px;width:auto;max-width:100%;object-fit:contain;display:block}
+.sync-indicator{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:34px;padding:7px 12px;border:1px solid #cbd5e1;border-radius:999px;background:#f8fafc;color:#475569;font-size:.82rem;font-weight:900;white-space:nowrap}
+.sync-indicator::before{content:"";width:9px;height:9px;border-radius:50%;background:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,.18)}
+.sync-indicator[data-state="syncing"]{color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe}.sync-indicator[data-state="syncing"]::before{background:#3b82f6;animation:rmlSyncPulse 1s infinite}
+.sync-indicator[data-state="ok"]{color:#067647;background:#ecfdf3;border-color:#abefc6}.sync-indicator[data-state="ok"]::before{background:#12b76a}
+.sync-indicator[data-state="offline"]{color:#92400e;background:#fffbeb;border-color:#fde68a}.sync-indicator[data-state="offline"]::before{background:#f59e0b}
+.sync-indicator[data-state="error"]{color:#b42318;background:#fef3f2;border-color:#fecdca}.sync-indicator[data-state="error"]::before{background:#f04438}
+@keyframes rmlSyncPulse{50%{opacity:.35;transform:scale(.75)}}
 h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
 .subline{font-size:1rem;color:#1f2937;margin-top:4px;font-weight:700}
 .baseline{color:var(--muted);margin-top:10px;font-size:1rem}
@@ -1600,6 +1607,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       </div>
     </div>
     <div class="install">
+  <div id="homeSyncStatus" class="sync-indicator" data-state="neutral" aria-live="polite">Connexion Supabase…</div>
   <button class="btn-new" id="newProjectBtn">Nouveau devis</button>
   <button class="btn-primary" id="openSettingsBtn">Réglages</button>
   <button class="btn-light" id="calpinageBtn">📐 Calepinage</button>
@@ -7202,11 +7210,21 @@ if(quotePdfBtn){
 
   function setSyncStatus(message,kind="neutral"){
     const el=$("supabaseSyncStatus");
-    if(!el)return;
     const pending=loadPending().length;
-    el.textContent=message+(pending?` — ${pending} changement(s) en attente`:"");
-    el.style.color=kind==="error"?"#b42318":kind==="ok"?"#067647":"#475467";
-    el.style.fontWeight=kind==="neutral"?"600":"800";
+    const fullMessage=message+(pending?` — ${pending} changement(s) en attente`:"");
+    if(el){
+      el.textContent=fullMessage;
+      el.style.color=kind==="error"?"#b42318":kind==="ok"?"#067647":"#475467";
+      el.style.fontWeight=kind==="neutral"?"600":"800";
+    }
+    const home=$("homeSyncStatus");
+    if(home){
+      const lower=fullMessage.toLowerCase();
+      const state=kind==="error"?"error":kind==="ok"?"ok":lower.includes("hors ligne")?"offline":lower.includes("cours")?"syncing":"neutral";
+      home.dataset.state=state;
+      home.textContent=state==="ok"?"Synchronisé à jour":state==="syncing"?"Synchronisation…":state==="offline"?"Hors ligne":state==="error"?"Erreur de synchronisation":fullMessage;
+      home.title=fullMessage;
+    }
   }
 
   function queueRow(type,id,payload,deleted=false,updatedAt=now()){
