@@ -1768,7 +1768,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       <div class="actions">
         <button type="button" class="btn-primary" id="saveSupabaseConfigBtn">Enregistrer la configuration</button>
         <button type="button" class="btn-secondary" id="syncSupabaseNowBtn">Synchroniser maintenant</button>
-        <button type="button" class="btn-light" id="showSupabaseSqlBtn">Afficher le SQL d'installation</button>
+        <button type="button" class="btn-light" id="showSupabaseSqlBtn" hidden>Afficher le SQL d'installation</button>
       </div>
       <div id="supabaseSyncStatus" class="note" style="margin-top:10px" aria-live="polite">Synchronisation non configurée.</div>
       <div id="supabaseSqlBox" hidden style="margin-top:12px">
@@ -7163,7 +7163,12 @@ if(quotePdfBtn){
   const CONFIG_KEY="rml_pliage_supabase_config_v1";
   const META_KEY="rml_pliage_sync_meta_v1";
   const PENDING_KEY="rml_pliage_sync_pending_v1";
-  const TABLE="rml_pliage_sync";
+  const TABLE="rml-data";
+  const DEFAULT_CONFIG={
+    url:"https://dbsibzcqhtecknpkkuxa.supabase.co",
+    key:"sb_publishable_WE_zFh9O23cF7zEDie4L3w_JUsSb9ao",
+    workspace:"RML-PLIAGE-ALU-01"
+  };
   const SYNC_KEYS={
     [STORAGE_KEY_CLIENTS]:"client",
     [STORAGE_KEY_PIECES]:"piece",
@@ -7180,7 +7185,7 @@ if(quotePdfBtn){
   const clone=value=>JSON.parse(JSON.stringify(value));
   const now=()=>new Date().toISOString();
   const parse=(raw,fallback)=>{try{return raw?JSON.parse(raw):fallback}catch{return fallback}};
-  const loadConfig=()=>parse(localStorage.getItem(CONFIG_KEY),{});
+  const loadConfig=()=>({...DEFAULT_CONFIG,...parse(localStorage.getItem(CONFIG_KEY),{})});
   const loadMeta=()=>parse(localStorage.getItem(META_KEY),{});
   const saveMeta=value=>localStorage.setItem(META_KEY,JSON.stringify(value));
   const loadPending=()=>parse(localStorage.getItem(PENDING_KEY),[]);
@@ -7209,7 +7214,7 @@ if(quotePdfBtn){
     const pending=loadPending();
     const key=rowKey(type,id);
     const row={
-      workspace_id:loadConfig().workspace||"rml-pliage",
+      workspace_id:loadConfig().workspace||DEFAULT_CONFIG.workspace,
       entity_type:type,
       entity_id:id,
       payload:deleted?{}:clone(payload),
@@ -7324,14 +7329,50 @@ if(quotePdfBtn){
     Object.keys(SYNC_KEYS).forEach(key=>snapshots[key]=localStorage.getItem(key));
   }
 
-  async function pushPending(config){
+  async function getCloudDocument(config){
+    const result=await request(config,`${TABLE}?select=id,data,updated_at&order=updated_at.desc`);
+    const rows=Array.isArray(result)?result:[];
+    let documentRow=rows.find(row=>row?.data?.sharedKey===config.workspace);
+    if(documentRow)return documentRow;
+    const created=await request(config,TABLE,{
+      method:"POST",
+      headers:{Prefer:"return=representation"},
+      body:JSON.stringify([{
+        data:{app:"RML PLIAGE ALU",version:"V69",sharedKey:config.workspace,syncRows:[]},
+        updated_at:now()
+      }])
+    });
+    documentRow=Array.isArray(created)?created[0]:created;
+    if(!documentRow?.id)throw new Error("Impossible de créer l’espace RML Pliage dans Supabase.");
+    return documentRow;
+  }
+
+  async function pushPending(config,documentRow,remoteRows){
     const pending=loadPending();
-    if(!pending.length)return 0;
+    if(!pending.length)return {sent:0,rows:remoteRows};
     const rows=pending.map(row=>({...row,workspace_id:config.workspace}));
-    await request(config,TABLE,{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
+    const merged=new Map(remoteRows.map(row=>[rowKey(row.entity_type,row.entity_id),row]));
+    rows.forEach(row=>{
+      const key=rowKey(row.entity_type,row.entity_id);
+      const remote=merged.get(key);
+      if(!remote || !remote.updated_at || remote.updated_at<=row.updated_at)merged.set(key,row);
+    });
+    const payload={
+      ...(documentRow.data||{}),
+      app:"RML PLIAGE ALU",
+      version:"V69",
+      sharedKey:config.workspace,
+      savedAt:now(),
+      syncRows:[...merged.values()]
+    };
+    await request(config,`${TABLE}?id=eq.${encodeURIComponent(documentRow.id)}`,{
+      method:"PATCH",
+      headers:{Prefer:"return=minimal"},
+      body:JSON.stringify({data:payload,updated_at:now()})
+    });
     const sentKeys=new Set(rows.map(row=>rowKey(row.entity_type,row.entity_id)+":"+row.updated_at));
     savePending(loadPending().filter(row=>!sentKeys.has(rowKey(row.entity_type,row.entity_id)+":"+row.updated_at)));
-    return rows.length;
+    return {sent:rows.length,rows:[...merged.values()]};
   }
 
   async function syncNow({quiet=false}={}){
@@ -7342,16 +7383,12 @@ if(quotePdfBtn){
     syncing=true;
     setSyncStatus("Synchronisation en cours…");
     try{
-      const workspace=encodeURIComponent(config.workspace);
-      let remote=await request(config,`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`);
-      remote=Array.isArray(remote)?remote:[];
+      const documentRow=await getCloudDocument(config);
+      let remote=Array.isArray(documentRow?.data?.syncRows)?documentRow.data.syncRows:[];
       applyRemoteRows(remote);
       seedRowsMissingRemotely(remote);
-      const sent=await pushPending(config);
-      if(sent){
-        const refreshed=await request(config,`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`);
-        applyRemoteRows(Array.isArray(refreshed)?refreshed:[]);
-      }
+      const pushed=await pushPending(config,documentRow,remote);
+      if(pushed.sent)applyRemoteRows(pushed.rows);
       localStorage.setItem(CONFIG_KEY,JSON.stringify({...config,lastSyncAt:now()}));
       setSyncStatus(`À jour — dernière synchronisation ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`,"ok");
     }catch(error){
@@ -7366,47 +7403,22 @@ if(quotePdfBtn){
     syncTimer=setTimeout(()=>syncNow({quiet:true}),1500);
   }
 
-  const SQL=`create table if not exists public.${TABLE} (
-  workspace_id text not null,
-  entity_type text not null check (entity_type in ('client','piece','project','settings')),
-  entity_id text not null,
-  payload jsonb not null default '{}'::jsonb,
-  updated_at timestamptz not null,
-  deleted boolean not null default false,
-  primary key (workspace_id, entity_type, entity_id)
-);
-
-create index if not exists ${TABLE}_updated_idx
-  on public.${TABLE} (workspace_id, updated_at);
-
-alter table public.${TABLE} enable row level security;
-
-drop policy if exists "RML Pliage lecture" on public.${TABLE};
-create policy "RML Pliage lecture" on public.${TABLE}
-  for select to anon using (true);
-
-drop policy if exists "RML Pliage ajout" on public.${TABLE};
-create policy "RML Pliage ajout" on public.${TABLE}
-  for insert to anon with check (true);
-
-drop policy if exists "RML Pliage modification" on public.${TABLE};
-create policy "RML Pliage modification" on public.${TABLE}
-  for update to anon using (true) with check (true);`;
+  const SQL="La V69 utilise automatiquement la table rml-data déjà configurée pour RML Commande.";
 
   function loadConfigForm(){
     const config=loadConfig();
     if($("supabaseUrl"))$("supabaseUrl").value=config.url||"";
     if($("supabaseKey"))$("supabaseKey").value=config.key||"";
-    if($("supabaseWorkspace"))$("supabaseWorkspace").value=config.workspace||"rml-pliage";
+    if($("supabaseWorkspace"))$("supabaseWorkspace").value=config.workspace||DEFAULT_CONFIG.workspace;
     if($("supabaseSqlText"))$("supabaseSqlText").value=SQL;
     if(validConfig(config)){
       const last=config.lastSyncAt?new Date(config.lastSyncAt).toLocaleString("fr-FR"):"jamais";
-      setSyncStatus(`Configuration enregistrée — dernière synchronisation : ${last}`);
+      setSyncStatus(`Connexion RML Supabase active — dernière synchronisation : ${last}`);
     }
   }
 
   $("saveSupabaseConfigBtn")?.addEventListener("click",()=>{
-    const config={url:normalizeUrl($("supabaseUrl").value),key:$("supabaseKey").value.trim(),workspace:$("supabaseWorkspace").value.trim()||"rml-pliage"};
+    const config={url:normalizeUrl($("supabaseUrl").value),key:$("supabaseKey").value.trim(),workspace:$("supabaseWorkspace").value.trim()||DEFAULT_CONFIG.workspace};
     if(!validConfig(config)){setSyncStatus("Configuration incomplète ou URL invalide.","error");return;}
     nativeSetItem.call(localStorage,CONFIG_KEY,JSON.stringify(config));
     setSyncStatus("Configuration enregistrée. Premier rapprochement en cours…");
