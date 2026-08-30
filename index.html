@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V79 boutons de sauvegarde centrés</title>
+<title>RML PLIAGE ALU — V80 dimensions des pièces au calepinage</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1653,7 +1653,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 79</div>
+        <div class="app-version">VERSION 80</div>
       </div>
     </div>
     <div class="install">
@@ -3302,7 +3302,23 @@ win.document.close();
   sheets.forEach((sheet,sheetIndex)=>{
     const counts={};
     sheet.parts.forEach(p=>{counts[p.pieceNo]=(counts[p.pieceNo]||0)+1;});
-    const detail=Object.entries(counts).map(([pieceNo,count])=>`P${pieceNo} : ${count} u`).join(" / ");
+    const groupedPieces=Object.entries(counts)
+      .sort((a,b)=>Number(a[0])-Number(b[0]))
+      .map(([pieceNo,count])=>{
+        const sample=sheet.parts.find(part=>String(part.pieceNo)===String(pieceNo));
+        return {
+          pieceNo,
+          count,
+          developed:Number(sample?.sourceDev ?? sample?.dev ?? 0),
+          length:Number(sample?.sourceLong ?? sample?.long ?? 0)
+        };
+      });
+    const detail=groupedPieces.map(item=>`P${item.pieceNo} : ${item.count} u`).join(" / ");
+    const pieceInfos=groupedPieces.map(item=>{
+      const developed=item.developed.toLocaleString("fr-FR",{maximumFractionDigits:1});
+      const length=item.length.toLocaleString("fr-FR",{maximumFractionDigits:1});
+      return `<span class="piece-chip"><span class="piece-dot"></span><strong>P${item.pieceNo}</strong> : ${item.count} pièce${item.count>1?"s":""} — développé ${developed} mm × longueur ${length} mm</span>`;
+    });
 
     const zones=freeZonesForSheet(sheet);
     const usedArea=sheet.parts.reduce((sum,p)=>sum+p.area,0);
@@ -3386,7 +3402,7 @@ win.document.close();
           <div><strong>Chutes réutilisables</strong><span>${fmtM2(reusableArea/1000000)} — ${fmtPct(safePct(reusableArea,sheetArea))}</span></div>
           <div><strong>Chutes non exploitables</strong><span>${fmtM2(unusableArea/1000000)} — ${fmtPct(safePct(unusableArea,sheetArea))}</span></div>
         </div>
-        <p><strong>Contenu :</strong> ${detail}</p>
+        <p class="pieces-line"><strong>Pièces à couper :</strong> ${pieceInfos.join(" / ")}</p>
         <p class="zones-line"><strong>Zones restantes :</strong> ${chuteInfos.join(" / ")}</p>
         <svg width="100%" viewBox="0 0 ${svgW} ${svgH}" style="display:block;margin-top:4px">
           <rect x="0" y="0" width="${svgW}" height="${svgH}" fill="#fff" stroke="#111" stroke-width="2"/>
@@ -3441,6 +3457,9 @@ th{background:#f2f2f2;}
 .sheet-kpis div{border:1px solid #bbb;border-radius:6px;padding:6px;background:#fafafa;}
 .sheet-kpis strong,.sheet-kpis span{display:block;}
 .sheet-kpis span{margin-top:3px;font-weight:700;}
+.pieces-line{margin:7px 0 5px;font-size:11px;line-height:1.45;}
+.piece-chip{display:inline-block;white-space:nowrap;margin:1px 3px 1px 0;padding:3px 6px;border:1px solid #9fcca4;border-radius:6px;background:#eef9ef;}
+.piece-dot{display:inline-block;width:9px;height:9px;border-radius:2px;border:1px solid #111;background:#dff3df;margin-right:4px;vertical-align:middle;}
 .zones-line{margin:4px 0 6px;font-size:10px;line-height:1.35;}
 .zone-chip{white-space:nowrap;}
 .zone-dot{display:inline-block;width:9px;height:9px;border-radius:50%;border:1px solid #111;margin-right:3px;vertical-align:middle;}
