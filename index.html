@@ -1596,6 +1596,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
 </style> 
+  <!-- V67 : capacité maximale des rouleaux et tolérance atelier de 1 mm au calepinage -->
   <!-- V66 : visibilité forcée des deux relevés en 3D et vue de dessus intégrée au dessin 2D -->
   <!-- V65 : représentation géométrique des relevés gauche/droit dans la vue 3D -->
   <!-- V64 : feuilles sur mesure et calepinage sur rouleaux de largeur/longueur configurables -->
@@ -2578,6 +2579,9 @@ win.document.close();
   const scale=0.24;
 
   const EPS=0.001;
+  // Tolérance atelier : évite de bloquer un développé de 500,1 mm sur un
+  // rouleau nominal de 500 mm à cause d'un simple dixième d'arrondi.
+  const FIT_TOLERANCE=1;
   const MIN_REUSABLE_WIDTH=150;
   const MIN_REUSABLE_LENGTH=300;
   const MIN_FULL_LENGTH_RESIDUAL=150;
@@ -2587,27 +2591,55 @@ win.document.close();
   const safePct=(value,total)=>total>EPS ? (value/total)*100 : 0;
 
   const allParts=[];
+  const rollCapacities=[];
   pieces.forEach((piece,index)=>{
-    const dev=Number(piece.developed||0);
-    const long=Number(piece.length||0)*1000;
+    const rawDev=Number(piece.developed||0);
+    const rawLong=Number(piece.length||0)*1000;
     const qty=Math.max(0,Math.floor(Number(piece.qty||0)));
-    if(dev<=0 || long<=0 || qty<=0)return;
-    if(dev>sheetW+EPS || long>sheetL+EPS){
-      alert(`La pièce P${index+1} (${Math.round(dev)} × ${Math.round(long)} mm) dépasse le format ${Math.round(sheetL)} × ${Math.round(sheetW)} mm du ${supportNameLower}.`);
+    if(rawDev<=0 || rawLong<=0 || qty<=0)return;
+
+    if(isRoll){
+      const orientations=[];
+      if(rawDev<=sheetW+FIT_TOLERANCE && rawLong<=sheetL+FIT_TOLERANCE){
+        const across=Math.max(1,Math.floor((sheetW+FIT_TOLERANCE)/rawDev));
+        const along=Math.max(1,Math.floor((sheetL+FIT_TOLERANCE)/rawLong));
+        orientations.push({rotated:false,across,along,capacity:across*along});
+      }
+      if(rawLong<=sheetW+FIT_TOLERANCE && rawDev<=sheetL+FIT_TOLERANCE){
+        const across=Math.max(1,Math.floor((sheetW+FIT_TOLERANCE)/rawLong));
+        const along=Math.max(1,Math.floor((sheetL+FIT_TOLERANCE)/rawDev));
+        orientations.push({rotated:true,across,along,capacity:across*along});
+      }
+      orientations.sort((a,b)=>b.capacity-a.capacity || Number(a.rotated)-Number(b.rotated));
+      const best=orientations[0]||null;
+      rollCapacities.push({pieceNo:index+1,dev:rawDev,long:rawLong,best});
+    }
+
+    const fitsNormal=rawDev<=sheetW+FIT_TOLERANCE && rawLong<=sheetL+FIT_TOLERANCE;
+    const fitsTurned=rawLong<=sheetW+FIT_TOLERANCE && rawDev<=sheetL+FIT_TOLERANCE;
+    if(!fitsNormal && !fitsTurned){
+      alert(`La pièce P${index+1} (${rawDev.toLocaleString("fr-FR",{maximumFractionDigits:1})} × ${rawLong.toLocaleString("fr-FR",{maximumFractionDigits:1})} mm) dépasse le format ${Math.round(sheetL)} × ${Math.round(sheetW)} mm du ${supportNameLower}.`);
       return;
     }
+    const initiallyTurned=!fitsNormal && fitsTurned;
+    const packingDev=initiallyTurned?rawLong:rawDev;
+    const packingLong=initiallyTurned?rawDev:rawLong;
+    const dev=packingDev>sheetW?sheetW:packingDev;
+    const long=packingLong>sheetL?sheetL:packingLong;
     for(let i=0;i<qty;i++){
       allParts.push({
         uid:`${index+1}-${i+1}`,
         pieceNo:index+1,
         dev,
         long,
-        area:dev*long,
+        sourceDev:rawDev,
+        sourceLong:rawLong,
+        area:rawDev*rawLong,
         w:long,
         h:dev,
         x:0,
         y:0,
-        rotated:false
+        rotated:initiallyTurned
       });
     }
   });
@@ -3064,6 +3096,21 @@ win.document.close();
       </div>`;
   });
 
+  const rollCapacityHtml=isRoll?`
+    <div class="capacity-box">
+      <strong>CAPACITÉ MAXIMALE DU ROULEAU</strong>
+      <div class="capacity-help">Ce calcul indique combien de pièces identiques peuvent être débitées dans un rouleau complet, indépendamment de la quantité actuellement commandée.</div>
+      <table class="capacity-table">
+        <thead><tr><th>Pièce</th><th>Dimensions</th><th>Disposition optimale</th><th>Maximum par rouleau</th></tr></thead>
+        <tbody>${rollCapacities.map(item=>item.best?`<tr>
+          <td>P${item.pieceNo}</td>
+          <td>${item.dev.toLocaleString("fr-FR",{maximumFractionDigits:1})} × ${item.long.toLocaleString("fr-FR",{maximumFractionDigits:1})} mm</td>
+          <td>${item.best.across} dans la largeur × ${item.best.along} dans la longueur${item.best.rotated?" — pièce tournée à 90°":""}</td>
+          <td><strong>${item.best.capacity} pièce${item.best.capacity>1?"s":""}</strong></td>
+        </tr>`:`<tr><td>P${item.pieceNo}</td><td>${item.dev.toLocaleString("fr-FR",{maximumFractionDigits:1})} × ${item.long.toLocaleString("fr-FR",{maximumFractionDigits:1})} mm</td><td colspan="2">Cette pièce ne rentre pas dans le rouleau.</td></tr>`).join("")}</tbody>
+      </table>
+    </div>`:"";
+
   const html=`
 <!DOCTYPE html>
 <html lang="fr">
@@ -3082,6 +3129,10 @@ h2{text-align:center;font-size:15px;font-weight:400;margin:4px 0 18px;}
 .summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px;margin-top:8px;font-size:13px;}
 .summary-grid div{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dotted #aaa;padding-bottom:4px;}
 .summary-grid strong{font-weight:700;}
+.capacity-box{margin-top:14px;border:3px solid #0f62fe;border-radius:10px;padding:12px;background:#eef6ff;}
+.capacity-help{font-size:11px;color:#334155;margin-top:5px;line-height:1.4;}
+.capacity-table{margin-top:9px;background:#fff;font-size:11px;}
+.capacity-table td:last-child{font-size:15px;color:#0f62fe;}
 table{width:100%;border-collapse:collapse;font-size:10px;margin-top:14px;}
 th,td{border:1px solid #333;padding:5px;text-align:center;}
 th{background:#f2f2f2;}
@@ -3128,6 +3179,8 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
     </div>
   </div>
 
+  ${rollCapacityHtml}
+
   <div class="summary">
     <strong>BILAN GLOBAL DU CALÉPINAGE</strong>
     <div class="summary-grid">
@@ -3144,7 +3197,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
   </div>
 
   <table>
-    <thead><tr><th>Feuille</th><th>Pièces placées</th><th>Qté</th><th>Utilisé</th><th>Chutes réutilisables</th><th>Pertes</th></tr></thead>
+    <thead><tr><th>${supportName}</th><th>Pièces placées</th><th>Qté demandée</th><th>Utilisé</th><th>Chutes réutilisables</th><th>Pertes</th></tr></thead>
     <tbody>${summaryRows}</tbody>
   </table>
 
