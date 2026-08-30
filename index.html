@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V72 synchronisation protégée</title>
+<title>RML PLIAGE ALU — V73 empilage vertical dans les bandes</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1620,6 +1620,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
 </style> 
+  <!-- V73 : empilage vertical des pièces de même longueur dans la hauteur d'une bande -->
   <!-- V71 : compactage final des pièces vers toutes les zones compatibles des rouleaux précédents -->
   <!-- V69 : remplissage séquentiel des rouleaux et regroupement du reliquat sur le dernier -->
   <!-- V68 : dossiers de projets, classement direct et recherche multicritère -->
@@ -1640,7 +1641,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 72</div>
+        <div class="app-version">VERSION 73</div>
       </div>
     </div>
     <div class="install">
@@ -2755,7 +2756,37 @@ win.document.close();
     const lengthAfter=maxLength-row.usedLength-part.long;
     const heightSlack=row.height-part.dev;
     const lostArea=heightSlack*part.long;
-    return lostArea*1000 + lengthAfter*10 + heightSlack;
+    return 1000000 + lostArea*1000 + lengthAfter*10 + heightSlack;
+  }
+
+  // V73 : une rangée peut contenir plusieurs piles. Les pièces d'une même pile
+  // ont la même longueur de coupe et s'empilent dans la hauteur de la rangée.
+  function stacksForRow(row){
+    const map=new Map();
+    row.parts.forEach(part=>{
+      const stackId=part.stackId||part.uid;
+      part.stackId=stackId;
+      if(!map.has(stackId))map.set(stackId,{id:stackId,width:part.long,usedHeight:0,parts:[]});
+      const stack=map.get(stackId);
+      stack.width=Math.max(stack.width,part.long);
+      stack.usedHeight+=part.dev;
+      stack.parts.push(part);
+    });
+    return [...map.values()];
+  }
+
+  function stackedPlacement(row,part){
+    let best=null;
+    stacksForRow(row).forEach(stack=>{
+      // Empilage uniquement sur une longueur identique : la coupe reste simple
+      // et la zone libre conserve une forme rectangulaire exploitable.
+      if(Math.abs(stack.width-part.long)>FIT_TOLERANCE)return;
+      if(stack.usedHeight+part.dev>row.height+EPS)return;
+      const heightAfter=row.height-stack.usedHeight-part.dev;
+      const score=-1000000+heightAfter*100+stack.usedHeight;
+      if(!best||score<best.score)best={stackId:stack.id,score};
+    });
+    return best;
   }
 
   function placePart(packing,part){
@@ -2764,6 +2795,8 @@ win.document.close();
     packing.forEach((sheet,sheetIndex)=>{
       const maxLength=Number(sheet.availableLength ?? sheetL);
       sheet.rows.forEach((row,rowIndex)=>{
+        const stacked=stackedPlacement(row,part);
+        if(stacked && (!best || stacked.score<best.score))best={type:"stack",sheetIndex,rowIndex,stackId:stacked.stackId,score:stacked.score};
         const score=rowPlacementScore(row,part,maxLength);
         if(score===null)return;
         if(!best || score<best.score){best={type:"row",sheetIndex,rowIndex,score};}
@@ -2780,19 +2813,22 @@ win.document.close();
 
     if(!best){
       const newSheet=makeEmptySheet();
-      newSheet.rows.push({height:part.dev,usedLength:part.long,parts:[clonePart(part)]});
+      newSheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
       newSheet.usedWidth=part.dev;
       packing.push(newSheet);
       return;
     }
 
     const sheet=packing[best.sheetIndex];
-    if(best.type==="row"){
+    if(best.type==="stack"){
       const row=sheet.rows[best.rowIndex];
-      row.parts.push(clonePart(part));
+      row.parts.push({...clonePart(part),stackId:best.stackId});
+    }else if(best.type==="row"){
+      const row=sheet.rows[best.rowIndex];
+      row.parts.push({...clonePart(part),stackId:part.uid});
       row.usedLength+=part.long;
     }else{
-      sheet.rows.push({height:part.dev,usedLength:part.long,parts:[clonePart(part)]});
+      sheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
       sheet.usedWidth+=part.dev;
     }
   }
@@ -2806,23 +2842,26 @@ win.document.close();
       const maxLength=Number(sheet.availableLength ?? sheetL);
       let bestRow=null;
       sheet.rows.forEach((row,rowIndex)=>{
+        const stacked=stackedPlacement(row,part);
+        if(stacked && (!bestRow||stacked.score<bestRow.score))bestRow={type:"stack",rowIndex,stackId:stacked.stackId,score:stacked.score};
         const score=rowPlacementScore(row,part,maxLength);
-        if(score!==null && (!bestRow||score<bestRow.score))bestRow={rowIndex,score};
+        if(score!==null && (!bestRow||score<bestRow.score))bestRow={type:"row",rowIndex,score};
       });
       if(bestRow){
         const row=sheet.rows[bestRow.rowIndex];
-        row.parts.push(clonePart(part));row.usedLength+=part.long;
+        if(bestRow.type==="stack")row.parts.push({...clonePart(part),stackId:bestRow.stackId});
+        else{row.parts.push({...clonePart(part),stackId:part.uid});row.usedLength+=part.long;}
         return;
       }
       const remainingWidth=sheetW-sheet.usedWidth;
       if(part.dev<=remainingWidth+EPS && part.long<=maxLength+EPS){
-        sheet.rows.push({height:part.dev,usedLength:part.long,parts:[clonePart(part)]});
+        sheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
         sheet.usedWidth+=part.dev;
         return;
       }
     }
     const newSheet=makeEmptySheet();
-    newSheet.rows.push({height:part.dev,usedLength:part.long,parts:[clonePart(part)]});
+    newSheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
     newSheet.usedWidth=part.dev;packing.push(newSheet);
   }
 
@@ -2846,17 +2885,21 @@ win.document.close();
         stripX+=part.dev;
       });
       sheet.rows.forEach(row=>{
-        row.parts.sort((a,b)=>b.dev-a.dev || b.long-a.long || a.pieceNo-b.pieceNo);
+        const stacks=stacksForRow(row).sort((a,b)=>b.usedHeight-a.usedHeight || b.width-a.width || a.parts[0].pieceNo-b.parts[0].pieceNo);
         let x=sheet.offsetX;
-        row.parts.forEach(part=>{
-          part.x=x;
-          part.y=y;
-          part.w=part.long;
-          part.h=part.dev;
-          part.rotated=false;
-          part.rowHeight=row.height;
-          parts.push(part);
-          x+=part.long;
+        stacks.forEach(stack=>{
+          let stackY=0;
+          stack.parts.sort((a,b)=>b.dev-a.dev || a.pieceNo-b.pieceNo).forEach(part=>{
+            part.x=x;
+            part.y=y+stackY;
+            part.w=part.long;
+            part.h=part.dev;
+            part.rotated=false;
+            part.rowHeight=row.height;
+            parts.push(part);
+            stackY+=part.dev;
+          });
+          x+=stack.width;
         });
         row.usedLength=x-sheet.offsetX;
         row.y=y;
@@ -2958,15 +3001,15 @@ win.document.close();
           type:"fin-bande"
         });
       }
-      row.parts.forEach(part=>{
-        const verticalSlack=row.height-part.dev;
+      stacksForRow(row).forEach(stack=>{
+        const verticalSlack=row.height-stack.usedHeight;
         if(verticalSlack>EPS){
           zones.push({
-            x:part.x,
-            y:row.y+part.dev,
-            w:part.long,
+            x:stack.parts[0].x,
+            y:row.y+stack.usedHeight,
+            w:stack.width,
             h:verticalSlack,
-            type:"sous-piece"
+            type:"sous-pile"
           });
         }
       });
@@ -3117,6 +3160,8 @@ win.document.close();
       const maxLength=Number(sheet.availableLength ?? sheetL);
       let best=null;
       sheet.rows.forEach((row,rowIndex)=>{
+        const stacked=stackedPlacement(row,part);
+        if(stacked && (!best || stacked.score<best.score))best={type:"stack",rowIndex,stackId:stacked.stackId,score:stacked.score};
         const score=rowPlacementScore(row,part,maxLength);
         if(score!==null && (!best || score<best.score))best={type:"row",rowIndex,score};
       });
@@ -3130,12 +3175,15 @@ win.document.close();
     }
 
     function addToSheet(sheet,part,candidate){
-      if(candidate.type==="row"){
+      if(candidate.type==="stack"){
         const row=sheet.rows[candidate.rowIndex];
-        row.parts.push(clonePart(part));
+        row.parts.push({...clonePart(part),stackId:candidate.stackId});
+      }else if(candidate.type==="row"){
+        const row=sheet.rows[candidate.rowIndex];
+        row.parts.push({...clonePart(part),stackId:part.uid});
         row.usedLength+=part.long;
       }else{
-        sheet.rows.push({height:part.dev,usedLength:part.long,parts:[clonePart(part)]});
+        sheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
         sheet.usedWidth+=part.dev;
       }
     }
@@ -3148,8 +3196,9 @@ win.document.close();
         row.parts.splice(partIndex,1);
         if(!row.parts.length)sheet.rows.splice(rowIndex,1);
         else{
-          row.height=Math.max(...row.parts.map(part=>part.dev));
-          row.usedLength=row.parts.reduce((sum,part)=>sum+part.long,0);
+          const stacks=stacksForRow(row);
+          row.height=Math.max(...stacks.map(stack=>stack.usedHeight));
+          row.usedLength=stacks.reduce((sum,stack)=>sum+stack.width,0);
         }
         return true;
       }
@@ -7682,7 +7731,7 @@ if(quotePdfBtn){
 })();
 </script>
 <script>
-/* ===== V72 : SYNCHRONISATION SUPABASE PROTÉGÉE, LOCAL-FIRST ET TOMBSTONES ===== */
+/* ===== V73 : SYNCHRONISATION SUPABASE PROTÉGÉE, LOCAL-FIRST ET TOMBSTONES ===== */
 (()=>{
   "use strict";
   const CONFIG_KEY="rml_pliage_supabase_config_v1";
@@ -7914,7 +7963,7 @@ if(quotePdfBtn){
       localStorage.setItem(CONFIG_KEY,JSON.stringify({...config,lastSyncAt:now()}));
       setSyncStatus(`À jour — dernière synchronisation ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`,"ok");
     }catch(error){
-      console.error("Synchronisation Supabase V72 :",error);
+      console.error("Synchronisation Supabase V73 :",error);
       setSyncStatus(`Échec de synchronisation : ${error.message}`,"error");
     }finally{syncing=false;}
   }
