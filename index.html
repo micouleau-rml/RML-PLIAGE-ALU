@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V75 contenu complet des projets synchronisé</title>
+<title>RML PLIAGE ALU — V76 remplissage progressif des rouleaux</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1641,7 +1641,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 75</div>
+        <div class="app-version">VERSION 76</div>
       </div>
     </div>
     <div class="install">
@@ -2737,6 +2737,22 @@ win.document.close();
   }
 
   function clonePart(part){return {...part};}
+  // Sur un rouleau, une rangée représente une tranche complète prise dans la
+  // largeur du rouleau. On remplit cette tranche en empilant les pièces dans
+  // les 500 mm disponibles, puis seulement on déroule la tranche suivante.
+  function makePackingRow(part){
+    return {
+      height:isRoll?sheetW:part.dev,
+      usedLength:part.long,
+      parts:[{...clonePart(part),stackId:part.uid}]
+    };
+  }
+  function addPackingRow(sheet,part){
+    const row=makePackingRow(part);
+    sheet.rows.push(row);
+    sheet.usedWidth+=row.height;
+    return row;
+  }
   function makeEmptySheet(verticalStrips=[]){
     const strips=verticalStrips.map(clonePart);
     const offsetX=strips.reduce((sum,part)=>sum+part.dev,0);
@@ -2820,8 +2836,7 @@ win.document.close();
 
     if(!best){
       const newSheet=makeEmptySheet();
-      newSheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
-      newSheet.usedWidth=part.dev;
+      addPackingRow(newSheet,part);
       packing.push(newSheet);
       return;
     }
@@ -2835,8 +2850,7 @@ win.document.close();
       row.parts.push({...clonePart(part),stackId:part.uid});
       row.usedLength+=part.long;
     }else{
-      sheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
-      sheet.usedWidth+=part.dev;
+      addPackingRow(sheet,part);
     }
   }
 
@@ -2862,14 +2876,13 @@ win.document.close();
       }
       const remainingWidth=sheetW-sheet.usedWidth;
       if(part.dev<=remainingWidth+EPS && part.long<=maxLength+EPS){
-        sheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
-        sheet.usedWidth+=part.dev;
+        addPackingRow(sheet,part);
         return;
       }
     }
     const newSheet=makeEmptySheet();
-    newSheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
-    newSheet.usedWidth=part.dev;packing.push(newSheet);
+    addPackingRow(newSheet,part);
+    packing.push(newSheet);
   }
 
   function layoutPacking(packing){
@@ -3131,22 +3144,26 @@ win.document.close();
   // Toute pièce dont la longueur est inférieure ou égale à 1500 mm peut être placée
   // dans une bande verticale réservée sur toute la hauteur. La première coupe reste
   // continue sur 1500 mm ; la partie non occupée devient une chute rectangulaire.
-  const verticalCandidates=allParts
-    .filter(part=>part.long<=sheetW+EPS && part.dev<sheetL-EPS)
-    .sort((a,b)=>b.dev-a.dev || a.pieceNo-b.pieceNo);
+  // Les bandes verticales sont pertinentes pour les feuilles, mais pas pour un
+  // rouleau que l'atelier remplit progressivement dans le sens du déroulage.
+  if(!isRoll){
+    const verticalCandidates=allParts
+      .filter(part=>part.long<=sheetW+EPS && part.dev<sheetL-EPS)
+      .sort((a,b)=>b.dev-a.dev || a.pieceNo-b.pieceNo);
 
-  const limitedCandidates=verticalCandidates.slice(0,10);
-  limitedCandidates.forEach(candidate=>{
-    baseOrders.forEach(order=>evaluatePacking(order,[candidate]));
-  });
+    const limitedCandidates=verticalCandidates.slice(0,10);
+    limitedCandidates.forEach(candidate=>{
+      baseOrders.forEach(order=>evaluatePacking(order,[candidate]));
+    });
 
-  // Teste aussi des doubles bandes verticales lorsque leur largeur totale laisse
-  // encore une zone exploitable pour les bandes horizontales.
-  for(let i=0;i<limitedCandidates.length;i++){
-    for(let j=i+1;j<limitedCandidates.length;j++){
-      const pair=[limitedCandidates[i],limitedCandidates[j]];
-      if(pair[0].dev+pair[1].dev>=sheetL-MIN_REUSABLE_WIDTH)continue;
-      baseOrders.slice(0,24).forEach(order=>evaluatePacking(order,pair));
+    // Teste aussi des doubles bandes verticales lorsque leur largeur totale laisse
+    // encore une zone exploitable pour les bandes horizontales.
+    for(let i=0;i<limitedCandidates.length;i++){
+      for(let j=i+1;j<limitedCandidates.length;j++){
+        const pair=[limitedCandidates[i],limitedCandidates[j]];
+        if(pair[0].dev+pair[1].dev>=sheetL-MIN_REUSABLE_WIDTH)continue;
+        baseOrders.slice(0,24).forEach(order=>evaluatePacking(order,pair));
+      }
     }
   }
 
@@ -3190,8 +3207,7 @@ win.document.close();
         row.parts.push({...clonePart(part),stackId:part.uid});
         row.usedLength+=part.long;
       }else{
-        sheet.rows.push({height:part.dev,usedLength:part.long,parts:[{...clonePart(part),stackId:part.uid}]});
-        sheet.usedWidth+=part.dev;
+        addPackingRow(sheet,part);
       }
     }
 
@@ -3204,7 +3220,7 @@ win.document.close();
         if(!row.parts.length)sheet.rows.splice(rowIndex,1);
         else{
           const stacks=stacksForRow(row);
-          row.height=Math.max(...stacks.map(stack=>stack.usedHeight));
+          row.height=isRoll?sheetW:Math.max(...stacks.map(stack=>stack.usedHeight));
           row.usedLength=stacks.reduce((sum,stack)=>sum+stack.width,0);
         }
         return true;
@@ -3456,7 +3472,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
       <div><span>Part des chutes réutilisables</span><strong>${fmtPct(safePct(globalStats.reusable,totalWaste))} des chutes</strong></div>
       <div><span>Part des pertes non exploitables</span><strong>${fmtPct(safePct(globalStats.unusable,totalWaste))} des chutes</strong></div>
     </div>
-    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la largeur disponible. ${isRoll?"Le moteur remplit désormais chaque rouleau au maximum avant d'en ouvrir un nouveau ; le dernier rouleau présenté est donc celui qui conserve le reliquat principal.":"Le moteur teste aussi une première bande transversale réservée sur toute la largeur du support."} Les calculs utilisent les dimensions personnalisées saisies pour la ${supportNameLower}.</div>
+    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la largeur disponible. ${isRoll?"Le rouleau est rempli par tranches successives : chaque longueur est remplie sur toute la largeur avant de dérouler la suivante. Un nouveau rouleau n'est ouvert qu'après avoir exploité les emplacements compatibles du précédent.":"Le moteur teste aussi une première bande transversale réservée sur toute la largeur du support."} Les calculs utilisent les dimensions personnalisées saisies pour la ${supportNameLower}.</div>
   </div>
 
   <table>
