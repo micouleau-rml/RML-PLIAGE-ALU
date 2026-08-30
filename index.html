@@ -1596,6 +1596,8 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
 </style> 
+  <!-- V65 : représentation géométrique des relevés gauche/droit dans la vue 3D -->
+  <!-- V64 : feuilles sur mesure et calepinage sur rouleaux de largeur/longueur configurables -->
   <!-- V63 : plis transversaux en bout gauche/droit, vue de dessus, comptage et longueur de débit -->
   <!-- V38 : calcul sur prépli 55°, affichage final avec retour strictement parallèle et petit rayon en 2D/3D -->
 <!-- V63 : repères d’angles rapprochés et cotes courtes placées à l’intérieur -->
@@ -1659,14 +1661,31 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           </select>
         </div>
        
-        <div class="field col-4">
-  <label for="sheetFormat">Format feuille</label>
+        <div class="field col-3">
+  <label for="materialMode">Support de calepinage</label>
+  <select id="materialMode">
+    <option value="sheet">Feuille</option>
+    <option value="roll">Rouleau</option>
+  </select>
+</div>
+<div class="field col-3" id="sheetPresetField">
+  <label for="sheetFormat">Format prédéfini</label>
   <select id="sheetFormat">
     <option value="1500x3000">3000 x 1500 mm — longueur × hauteur</option>
     <option value="1250x3000">3000 x 1250 mm — longueur × hauteur</option>
     <option value="1000x2000">2000 x 1000 mm — longueur × hauteur</option>
+    <option value="custom">Dimensions personnalisées</option>
   </select>
-</div>        
+</div>
+<div class="field col-3">
+  <label for="materialWidth">Largeur utile (mm)</label>
+  <input id="materialWidth" type="number" min="100" step="10" value="1500">
+</div>
+<div class="field col-3">
+  <label for="materialLength" id="materialLengthLabel">Longueur feuille (mm)</label>
+  <input id="materialLength" type="number" min="100" step="100" value="3000">
+</div>
+<div class="field col-12"><div class="note" id="materialFormatSummary">Feuille personnalisable : 3 000 × 1 500 mm.</div></div>
 </div>
       <div class="actions">
         <button class="btn-primary" id="addPieceBtn">+ Ajouter une pièce</button>
@@ -1981,13 +2000,67 @@ function savePieces(){
   syncPieceLengthsFromBendProfiles();
   localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces));
 }
+function getMaterialFormat(){
+  const mode=document.getElementById("materialMode")?.value==="roll"?"roll":"sheet";
+  const width=Math.max(100,Number(document.getElementById("materialWidth")?.value)||1500);
+  const rawLength=Math.max(mode==="roll"?.1:100,Number(document.getElementById("materialLength")?.value)||(mode==="roll"?20:3000));
+  const lengthMm=mode==="roll"?rawLength*1000:rawLength;
+  return {mode,width,lengthValue:rawLength,lengthMm};
+}
+function updateMaterialFormatUI(options={}){
+  const modeField=document.getElementById("materialMode");
+  const presetField=document.getElementById("sheetPresetField");
+  const preset=document.getElementById("sheetFormat");
+  const width=document.getElementById("materialWidth");
+  const length=document.getElementById("materialLength");
+  const label=document.getElementById("materialLengthLabel");
+  const summary=document.getElementById("materialFormatSummary");
+  if(!modeField||!width||!length)return;
+  const mode=modeField.value==="roll"?"roll":"sheet";
+  if(options.modeChanged){
+    if(mode==="roll" && Number(length.value)>100)length.value=20;
+    if(mode==="sheet" && Number(length.value)<100)length.value=3000;
+  }
+  if(presetField)presetField.style.display=mode==="sheet"?"block":"none";
+  if(label)label.textContent=mode==="roll"?"Longueur du rouleau (ml)":"Longueur feuille (mm)";
+  length.min=mode==="roll"?"0.1":"100";
+  length.step=mode==="roll"?"0.5":"100";
+  const f=getMaterialFormat();
+  if(summary)summary.textContent=mode==="roll"
+    ? `Rouleau : largeur ${Math.round(f.width).toLocaleString("fr-FR")} mm × ${f.lengthValue.toLocaleString("fr-FR",{maximumFractionDigits:2})} ml.`
+    : `Feuille personnalisable : ${Math.round(f.lengthMm).toLocaleString("fr-FR")} × ${Math.round(f.width).toLocaleString("fr-FR")} mm.`;
+  if(mode==="sheet" && preset && preset.value!=="custom"){
+    const [presetW,presetL]=preset.value.split("x").map(Number);
+    if(Math.abs(presetW-f.width)>.01 || Math.abs(presetL-f.lengthMm)>.01)preset.value="custom";
+  }
+}
+function applyStoredMaterialFormat(data={}){
+  const mode=document.getElementById("materialMode");
+  const preset=document.getElementById("sheetFormat");
+  const width=document.getElementById("materialWidth");
+  const length=document.getElementById("materialLength");
+  if(mode)mode.value=data.materialMode==="roll"?"roll":"sheet";
+  if(preset && data.sheetFormat)preset.value=[...preset.options].some(o=>o.value===data.sheetFormat)?data.sheetFormat:"custom";
+  let storedWidth=Number(data.materialWidth);
+  let storedLength=Number(data.materialLength);
+  if((!storedWidth||!storedLength) && data.sheetFormat && data.sheetFormat.includes("x")){
+    const dims=data.sheetFormat.split("x").map(Number);storedWidth=storedWidth||dims[0];storedLength=storedLength||dims[1];
+  }
+  if(width && storedWidth>0)width.value=storedWidth;
+  if(length && storedLength>0)length.value=storedLength;
+  updateMaterialFormatUI();
+}
 function saveCurrentProjectState(){
+  const materialFormat=getMaterialFormat();
   const state={
     clientId:selectedClient.value || "",
     projectColor:document.getElementById("projectColor")?.value || "",
     projectName:document.getElementById("projectName")?.value || "",
     thickness:selectedThickness.value || "7/10",
-    sheetFormat:document.getElementById("sheetFormat")?.value || "1500x3000"
+    sheetFormat:document.getElementById("sheetFormat")?.value || "1500x3000",
+    materialMode:materialFormat.mode,
+    materialWidth:materialFormat.width,
+    materialLength:materialFormat.lengthValue
   };
 
   localStorage.setItem(
@@ -2014,9 +2087,7 @@ function restoreCurrentProjectState(){
       selectedThickness.value=state.thickness;
     }
 
-    if(sheetFormatField && state.sheetFormat){
-      sheetFormatField.value=state.sheetFormat;
-    }
+    applyStoredMaterialFormat(state);
 
     renderClientForm();
     updatePriceDisplay();
@@ -2233,6 +2304,7 @@ function exportFullBackup(){
     localStorage.getItem(PROJECTS_KEY) || "[]"
   );
 
+  const materialFormat=getMaterialFormat();
   const backup={
     app:"Calcul pliage - sauvegarde complète",
     version:8,
@@ -2248,6 +2320,9 @@ function exportFullBackup(){
     selectedThickness:selectedThickness.value || "7/10",
 
     sheetFormat:document.getElementById("sheetFormat")?.value || "",
+    materialMode:materialFormat.mode,
+    materialWidth:materialFormat.width,
+    materialLength:materialFormat.lengthValue,
 
     projectName:document.getElementById("projectName")?.value || "",
 
@@ -2267,6 +2342,7 @@ function exportProjectBackup(){
   const client=getCurrentClient();
   const project=(projectName?.value || "projet-sans-nom").trim();
 
+  const materialFormat=getMaterialFormat();
   const backup={
     app:"RML Pliage - sauvegarde projet",
     version:8,
@@ -2277,7 +2353,10 @@ function exportProjectBackup(){
     selectedClientId:selectedClient.value,
     selectedThickness:selectedThickness.value,
     pieces,
-    sheetFormat: sheetFormat.value    
+    sheetFormat: sheetFormat.value,
+    materialMode:materialFormat.mode,
+    materialWidth:materialFormat.width,
+    materialLength:materialFormat.lengthValue
   };
 
   const safeClient=(client?.name || "client").replace(/[^a-z0-9]/gi,"-").toLowerCase();
@@ -2324,9 +2403,7 @@ if(
   selectedThickness.value=parsed.selectedThickness;
 }
 
-if(parsed.sheetFormat){
-  sheetFormat.value=parsed.sheetFormat;
-}
+applyStoredMaterialFormat(parsed);
 
 if(projectName){
   projectName.value=parsed.projectName || "";
@@ -2491,7 +2568,12 @@ win.document.close();
   const project=(projectName?.value || "Projet sans nom").trim();
   const color=(projectColor?.value || "").trim() || "-";
   const today=new Date().toLocaleDateString("fr-FR");
-  const [sheetW,sheetL]=(sheetFormat?.value || "1500x3000").split("x").map(Number);
+  const materialFormat=getMaterialFormat();
+  const sheetW=materialFormat.width;
+  const sheetL=materialFormat.lengthMm;
+  const isRoll=materialFormat.mode==="roll";
+  const supportName=isRoll?"Rouleau":"Feuille";
+  const supportNameLower=isRoll?"rouleau":"feuille";
   const scale=0.24;
 
   const EPS=0.001;
@@ -2510,7 +2592,7 @@ win.document.close();
     const qty=Math.max(0,Math.floor(Number(piece.qty||0)));
     if(dev<=0 || long<=0 || qty<=0)return;
     if(dev>sheetW+EPS || long>sheetL+EPS){
-      alert(`La pièce P${index+1} (${Math.round(dev)} × ${Math.round(long)} mm) dépasse le format ${sheetL} × ${sheetW} mm.`);
+      alert(`La pièce P${index+1} (${Math.round(dev)} × ${Math.round(long)} mm) dépasse le format ${Math.round(sheetL)} × ${Math.round(sheetW)} mm du ${supportNameLower}.`);
       return;
     }
     for(let i=0;i<qty;i++){
@@ -2915,7 +2997,9 @@ win.document.close();
       const ph=p.h*scale;
       const cx=p.x*scale+pw/2;
       const cy=p.y*scale+ph/2;
-      const fontSize=Math.max(6,Math.min(12,Math.min(pw,ph)/2.8));
+      const fontSize=isRoll
+        ? Math.max(28,Math.min(70,Math.min(pw,ph)/1.4))
+        : Math.max(6,Math.min(12,Math.min(pw,ph)/2.8));
       const label=`P${p.pieceNo} - ${Math.round(p.dev)} x ${Math.round(p.long)}${p.rotated?" ↻":""}`;
       rects+=`
         <rect x="${p.x*scale}" y="${p.y*scale}" width="${pw}" height="${ph}" fill="#dff3df" stroke="#111"/>
@@ -2951,7 +3035,7 @@ win.document.close();
 
       rects+=`
         <rect x="${zone.x*scale}" y="${zone.y*scale}" width="${zone.w*scale}" height="${zone.h*scale}" fill="${chuteColor}" stroke="#111" stroke-dasharray="6,4"/>
-        ${(zone.w*scale>18 && zone.h*scale>10)?`<text x="${zone.x*scale+zone.w*scale/2}" y="${zone.y*scale+zone.h*scale/2}" font-size="8" text-anchor="middle" dominant-baseline="middle" fill="#111">${chuteNo}</text>`:""}`;
+        ${(zone.w*scale>18 && zone.h*scale>10)?`<text x="${zone.x*scale+zone.w*scale/2}" y="${zone.y*scale+zone.h*scale/2}" font-size="${isRoll?40:8}" text-anchor="middle" dominant-baseline="middle" fill="#111">${chuteNo}</text>`:""}`;
     });
 
     zoneGroups.forEach(group=>{
@@ -2964,7 +3048,7 @@ win.document.close();
 
     drawings+=`
       <div class="drawing-block">
-        <h3>Feuille ${sheetIndex+1} — ${sheetL} x ${sheetW} mm</h3>
+        <h3>${supportName} ${sheetIndex+1} — ${isRoll?`${materialFormat.lengthValue.toLocaleString("fr-FR",{maximumFractionDigits:2})} ml × ${Math.round(sheetW)} mm`:`${Math.round(sheetL)} x ${Math.round(sheetW)} mm`}</h3>
         <div class="sheet-kpis">
           <div><strong>Surface utilisée</strong><span>${fmtM2(usedArea/1000000)} — ${fmtPct(safePct(usedArea,sheetArea))}</span></div>
           <div><strong>Chutes réutilisables</strong><span>${fmtM2(reusableArea/1000000)} — ${fmtPct(safePct(reusableArea,sheetArea))}</span></div>
@@ -3024,8 +3108,8 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
 </head>
 <body>
 <div class="sheet">
-  <h1>FEUILLE DE CALPINAGE ATELIER</h1>
-  <h2>Moteur guillotine par bandes — feuille ${sheetL} x ${sheetW} mm</h2>
+  <h1>PLAN DE CALPINAGE ATELIER</h1>
+  <h2>Moteur guillotine par bandes — ${supportNameLower} ${isRoll?`${materialFormat.lengthValue.toLocaleString("fr-FR",{maximumFractionDigits:2})} ml × ${Math.round(sheetW)} mm`:`${Math.round(sheetL)} x ${Math.round(sheetW)} mm`}</h2>
 
   <div class="top">
     <div class="box">
@@ -3036,8 +3120,9 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
     </div>
     <div class="box">
       <strong>Date :</strong> ${today}<br>
-      <strong>Format :</strong> ${sheetL} x ${sheetW} mm<br>
-      <strong>Surface d'une feuille :</strong> ${fmtM2((sheetW*sheetL)/1000000)}<br>
+      <strong>Support :</strong> ${supportName}<br>
+      <strong>Format :</strong> ${isRoll?`${materialFormat.lengthValue.toLocaleString("fr-FR",{maximumFractionDigits:2})} ml × ${Math.round(sheetW)} mm`:`${Math.round(sheetL)} x ${Math.round(sheetW)} mm`}<br>
+      <strong>Surface d'un support :</strong> ${fmtM2((sheetW*sheetL)/1000000)}<br>
       <strong>Seuil chute réutilisable :</strong> ${MIN_REUSABLE_LENGTH} x ${MIN_REUSABLE_WIDTH} mm minimum
     </div>
   </div>
@@ -3046,15 +3131,15 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
     <strong>BILAN GLOBAL DU CALÉPINAGE</strong>
     <div class="summary-grid">
       <div><span>Pièces à fabriquer</span><strong>${allParts.length}</strong></div>
-      <div><span>Feuilles entières</span><strong>${sheets.length}</strong></div>
-      <div><span>Surface en feuilles entières</span><strong>${fmtM2(totalSheetAreaM2)}</strong></div>
+      <div><span>${isRoll?"Longueurs de rouleau utilisées":"Feuilles entières"}</span><strong>${sheets.length}</strong></div>
+      <div><span>Surface totale des supports</span><strong>${fmtM2(totalSheetAreaM2)}</strong></div>
       <div><span>Surface réellement utilisée</span><strong>${fmtM2(totalUsedM2)} — ${fmtPct(safePct(globalStats.used,globalStats.total))}</strong></div>
       <div><span>Chutes restantes réutilisables</span><strong>${fmtM2(totalReusableM2)} — ${fmtPct(safePct(globalStats.reusable,globalStats.total))}</strong></div>
       <div><span>Chutes non exploitables</span><strong>${fmtM2(totalUnusableM2)} — ${fmtPct(safePct(globalStats.unusable,globalStats.total))}</strong></div>
       <div><span>Part des chutes réutilisables</span><strong>${fmtPct(safePct(globalStats.reusable,totalWaste))} des chutes</strong></div>
       <div><span>Part des pertes non exploitables</span><strong>${fmtPct(safePct(globalStats.unusable,totalWaste))} des chutes</strong></div>
     </div>
-    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la hauteur de cette bande. Le moteur teste aussi une première bande verticale réservée sur toute la hauteur de la feuille. La pièce peut être plus courte que 1500 mm : la coupe principale traverse toujours les 1500 mm et le complément reste une chute rectangulaire, avant les coupes horizontales suivantes.</div>
+    <div class="note">Une pièce peut être placée dans la longueur restante d'une bande lorsque son développé est inférieur ou égal à la largeur disponible. Le moteur teste aussi une première bande transversale réservée sur toute la largeur du support. Les calculs utilisent les dimensions personnalisées saisies pour la ${supportNameLower}.</div>
   </div>
 
   <table>
@@ -3147,9 +3232,7 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
         selectedThickness.value=data.selectedThickness;
       }
 
-      if(data.sheetFormat && sheetFormat){
-        sheetFormat.value=data.sheetFormat;
-      }
+      applyStoredMaterialFormat(data);
 
       if(projectNameInput){
         projectNameInput.value=data.projectName || "";
@@ -3205,6 +3288,9 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
         clientId:data.clientId || data.selectedClientId || data.client?.id || "",
         thickness:data.thickness || data.selectedThickness || "7/10",
         sheetFormat:data.sheetFormat || data.selectedSheetFormat || "1500x3000",
+        materialMode:data.materialMode || "sheet",
+        materialWidth:Number(data.materialWidth)||undefined,
+        materialLength:Number(data.materialLength)||undefined,
         pieces:restoreBendProfiles(projectPieces,[]),
         date:data.date || data.exportedAt || new Date().toISOString(),
         modifiedAt:new Date().toISOString()
@@ -3219,7 +3305,7 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
       renderClientSelect();
       selectedClient.value=clients.some(c=>c.id===importedProject.clientId) ? importedProject.clientId : "";
       selectedThickness.value=importedProject.thickness;
-      if(sheetFormat) sheetFormat.value=importedProject.sheetFormat;
+      applyStoredMaterialFormat(importedProject);
       projectNameInput.value=importedProject.name;
       if(projectColor) projectColor.value=importedProject.color;
 
@@ -3371,6 +3457,7 @@ function persistCurrentProjectRecord({createIfMissing=true}={}){
   if(index<0 && !createIfMissing)return null;
 
   const existing=index>=0 ? projects[index] : null;
+  const materialFormat=getMaterialFormat();
   const projectData={
     ...(existing||{}),
     id:existing?.id || currentLoadedProjectId || crypto.randomUUID(),
@@ -3379,6 +3466,9 @@ function persistCurrentProjectRecord({createIfMissing=true}={}){
     clientId:selectedClient.value,
     thickness:selectedThickness.value,
     sheetFormat:sheetFormat.value,
+    materialMode:materialFormat.mode,
+    materialWidth:materialFormat.width,
+    materialLength:materialFormat.lengthValue,
     pieces:projectPiecesWithPreservedDrawings(existing?.pieces||[],pieces),
     activeBendPieceIndex:(()=>{
       const runtime=Number(window.RML_ACTIVE_BEND_PIECE_INDEX);
@@ -3422,6 +3512,13 @@ function newProject(){
   // Remise aux valeurs initiales
   selectedThickness.selectedIndex=0;
   sheetFormat.selectedIndex=0;
+  const materialModeField=document.getElementById("materialMode");
+  const materialWidthField=document.getElementById("materialWidth");
+  const materialLengthField=document.getElementById("materialLength");
+  if(materialModeField)materialModeField.value="sheet";
+  if(materialWidthField)materialWidthField.value=1500;
+  if(materialLengthField)materialLengthField.value=3000;
+  updateMaterialFormatUI();
 
   // Une seule pièce entièrement vide
   pieces=[{
@@ -3572,12 +3669,7 @@ function newProject(){
         selected.selectedThickness ||
         "7/10";
 
-      if(sheetFormat){
-        sheetFormat.value=
-          selected.sheetFormat ||
-          selected.selectedSheetFormat ||
-          sheetFormat.value;
-      }
+      applyStoredMaterialFormat(selected);
 
       const runtimePiecesBeforeOpen=cloneSafe(pieces);
       pieces=
@@ -3736,8 +3828,25 @@ if(selectedThickness){
 }
 
 if(sheetFormatField){
-  sheetFormatField.addEventListener("change",saveCurrentProjectState);
+  sheetFormatField.addEventListener("change",()=>{
+    if(sheetFormatField.value!=="custom"){
+      const [width,length]=sheetFormatField.value.split("x").map(Number);
+      const widthField=document.getElementById("materialWidth");
+      const lengthField=document.getElementById("materialLength");
+      if(widthField)widthField.value=width;
+      if(lengthField)lengthField.value=length;
+    }
+    updateMaterialFormatUI();
+    saveCurrentProjectState();
+  });
 }
+
+const materialModeProjectField=document.getElementById("materialMode");
+const materialWidthProjectField=document.getElementById("materialWidth");
+const materialLengthProjectField=document.getElementById("materialLength");
+materialModeProjectField?.addEventListener("change",()=>{updateMaterialFormatUI({modeChanged:true});saveCurrentProjectState();});
+[materialWidthProjectField,materialLengthProjectField].forEach(field=>field?.addEventListener("input",()=>{updateMaterialFormatUI();saveCurrentProjectState();}));
+updateMaterialFormatUI();
 
 window.addEventListener("beforeunload",saveCurrentProjectState);
 
@@ -4621,11 +4730,57 @@ if(quotePdfBtn){
     const roundedModelPoints=roundedGeometry3D.points;
     const finishedVertices3D=roundedGeometry3D.vertices;
 
+    // V65 : géométrie réelle des plis transversaux en bout.
+    // Le pli est porté par le segment principal (le plus long), qui correspond
+    // au fond de la pièce dans le cas d'un bac plié sur ses quatre côtés.
+    const endFolds3D=getEndFoldsData();
+    let mainSegmentIndex=0;
+    let mainSegmentLength=-Infinity;
+    for(let i=0;i<centeredPoints.length-1;i++){
+      const length=Number(profile.lengths?.[i])||Math.hypot(centeredPoints[i+1].x-centeredPoints[i].x,centeredPoints[i+1].y-centeredPoints[i].y);
+      if(length>mainSegmentLength){mainSegmentLength=length;mainSegmentIndex=i;}
+    }
+    const mainA=centeredPoints[mainSegmentIndex];
+    const mainB=centeredPoints[mainSegmentIndex+1];
+    const mainDx=mainB.x-mainA.x;
+    const mainDy=mainB.y-mainA.y;
+    const mainLen=Math.max(.001,Math.hypot(mainDx,mainDy));
+    const baseNormal={x:-mainDy/mainLen,y:mainDx/mainLen};
+    function endWallModel(data,z,label,outwardZ){
+      if(!data?.enabled)return null;
+      let nx=baseNormal.x,ny=baseNormal.y;
+      const wantsUp=data.direction!=="bas";
+      if((wantsUp && ny>0)||(!wantsUp && ny<0)){nx=-nx;ny=-ny;}
+      // Si le segment principal est presque vertical, le sens reste visible
+      // en utilisant l'axe horizontal comme départage.
+      if(Math.abs(ny)<.001 && ((wantsUp&&nx>0)||(!wantsUp&&nx<0))){nx=-nx;ny=-ny;}
+      const height=Math.max(1,Number(data.height)||30);
+      const interiorAngle=Math.max(1,Math.min(179,Number(data.angle)||90));
+      const bendRadians=(180-interiorAngle)*Math.PI/180;
+      const raisedHeight=Math.sin(bendRadians)*height;
+      const depthOffset=Math.cos(bendRadians)*height*outwardZ;
+      return {
+        label,
+        data,
+        points:[
+          {x:mainA.x,y:mainA.y,z},
+          {x:mainB.x,y:mainB.y,z},
+          {x:mainB.x+nx*raisedHeight,y:mainB.y+ny*raisedHeight,z:z+depthOffset},
+          {x:mainA.x+nx*raisedHeight,y:mainA.y+ny*raisedHeight,z:z+depthOffset}
+        ]
+      };
+    }
+    const endWallModels=[
+      endWallModel(endFolds3D.left,0,"PLI BOUT G",-1),
+      endWallModel(endFolds3D.right,visualDepth,"PLI BOUT D",1)
+    ].filter(Boolean);
+
     const rotatedBounds=[];
     roundedModelPoints.forEach(p=>{
       rotatedBounds.push(rotate3DPoint(p.x,p.y,0));
       rotatedBounds.push(rotate3DPoint(p.x,p.y,visualDepth));
     });
+    endWallModels.forEach(wall=>wall.points.forEach(p=>rotatedBounds.push(rotate3DPoint(p.x,p.y,p.z))));
 
     const minRX=Math.min(...rotatedBounds.map(p=>p.x));
     const maxRX=Math.max(...rotatedBounds.map(p=>p.x));
@@ -4663,6 +4818,43 @@ if(quotePdfBtn){
       ctx3D.fill();
       ctx3D.stroke();
     }
+
+    // Parois relevées aux deux extrémités. La ligne rouge matérialise la
+    // position exacte du pli transversal sur la pièce finie.
+    endWallModels.forEach((wall,index)=>{
+      const projected=wall.points.map(p=>project3DPoint(p.x,p.y,p.z,scale,originX,originY));
+      const faceGradient=ctx3D.createLinearGradient(projected[0].x,projected[0].y,projected[3].x,projected[3].y);
+      faceGradient.addColorStop(0,index===0?"rgba(112,205,236,.94)":"rgba(139,214,238,.94)");
+      faceGradient.addColorStop(1,"rgba(44,132,174,.90)");
+      ctx3D.fillStyle=faceGradient;
+      ctx3D.strokeStyle="#17324a";
+      ctx3D.lineWidth=1.6;
+      ctx3D.beginPath();
+      projected.forEach((p,i)=>i?ctx3D.lineTo(p.x,p.y):ctx3D.moveTo(p.x,p.y));
+      ctx3D.closePath();
+      ctx3D.fill();
+      ctx3D.stroke();
+
+      ctx3D.save();
+      ctx3D.strokeStyle="#d62828";
+      ctx3D.lineWidth=3;
+      ctx3D.setLineDash([8,5]);
+      ctx3D.beginPath();
+      ctx3D.moveTo(projected[0].x,projected[0].y);
+      ctx3D.lineTo(projected[1].x,projected[1].y);
+      ctx3D.stroke();
+      ctx3D.restore();
+
+      const topMid={x:(projected[2].x+projected[3].x)/2,y:(projected[2].y+projected[3].y)/2};
+      ctx3D.font="800 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.textAlign="center";
+      ctx3D.textBaseline="bottom";
+      ctx3D.lineWidth=3;
+      ctx3D.strokeStyle="rgba(255,255,255,.98)";
+      ctx3D.strokeText(wall.label,topMid.x,topMid.y-3);
+      ctx3D.fillStyle="#17324a";
+      ctx3D.fillText(wall.label,topMid.x,topMid.y-3);
+    });
 
     // Arrière
     ctx3D.strokeStyle="rgba(41,70,91,.72)";
