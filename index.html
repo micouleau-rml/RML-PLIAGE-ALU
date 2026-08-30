@@ -115,6 +115,12 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
   font-size:1.35rem;
 }
 
+.projects-toolbar{display:grid;grid-template-columns:minmax(180px,1.5fr) minmax(150px,1fr) auto auto;gap:9px;margin:0 0 16px;align-items:center}
+.projects-toolbar input,.projects-toolbar select{width:100%;min-height:42px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#17324a}
+.projects-toolbar button{min-height:42px;padding:9px 12px;border-radius:10px}
+.projects-empty{padding:24px;text-align:center;color:#64748b;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc}
+.project-folder-select{width:100%;min-width:0;padding:8px 6px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#334155;font-weight:700}
+
 .projects-close-top{
   padding:9px 15px;
   min-height:40px;
@@ -128,6 +134,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
   grid-template-columns:
     minmax(100px,1.1fr)
     minmax(150px,1.8fr)
+    minmax(120px,1.2fr)
     120px
     145px;
   gap:12px;
@@ -217,11 +224,15 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
     border-radius:22px 22px 0 0;
   }
 
+  .projects-toolbar{grid-template-columns:1fr 1fr}
+  .projects-toolbar input{grid-column:1/-1}
+
   .projects-header,
   .project-item{
     grid-template-columns:
       minmax(62px,.9fr)
       minmax(88px,1.3fr)
+      minmax(90px,1fr)
       76px
       104px;
     gap:6px;
@@ -1596,6 +1607,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
 </style> 
+  <!-- V68 : dossiers de projets, classement direct et recherche multicritère -->
   <!-- V67 : capacité maximale des rouleaux et tolérance atelier de 1 mm au calepinage -->
   <!-- V66 : visibilité forcée des deux relevés en 3D et vue de dessus intégrée au dessin 2D -->
   <!-- V65 : représentation géométrique des relevés gauche/droit dans la vue 3D -->
@@ -2062,7 +2074,9 @@ function saveCurrentProjectState(){
     sheetFormat:document.getElementById("sheetFormat")?.value || "1500x3000",
     materialMode:materialFormat.mode,
     materialWidth:materialFormat.width,
-    materialLength:materialFormat.lengthValue
+    materialLength:materialFormat.lengthValue,
+    folderId:(JSON.parse(localStorage.getItem(PROJECTS_KEY)||"[]").find(item=>item.id===currentLoadedProjectId)?.folderId)||"",
+    projectFolders:loadProjectFolders()
   };
 
   localStorage.setItem(
@@ -2325,6 +2339,7 @@ function exportFullBackup(){
     materialMode:materialFormat.mode,
     materialWidth:materialFormat.width,
     materialLength:materialFormat.lengthValue,
+    projectFolders:loadProjectFolders(),
 
     projectName:document.getElementById("projectName")?.value || "",
 
@@ -2358,7 +2373,9 @@ function exportProjectBackup(){
     sheetFormat: sheetFormat.value,
     materialMode:materialFormat.mode,
     materialWidth:materialFormat.width,
-    materialLength:materialFormat.lengthValue
+    materialLength:materialFormat.lengthValue,
+    folderId:(JSON.parse(localStorage.getItem(PROJECTS_KEY)||"[]").find(item=>item.id===currentLoadedProjectId)?.folderId)||"",
+    projectFolders:loadProjectFolders()
   };
 
   const safeClient=(client?.name || "client").replace(/[^a-z0-9]/gi,"-").toLowerCase();
@@ -3253,6 +3270,7 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
     if(isFullBackup){
       clients=data.clients.map(normalizeClient);
       saveClients();
+      if(Array.isArray(data.projectFolders))saveProjectFolders(data.projectFolders);
 
       if(hasProjects){
         const restoredProjects=data.projects.map(project=>({
@@ -3345,6 +3363,7 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
         materialMode:data.materialMode || "sheet",
         materialWidth:Number(data.materialWidth)||undefined,
         materialLength:Number(data.materialLength)||undefined,
+        folderId:data.folderId || "",
         pieces:restoreBendProfiles(projectPieces,[]),
         date:data.date || data.exportedAt || new Date().toISOString(),
         modifiedAt:new Date().toISOString()
@@ -3354,6 +3373,11 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
       if(existingProjectIndex>=0) projects[existingProjectIndex]=importedProject;
       else projects.push(importedProject);
       localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+      if(Array.isArray(data.projectFolders)){
+        const mergedFolders=[...loadProjectFolders()];
+        data.projectFolders.forEach(folder=>{if(folder?.id&&folder?.name&&!mergedFolders.some(item=>item.id===folder.id))mergedFolders.push({id:String(folder.id),name:String(folder.name)});});
+        saveProjectFolders(mergedFolders);
+      }
 
       currentLoadedProjectId=importedProject.id;
       renderClientSelect();
@@ -3382,6 +3406,7 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
     /* Ancienne sauvegarde contenant uniquement une liste de projets */
     if(hasProjects){
       localStorage.setItem(PROJECTS_KEY,JSON.stringify(data.projects));
+      if(Array.isArray(data.projectFolders))saveProjectFolders(data.projectFolders);
       setStatus(`${data.projects.length} projet(s) restauré(s).`);
       alert(`Liste des projets restaurée : ${data.projects.length} projet(s).`);
       input.value="";
@@ -3401,7 +3426,18 @@ const saveProjectBtn=document.getElementById("saveProjectBtn");
 const newProjectBtn=document.getElementById("newProjectBtn");
 const projectNameInput=document.getElementById("projectName");
 const PROJECTS_KEY="rml_pliage_projects_v1";
+const PROJECT_FOLDERS_KEY="rml_pliage_project_folders_v1";
 let currentLoadedProjectId="";
+
+function loadProjectFolders(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(PROJECT_FOLDERS_KEY)||"[]");
+    return Array.isArray(parsed)?parsed.filter(folder=>folder&&folder.id&&folder.name).map(folder=>({id:String(folder.id),name:String(folder.name)})):[];
+  }catch{return [];}
+}
+function saveProjectFolders(folders){
+  localStorage.setItem(PROJECT_FOLDERS_KEY,JSON.stringify(Array.isArray(folders)?folders:[]));
+}
 
 /* ===== V35.8 : CONSERVATION ET RESTAURATION DES DESSINS ANCIENS ===== */
 function cloneSafe(value){
@@ -3523,6 +3559,7 @@ function persistCurrentProjectRecord({createIfMissing=true}={}){
     materialMode:materialFormat.mode,
     materialWidth:materialFormat.width,
     materialLength:materialFormat.lengthValue,
+    folderId:existing?.folderId || "",
     pieces:projectPiecesWithPreservedDrawings(existing?.pieces||[],pieces),
     activeBendPieceIndex:(()=>{
       const runtime=Number(window.RML_ACTIVE_BEND_PIECE_INDEX);
@@ -3594,238 +3631,108 @@ function newProject(){
 
   alert("Nouveau devis prêt.");
 }
-  function loadProjects(){
-  let projects=JSON.parse(
-    localStorage.getItem(PROJECTS_KEY) || "[]"
-  );
+function loadProjects(){
+  let projects=JSON.parse(localStorage.getItem(PROJECTS_KEY)||"[]");
+  let folders=loadProjectFolders();
+  const safeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+  projects.sort((a,b)=>new Date(b.modifiedAt||b.date||b.exportedAt||0)-new Date(a.modifiedAt||a.date||a.exportedAt||0));
 
-  projects.sort((a,b)=>
-    new Date(b.date || b.exportedAt || 0) -
-    new Date(a.date || a.exportedAt || 0)
-  );
-
-  if(!projects.length){
-    alert("Aucun projet enregistré.");
-    return;
-  }
-
-  // Évite d’ouvrir plusieurs fenêtres simultanément
   document.getElementById("projectsModal")?.remove();
-
   const modal=document.createElement("div");
-  modal.id="projectsModal";
-  modal.className="projects-modal";
+  modal.id="projectsModal";modal.className="projects-modal";
+  const box=document.createElement("div");box.className="projects-box";
+  const header=document.createElement("div");header.className="projects-title";
+  const title=document.createElement("h2");title.textContent="Mes projets";
+  const closeTop=document.createElement("button");closeTop.type="button";closeTop.className="projects-close-top";closeTop.textContent="Fermer";closeTop.addEventListener("click",()=>modal.remove());
+  header.append(title,closeTop);box.appendChild(header);
 
-  const box=document.createElement("div");
-  box.className="projects-box";
+  const toolbar=document.createElement("div");toolbar.className="projects-toolbar";
+  const search=document.createElement("input");search.type="search";search.placeholder="Rechercher un projet, un client ou une couleur…";search.setAttribute("aria-label","Rechercher dans les projets");
+  const folderFilter=document.createElement("select");folderFilter.setAttribute("aria-label","Filtrer par dossier");
+  const refreshFolderOptions=(selectedValue="all")=>{
+    folderFilter.innerHTML=`<option value="all">Tous les dossiers</option><option value="none">Sans dossier</option>`+folders.map(folder=>`<option value="${safeHtml(folder.id)}">📁 ${safeHtml(folder.name)}</option>`).join("");
+    folderFilter.value=[...folderFilter.options].some(option=>option.value===selectedValue)?selectedValue:"all";
+  };
+  refreshFolderOptions();
+  const addFolder=document.createElement("button");addFolder.type="button";addFolder.className="btn-primary";addFolder.textContent="＋ Nouveau dossier";
+  const deleteFolder=document.createElement("button");deleteFolder.type="button";deleteFolder.className="btn-danger";deleteFolder.textContent="Supprimer dossier";
+  toolbar.append(search,folderFilter,addFolder,deleteFolder);box.appendChild(toolbar);
 
-  const header=document.createElement("div");
-  header.className="projects-title";
-
-  const title=document.createElement("h2");
-  title.textContent="Mes projets";
-
-  const closeTop=document.createElement("button");
-  closeTop.type="button";
-  closeTop.className="projects-close-top";
-  closeTop.textContent="Fermer";
-  closeTop.addEventListener("click",()=>modal.remove());
-
-  header.appendChild(title);
-  header.appendChild(closeTop);
-  box.appendChild(header);
-
-  const tableHeader=document.createElement("div");
-  tableHeader.className="projects-header";
-  tableHeader.innerHTML=`
-    <span>Client</span>
-    <span>Référence</span>
-    <span>Date de création</span>
-    <span>Actions</span>
-  `;
+  const tableHeader=document.createElement("div");tableHeader.className="projects-header";
+  tableHeader.innerHTML=`<span>Client</span><span>Référence</span><span>Dossier</span><span>Date</span><span>Actions</span>`;
   box.appendChild(tableHeader);
+  const list=document.createElement("div");box.appendChild(list);
 
-  projects.forEach((project,index)=>{
-    const client=
-      clients.find(c=>c.id===project.clientId);
+  const saveProjectsList=()=>localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
+  const openSelectedProject=(selected)=>{
+    if(!selected)return alert("Projet invalide.");
+    currentLoadedProjectId=selected.id||"";
+    const projectReference=selected.name||selected.projectName||"Projet sans référence";
+    projectNameInput.value=selected.name||selected.projectName||"";
+    renderClientSelect();
+    selectedClient.value=selected.clientId||selected.selectedClientId||selected.client?.id||"";
+    selectedThickness.value=selected.thickness||selected.selectedThickness||"7/10";
+    applyStoredMaterialFormat(selected);
+    const runtimePiecesBeforeOpen=cloneSafe(pieces);
+    pieces=Array.isArray(selected.pieces)&&selected.pieces.length?restoreBendProfiles(selected.pieces,runtimePiecesBeforeOpen):[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+    selected.pieces=cloneSafe(pieces);saveProjectsList();
+    renderClientForm();renderPieces();updatePriceDisplay();savePieces();
+    const restoredBendIndex=Number(selected.activeBendPieceIndex);
+    window.RML_ACTIVE_BEND_PIECE_INDEX=(Number.isInteger(restoredBendIndex)&&restoredBendIndex>=0&&restoredBendIndex<pieces.length)?restoredBendIndex:Math.max(0,pieces.findIndex(piece=>piece?.bendProfile));
+    const colorField=document.getElementById("projectColor");
+    if(colorField)colorField.value=selected.color||selected.projectColor||"";
+    saveCurrentProjectState();modal.remove();alert("Projet chargé : "+projectReference);
+  };
 
-    const clientName=
-      client?.name ||
-      project.client?.name ||
-      project.clientName ||
-      "Client non renseigné";
-
-    const projectReference=
-      project.name ||
-      project.projectName ||
-      "Projet sans référence";
-
-    const rawDate=
-      project.date ||
-      project.exportedAt ||
-      project.createdAt;
-
-    const projectDate=rawDate
-      ? new Date(rawDate).toLocaleDateString("fr-FR")
-      : "—";
-
-    const row=document.createElement("div");
-    row.className="project-item";
-
-    const clientCell=document.createElement("div");
-    clientCell.className="project-client";
-    clientCell.textContent=clientName;
-    clientCell.title=clientName;
-
-    const referenceCell=document.createElement("div");
-    referenceCell.className="project-reference";
-    referenceCell.textContent=projectReference;
-    referenceCell.title=projectReference;
-
-    const dateCell=document.createElement("div");
-    dateCell.className="project-date";
-    dateCell.textContent=projectDate;
-
-    const actions=document.createElement("div");
-    actions.className="project-actions";
-
-    const openButton=document.createElement("button");
-    openButton.type="button";
-    openButton.className="open-project";
-    openButton.textContent="Ouvrir";
-
-    openButton.addEventListener("click",()=>{
-      const selected=projects[index];
-
-      currentLoadedProjectId=selected?.id || "";
-
-      if(!selected){
-        alert("Projet invalide.");
-        return;
-      }
-
-      projectNameInput.value=
-        selected.name ||
-        selected.projectName ||
-        "";
-
-      // Reconstruit d’abord la liste des clients
-      renderClientSelect();
-
-      selectedClient.value=
-        selected.clientId ||
-        selected.selectedClientId ||
-        selected.client?.id ||
-        "";
-
-      selectedThickness.value=
-        selected.thickness ||
-        selected.selectedThickness ||
-        "7/10";
-
-      applyStoredMaterialFormat(selected);
-
-      const runtimePiecesBeforeOpen=cloneSafe(pieces);
-      pieces=
-        Array.isArray(selected.pieces) && selected.pieces.length
-          ? restoreBendProfiles(selected.pieces,runtimePiecesBeforeOpen)
-          : [{
-              id:crypto.randomUUID(),
-              developed:"",
-              length:"",
-              qty:1,
-              folds:0,
-              cuts:0,
-              time:0,
-              waste:""
-            }];
-
-      // Réécrit uniquement le projet chargé avec les profils récupérés, sans toucher aux autres projets.
-      selected.pieces=cloneSafe(pieces);
-      projects[index]=selected;
-      localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
-
-      renderClientForm();
-      renderPieces();
-      updatePriceDisplay();
-      savePieces();
-
-      const restoredBendIndex=Number(selected.activeBendPieceIndex);
-      window.RML_ACTIVE_BEND_PIECE_INDEX=(Number.isInteger(restoredBendIndex) && restoredBendIndex>=0 && restoredBendIndex<pieces.length)
-        ? restoredBendIndex
-        : Math.max(0,pieces.findIndex(piece=>piece?.bendProfile));
-
-      // La couleur est remise après les fonctions d’affichage
-      const colorField=document.getElementById("projectColor");
-
-      if(colorField){
-        colorField.value=
-          selected.color ||
-          selected.projectColor ||
-          "";
-      }
-
-      if(typeof saveCurrentProjectState==="function"){
-        saveCurrentProjectState();
-      }
-
-      modal.remove();
-      alert("Projet chargé : " + projectReference);
+  const renderRows=()=>{
+    list.innerHTML="";
+    const query=search.value.trim().toLocaleLowerCase("fr-FR");
+    const selectedFolder=folderFilter.value;
+    let visible=0;
+    projects.forEach(project=>{
+      const client=clients.find(c=>c.id===project.clientId);
+      const clientName=client?.name||project.client?.name||project.clientName||"Client non renseigné";
+      const reference=project.name||project.projectName||"Projet sans référence";
+      const folder=folders.find(item=>item.id===project.folderId);
+      const folderName=folder?.name||"Sans dossier";
+      const color=project.color||project.projectColor||"";
+      const matchesFolder=selectedFolder==="all"||(selectedFolder==="none"?!project.folderId:project.folderId===selectedFolder);
+      const matchesSearch=!query||`${clientName} ${reference} ${folderName} ${color}`.toLocaleLowerCase("fr-FR").includes(query);
+      if(!matchesFolder||!matchesSearch)return;
+      visible++;
+      const rawDate=project.modifiedAt||project.date||project.exportedAt||project.createdAt;
+      const date=rawDate?new Date(rawDate).toLocaleDateString("fr-FR"):"—";
+      const row=document.createElement("div");row.className="project-item";
+      const clientCell=document.createElement("div");clientCell.className="project-client";clientCell.textContent=clientName;clientCell.title=clientName;
+      const referenceCell=document.createElement("div");referenceCell.className="project-reference";referenceCell.textContent=reference;referenceCell.title=reference;
+      const folderSelect=document.createElement("select");folderSelect.className="project-folder-select";folderSelect.innerHTML=`<option value="">Sans dossier</option>`+folders.map(item=>`<option value="${safeHtml(item.id)}">📁 ${safeHtml(item.name)}</option>`).join("");folderSelect.value=project.folderId||"";
+      folderSelect.addEventListener("change",()=>{project.folderId=folderSelect.value;project.modifiedAt=new Date().toISOString();saveProjectsList();renderRows();});
+      const dateCell=document.createElement("div");dateCell.className="project-date";dateCell.textContent=date;
+      const actions=document.createElement("div");actions.className="project-actions";
+      const del=document.createElement("button");del.type="button";del.className="delete-project";del.title="Supprimer";del.textContent="🗑";
+      del.addEventListener("click",()=>{if(!confirm(`Supprimer définitivement ce projet ?\n\n${reference}`))return;projects=projects.filter(item=>item.id!==project.id);saveProjectsList();renderRows();});
+      const open=document.createElement("button");open.type="button";open.className="open-project";open.textContent="Ouvrir";open.addEventListener("click",()=>openSelectedProject(project));
+      actions.append(del,open);row.append(clientCell,referenceCell,folderSelect,dateCell,actions);list.appendChild(row);
     });
+    if(!visible){const empty=document.createElement("div");empty.className="projects-empty";empty.textContent=projects.length?"Aucun projet ne correspond à la recherche.":"Aucun projet enregistré. Vous pouvez déjà créer vos dossiers.";list.appendChild(empty);}
+  };
 
-    const deleteButton=document.createElement("button");
-    deleteButton.type="button";
-    deleteButton.className="delete-project";
-    deleteButton.setAttribute(
-      "aria-label",
-      "Supprimer le projet " + projectReference
-    );
-    deleteButton.title="Supprimer";
-    deleteButton.textContent="🗑";
-
-    deleteButton.addEventListener("click",()=>{
-      const confirmation=confirm(
-        `Supprimer définitivement ce projet ?\n\n${projectReference}`
-      );
-
-      if(!confirmation) return;
-
-      projects.splice(index,1);
-
-      localStorage.setItem(
-        PROJECTS_KEY,
-        JSON.stringify(projects)
-      );
-
-      modal.remove();
-
-      if(projects.length){
-        loadProjects();
-      }else{
-        alert("Projet supprimé. Il ne reste aucun projet enregistré.");
-      }
-    });
-
-    actions.appendChild(deleteButton);
-    actions.appendChild(openButton);
-
-    row.appendChild(clientCell);
-    row.appendChild(referenceCell);
-    row.appendChild(dateCell);
-    row.appendChild(actions);
-
-    box.appendChild(row);
+  search.addEventListener("input",renderRows);folderFilter.addEventListener("change",renderRows);
+  addFolder.addEventListener("click",()=>{
+    const name=(prompt("Nom du nouveau dossier :")||"").trim();if(!name)return;
+    if(folders.some(folder=>folder.name.toLocaleLowerCase("fr-FR")===name.toLocaleLowerCase("fr-FR")))return alert("Ce dossier existe déjà.");
+    const folder={id:crypto.randomUUID(),name};folders.push(folder);folders.sort((a,b)=>a.name.localeCompare(b.name,"fr"));saveProjectFolders(folders);refreshFolderOptions(folder.id);renderRows();
+  });
+  deleteFolder.addEventListener("click",()=>{
+    const id=folderFilter.value;if(id==="all"||id==="none")return alert("Sélectionnez d’abord le dossier à supprimer.");
+    const folder=folders.find(item=>item.id===id);if(!folder)return;
+    if(!confirm(`Supprimer le dossier « ${folder.name} » ?\n\nLes projets seront conservés dans « Sans dossier ».`))return;
+    projects.forEach(project=>{if(project.folderId===id)project.folderId="";});folders=folders.filter(item=>item.id!==id);saveProjectsList();saveProjectFolders(folders);refreshFolderOptions("all");renderRows();
   });
 
-  modal.appendChild(box);
-  document.body.appendChild(modal);
-
-  // Fermer en cliquant en dehors de la fenêtre
-  modal.addEventListener("click",event=>{
-    if(event.target===modal){
-      modal.remove();
-    }
-  });
+  renderRows();modal.appendChild(box);document.body.appendChild(modal);
+  setTimeout(()=>search.focus(),50);
+  modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
 }
 if(saveProjectBtn){
   saveProjectBtn.addEventListener("click",saveCurrentProject);
