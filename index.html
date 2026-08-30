@@ -1596,6 +1596,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
 </style> 
+  <!-- V66 : visibilité forcée des deux relevés en 3D et vue de dessus intégrée au dessin 2D -->
   <!-- V65 : représentation géométrique des relevés gauche/droit dans la vue 3D -->
   <!-- V64 : feuilles sur mesure et calepinage sur rouleaux de largeur/longueur configurables -->
   <!-- V63 : plis transversaux en bout gauche/droit, vue de dessus, comptage et longueur de débit -->
@@ -4439,6 +4440,57 @@ if(quotePdfBtn){
     }
   }
 
+  function drawEndFoldsTopView2D(w,h){
+    const endFolds=getEndFoldsData();
+    if(!endFolds.count)return;
+    const boxW=Math.min(360,Math.max(250,w*.36));
+    const boxH=132;
+    const boxX=Math.max(14,w-boxW-14);
+    const boxY=Math.max(14,h-boxH-14);
+    const pad=16;
+    const bodyX=boxX+pad+34;
+    const bodyY=boxY+45;
+    const bodyW=boxW-pad*2-68;
+    const bodyH=42;
+    const flapW=30;
+    ctx.save();
+    ctx.fillStyle="rgba(255,255,255,.96)";
+    ctx.strokeStyle="rgba(15,98,254,.82)";
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(boxX,boxY,boxW,boxH,10);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#17324a";
+    ctx.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+    ctx.textAlign="left";ctx.textBaseline="middle";
+    ctx.fillText("VUE DE DESSUS — PLIS EN BOUT",boxX+pad,boxY+17);
+    ctx.fillStyle="#dcecf4";
+    ctx.strokeStyle="#17324a";
+    ctx.lineWidth=1.8;
+    ctx.fillRect(bodyX,bodyY,bodyW,bodyH);
+    ctx.strokeRect(bodyX,bodyY,bodyW,bodyH);
+    const drawFlap=(data,isLeft)=>{
+      if(!data.enabled)return;
+      const x=isLeft?bodyX-flapW:bodyX+bodyW;
+      ctx.fillStyle="rgba(80,184,220,.72)";
+      ctx.fillRect(x,bodyY,flapW,bodyH);
+      ctx.strokeStyle="#17324a";ctx.lineWidth=1.3;ctx.strokeRect(x,bodyY,flapW,bodyH);
+      const foldX=isLeft?bodyX:bodyX+bodyW;
+      ctx.strokeStyle="#d62828";ctx.lineWidth=3;ctx.setLineDash([7,4]);
+      ctx.beginPath();ctx.moveTo(foldX,bodyY-7);ctx.lineTo(foldX,bodyY+bodyH+7);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle="#d62828";
+      ctx.font="800 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx.textAlign=isLeft?"left":"right";
+      const textX=isLeft?boxX+pad:boxX+boxW-pad;
+      ctx.fillText(`${isLeft?"G":"D"} : ${fmtNumber(data.height,0)} mm · ${fmtNumber(data.angle,0)}° · ${data.direction}`,textX,boxY+108);
+    };
+    drawFlap(endFolds.left,true);
+    drawFlap(endFolds.right,false);
+    ctx.fillStyle="#17324a";
+    ctx.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+    ctx.textAlign="center";
+    ctx.fillText(`${fmtNumber(endFolds.finishedLength,0)} mm entre les deux lignes de pli`,bodyX+bodyW/2,bodyY+bodyH/2);
+    ctx.restore();
+  }
+
   function draw(){
     const w=canvas.clientWidth,h=canvas.clientHeight;
     drawGrid(w,h);
@@ -4650,6 +4702,7 @@ if(quotePdfBtn){
       legendLines.forEach((line,index)=>ctx.fillText(line,boxX+pad,boxY+31+index*lineH));
       ctx.restore();
     }
+    drawEndFoldsTopView2D(w,h);
   }
 
 
@@ -4823,8 +4876,9 @@ if(quotePdfBtn){
     // position exacte du pli transversal sur la pièce finie.
     endWallModels.forEach((wall,index)=>{
       const projected=wall.points.map(p=>project3DPoint(p.x,p.y,p.z,scale,originX,originY));
+      const isLeftWall=wall.label.endsWith("G");
       const faceGradient=ctx3D.createLinearGradient(projected[0].x,projected[0].y,projected[3].x,projected[3].y);
-      faceGradient.addColorStop(0,index===0?"rgba(112,205,236,.94)":"rgba(139,214,238,.94)");
+      faceGradient.addColorStop(0,isLeftWall?"rgba(112,205,236,.94)":"rgba(139,214,238,.94)");
       faceGradient.addColorStop(1,"rgba(44,132,174,.90)");
       ctx3D.fillStyle=faceGradient;
       ctx3D.strokeStyle="#17324a";
@@ -5006,6 +5060,34 @@ if(quotePdfBtn){
       ctx3D.fillText(letter,markerX,markerY+.5);
     }
     ctx3D.restore();
+
+    // V66 : second passage de visibilité. Les deux plis restent repérables,
+    // y compris lorsque l'un des relevés est situé derrière la pièce.
+    endWallModels.forEach((wall,index)=>{
+      const projected=wall.points.map(p=>project3DPoint(p.x,p.y,p.z,scale,originX,originY));
+      const isLeftWall=wall.label.endsWith("G");
+      const accent=isLeftWall?"#d62828":"#7c3aed";
+      ctx3D.save();
+      ctx3D.fillStyle=isLeftWall?"rgba(214,40,40,.13)":"rgba(124,58,237,.13)";
+      ctx3D.strokeStyle=accent;
+      ctx3D.lineWidth=3;
+      ctx3D.setLineDash(isLeftWall?[9,4]:[3,4]);
+      ctx3D.beginPath();
+      projected.forEach((p,i)=>i?ctx3D.lineTo(p.x,p.y):ctx3D.moveTo(p.x,p.y));
+      ctx3D.closePath();ctx3D.fill();ctx3D.stroke();
+      ctx3D.setLineDash([]);
+      const labelPoint={
+        x:(projected[2].x+projected[3].x)/2,
+        y:(projected[2].y+projected[3].y)/2+(isLeftWall?-8:12)
+      };
+      ctx3D.fillStyle="#fff";ctx3D.strokeStyle=accent;ctx3D.lineWidth=2;
+      ctx3D.beginPath();ctx3D.arc(labelPoint.x,labelPoint.y,11,0,Math.PI*2);ctx3D.fill();ctx3D.stroke();
+      ctx3D.fillStyle=accent;
+      ctx3D.font="900 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+      ctx3D.textAlign="center";ctx3D.textBaseline="middle";
+      ctx3D.fillText(isLeftWall?"G":"D",labelPoint.x,labelPoint.y+.5);
+      ctx3D.restore();
+    });
 
     // ===== V44 : ANGLES + LONGUEUR DANS UN SEUL ENCART =====
     // La cote graphique de longueur et ses lignes d’attache sont supprimées.
