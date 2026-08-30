@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V74 configuration Supabase intégrée</title>
+<title>RML PLIAGE ALU — V75 contenu complet des projets synchronisé</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1641,7 +1641,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 74</div>
+        <div class="app-version">VERSION 75</div>
       </div>
     </div>
     <div class="install">
@@ -2076,6 +2076,7 @@ function syncPieceLengthsFromBendProfiles(){
 function savePieces(){
   syncPieceLengthsFromBendProfiles();
   localStorage.setItem(STORAGE_KEY_PIECES,JSON.stringify(pieces));
+  if(typeof scheduleProjectAutosave==="function")scheduleProjectAutosave();
 }
 function getMaterialFormat(){
   const mode=document.getElementById("materialMode")?.value==="roll"?"roll":"sheet";
@@ -2130,6 +2131,7 @@ function applyStoredMaterialFormat(data={}){
 function saveCurrentProjectState(){
   const materialFormat=getMaterialFormat();
   const state={
+    projectId:typeof currentLoadedProjectId!=="undefined" ? currentLoadedProjectId : "",
     clientId:selectedClient.value || "",
     projectColor:document.getElementById("projectColor")?.value || "",
     projectName:document.getElementById("projectName")?.value || "",
@@ -2146,6 +2148,7 @@ function saveCurrentProjectState(){
     STORAGE_KEY_CURRENT_PROJECT,
     JSON.stringify(state)
   );
+  if(typeof scheduleProjectAutosave==="function")scheduleProjectAutosave();
 }
 
 function restoreCurrentProjectState(){
@@ -2155,6 +2158,10 @@ function restoreCurrentProjectState(){
 
     const state=JSON.parse(raw);
     const sheetFormatField=document.getElementById("sheetFormat");
+
+    if(state.projectId && typeof currentLoadedProjectId!=="undefined"){
+      currentLoadedProjectId=state.projectId;
+    }
 
     if(state.clientId && clients.some(c=>c.id===state.clientId)){
       selectedClient.value=state.clientId;
@@ -3667,6 +3674,26 @@ const projectNameInput=document.getElementById("projectName");
 const PROJECTS_KEY="rml_pliage_projects_v1";
 const PROJECT_FOLDERS_KEY="rml_pliage_project_folders_v1";
 let currentLoadedProjectId="";
+let projectAutosaveTimer=0;
+
+function scheduleProjectAutosave(){
+  if(!currentLoadedProjectId)return;
+  clearTimeout(projectAutosaveTimer);
+  projectAutosaveTimer=setTimeout(()=>{
+    const saved=persistCurrentProjectRecord({createIfMissing:false});
+    if(saved)saveCurrentProjectStateWithoutAutosave();
+  },250);
+}
+
+// Enregistre uniquement l'identifiant courant sans relancer la temporisation.
+function saveCurrentProjectStateWithoutAutosave(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT);
+    const state=raw?JSON.parse(raw):{};
+    state.projectId=currentLoadedProjectId||"";
+    localStorage.setItem(STORAGE_KEY_CURRENT_PROJECT,JSON.stringify(state));
+  }catch{}
+}
 
 function loadProjectFolders(){
   try{
@@ -7731,7 +7758,7 @@ if(quotePdfBtn){
 })();
 </script>
 <script>
-/* ===== V74 : CONFIGURATION SUPABASE INTÉGRÉE ET PROTÉGÉE ===== */
+/* ===== V75 : CONTENU COMPLET DES PROJETS SYNCHRONISÉ ===== */
 (()=>{
   "use strict";
   const CONFIG_KEY="rml_pliage_supabase_config_v1";
@@ -7899,11 +7926,12 @@ if(quotePdfBtn){
 
   function seedRowsMissingRemotely(remoteRows){
     const remoteKeys=new Set(remoteRows.map(row=>rowKey(row.entity_type,row.entity_id)));
-    const meta=loadMeta();
     const locals=readLocalEntities();
     Object.entries(locals).forEach(([type,map])=>map.forEach((payload,id)=>{
       const key=rowKey(type,id);
-      if(!remoteKeys.has(key) && !meta[key])queueRow(type,id,payload,false,now());
+      // Une ancienne métadonnée locale ne doit jamais empêcher l'envoi d'un
+      // projet réellement absent de l'espace Supabase courant.
+      if(!remoteKeys.has(key))queueRow(type,id,payload,false,now());
     }));
   }
 
@@ -7916,9 +7944,21 @@ if(quotePdfBtn){
       rows.forEach(row=>{
         if(!locals[row.entity_type])return;
         const key=rowKey(row.entity_type,row.entity_id);
+        const map=locals[row.entity_type];
+        if(row.entity_type==="project" && !row.deleted){
+          const localProject=map.get(row.entity_id);
+          const localModified=Date.parse(localProject?.modifiedAt||localProject?.date||0)||0;
+          const remoteModified=Date.parse(row.payload?.modifiedAt||row.payload?.date||0)||0;
+          // Le contenu métier le plus récent prime sur l'heure technique de
+          // transfert Supabase. Cela protège les pièces d'un projet local plus
+          // complet contre une ancienne fiche distante vide ou incomplète.
+          if(localProject && localModified>remoteModified){
+            queueRow("project",row.entity_id,localProject,false,now());
+            return;
+          }
+        }
         const localStamp=meta[key]?.updatedAt||"";
         if(localStamp && localStamp>=row.updated_at)return;
-        const map=locals[row.entity_type];
         if(row.deleted)map.delete(row.entity_id);else map.set(row.entity_id,row.payload||{});
         meta[key]={updatedAt:row.updated_at,deleted:!!row.deleted};
         changed=true;
@@ -7977,7 +8017,7 @@ if(quotePdfBtn){
       localStorage.setItem(CONFIG_KEY,JSON.stringify({...config,lastSyncAt:now()}));
       setSyncStatus(`À jour — dernière synchronisation ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`,"ok");
     }catch(error){
-      console.error("Synchronisation Supabase V74 :",error);
+      console.error("Synchronisation Supabase V75 :",error);
       setSyncStatus(`Échec de synchronisation : ${error.message}`,"error");
     }finally{syncing=false;}
   }
