@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V84 retours inclus dans le calepinage</title>
+<title>RML PLIAGE ALU — V85 longueur unique saisie dessin calepinage</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1635,6 +1635,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   <!-- V73 : empilage vertical des pièces de même longueur dans la hauteur d'une bande -->
   <!-- V71 : compactage final des pièces vers toutes les zones compatibles des rouleaux précédents -->
   <!-- V69 : remplissage séquentiel des rouleaux et regroupement du reliquat sur le dernier -->
+  <!-- V85 : longueur finie unique synchronisée entre saisie, dessin et calepinage -->
   <!-- V84 : le calepinage utilise la longueur de débit avec les retours en bout -->
   <!-- V68 : dossiers de projets, classement direct et recherche multicritère -->
   <!-- V67 : capacité maximale des rouleaux et tolérance atelier de 1 mm au calepinage -->
@@ -1654,7 +1655,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 84</div>
+        <div class="app-version">VERSION 85</div>
       </div>
     </div>
     <div class="install">
@@ -1745,7 +1746,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
             <tr>
               <th>#</th>
               <th>Développé (mm)</th>
-              <th>Longueur (m)</th>
+              <th>Longueur finie (m)</th>
               <th>Qté</th>
               <th>Plis</th>
               <th>Coupes</th>
@@ -2092,7 +2093,36 @@ function syncPieceLengthsFromBendProfiles(){
     if(lengthMm>0 && !(Number(piece.length||0)>0)){
       piece.length=String(Number((lengthMm/1000).toFixed(3)));
     }
+    syncPieceBendLengthFromEntry(piece);
   });
+}
+
+function getPieceEndReturnAllowance(piece){
+  const bendProfile=piece?.bendProfile;
+  const settings=bendProfile?.settings||{};
+  const endFolds=bendProfile?.result?.endFolds||{};
+  const allowance=(side)=>{
+    const saved=endFolds[side]||{};
+    const prefix=side==="left"?"endLeft":"endRight";
+    const enabled=Boolean(settings[`${prefix}Enabled`] ?? saved.enabled);
+    if(!enabled)return 0;
+    const height=Math.max(0,Number(settings[`${prefix}Height`] ?? saved.height ?? 0));
+    const deduction=Math.max(0,Number(saved.deduction||0));
+    return Math.max(0,height-deduction);
+  };
+  return allowance("left")+allowance("right");
+}
+
+function syncPieceBendLengthFromEntry(piece){
+  const finishedLength=Math.max(0,Number(piece?.length||0)*1000);
+  const bendProfile=piece?.bendProfile;
+  if(!(finishedLength>0) || !bendProfile)return;
+  bendProfile.settings=bendProfile.settings||{};
+  bendProfile.settings.length3D=finishedLength;
+  if(bendProfile.result?.endFolds){
+    bendProfile.result.endFolds.finishedLength=finishedLength;
+    bendProfile.result.endFolds.blankLength=finishedLength+getPieceEndReturnAllowance(piece);
+  }
 }
 
 /* Longueur réellement consommée sur la feuille ou le rouleau.
@@ -2105,32 +2135,21 @@ function getPieceCalepinageLength(piece){
   const endFolds=bendProfile?.result?.endFolds||{};
   const leftEnabled=Boolean(settings.endLeftEnabled ?? endFolds.left?.enabled);
   const rightEnabled=Boolean(settings.endRightEnabled ?? endFolds.right?.enabled);
-  const finishedLength=Math.max(0,Number(settings.length3D||endFolds.finishedLength||0));
+  const finishedLength=enteredLength||Math.max(0,Number(settings.length3D||endFolds.finishedLength||0));
 
   if(!leftEnabled && !rightEnabled){
     const cutLength=enteredLength||finishedLength;
     return {cutLength,finishedLength:cutLength,returnAllowance:0,hasEndFolds:false};
   }
 
-  let cutLength=Math.max(0,Number(endFolds.blankLength||0));
-  if(!(cutLength>0) && finishedLength>0){
-    const allowance=(side,enabled)=>{
-      if(!enabled)return 0;
-      const saved=endFolds[side]||{};
-      const prefix=side==="left"?"endLeft":"endRight";
-      const height=Math.max(0,Number(settings[`${prefix}Height`] ?? saved.height ?? 0));
-      const deduction=Math.max(0,Number(saved.deduction||0));
-      return Math.max(0,height-deduction);
-    };
-    cutLength=finishedLength+allowance("left",leftEnabled)+allowance("right",rightEnabled);
-  }
-  if(!(cutLength>0))cutLength=enteredLength||finishedLength;
+  const returnAllowance=getPieceEndReturnAllowance(piece);
+  const cutLength=finishedLength+returnAllowance;
 
   const referenceFinished=finishedLength||Math.max(0,cutLength);
   return {
     cutLength,
     finishedLength:referenceFinished,
-    returnAllowance:Math.max(0,cutLength-referenceFinished),
+    returnAllowance,
     hasEndFolds:true
   };
 }
@@ -2329,14 +2348,19 @@ function createPieceRow(piece,index){
   wrap.innerHTML=`<div class="piece-head"><div class="piece-title">Pièce ${index+1}</div><div class="piece-tools">${piece.bendProfile?'<button class="btn-secondary" data-action="open-drawing">Modifier le dessin</button>':''}<button class="btn-light" data-action="duplicate">Dupliquer</button><button class="btn-danger" data-action="delete">Supprimer</button></div></div>
   <div class="row">
     <div class="field col-2"><label>Développé (mm)</label><input type="number" min="0" step="1" value="${piece.developed??""}" data-field="developed" placeholder="Ex. 320"/></div>
-    <div class="field col-2"><label>Longueur (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
+    <div class="field col-2"><label>Longueur finie (m)</label><input type="number" min="0" step="0.01" value="${piece.length??""}" data-field="length" placeholder="Ex. 2.50"/></div>
     <div class="field col-2"><label>Quantité</label><input type="number" min="1" step="1" value="${piece.qty??1}" data-field="qty" placeholder="1"/></div>
     <div class="field col-2"><label>Nombre de plis</label><input type="number" min="0" step="1" value="${piece.folds??0}" data-field="folds" placeholder="0"/></div>
     <div class="field col-2"><label>Nombre de coupes</label><input type="number" min="0" step="1" value="${piece.cuts??0}" data-field="cuts" placeholder="0"/></div>
     <div class="field col-2"><label>Temps (min)</label><input type="number" min="0" step="1" value="${piece.time??0}" data-field="time" placeholder="0"/></div>
     <div class="field col-2"><label>Chute (%)</label><input type="number" min="0" step="0.1" value="${piece.waste ?? ""}" data-field="waste" placeholder="défaut client"/></div>
   </div>`;
-  wrap.querySelectorAll("input").forEach(input=>input.addEventListener("input",e=>{pieces[index][e.target.dataset.field]=e.target.value;savePieces();recalcAll();}));
+  wrap.querySelectorAll("input").forEach(input=>input.addEventListener("input",e=>{
+    pieces[index][e.target.dataset.field]=e.target.value;
+    if(e.target.dataset.field==="length")syncPieceBendLengthFromEntry(pieces[index]);
+    savePieces();
+    recalcAll();
+  }));
   wrap.querySelector('[data-action="duplicate"]').addEventListener("click",()=>{
     const source=pieces[index];
     const copy=(typeof structuredClone==="function")
@@ -4152,6 +4176,7 @@ settingsModal.addEventListener("click",e=>{if(e.target===settingsModal) closeSet
 document.addEventListener("keydown",e=>{if(e.key==="Escape") closeSettings();});
 renderClientSelect();
 restoreCurrentProjectState();
+syncPieceLengthsFromBendProfiles();
 renderPieces();
 updatePriceDisplay();
 
@@ -5856,6 +5881,7 @@ if(quotePdfBtn){
   }
 
   function applySavedProfileToDesigner(piece,index){
+    syncPieceBendLengthFromEntry(piece);
     const saved=piece?.bendProfile;
     if(!saved?.profile?.lengths?.length)return false;
 
@@ -5879,7 +5905,10 @@ if(quotePdfBtn){
     if(settings.k!=null)fields.k.value=settings.k;
     if(settings.cybFactor!=null && fields.cybFactor)fields.cybFactor.value=settings.cybFactor;
     if(settings.round!=null)fields.round.value=settings.round;
-    if(settings.length3D!=null && fields.length3D)fields.length3D.value=settings.length3D;
+    if(fields.length3D){
+      const entryLength=Math.max(0,Number(piece?.length||0)*1000);
+      fields.length3D.value=entryLength>0?entryLength:(settings.length3D??1000);
+    }
     if(fields.endLeftEnabled)fields.endLeftEnabled.checked=Boolean(settings.endLeftEnabled);
     if(settings.endLeftHeight!=null && fields.endLeftHeight)fields.endLeftHeight.value=settings.endLeftHeight;
     if(settings.endLeftAngle!=null && fields.endLeftAngle)fields.endLeftAngle.value=settings.endLeftAngle;
@@ -6415,9 +6444,9 @@ if(quotePdfBtn){
     pieces[index].developed=result.rounded;
     pieces[index].folds=profile.angles.length+result.endFolds.count;
 
-    const pieceLengthMm=Math.max(0,Number(result.endFolds.blankLength)||Number(fields.length3D?.value)||0);
-    if(pieceLengthMm>0){
-      pieces[index].length=String(Number((pieceLengthMm/1000).toFixed(3)));
+    const finishedPieceLengthMm=Math.max(0,Number(fields.length3D?.value)||0);
+    if(finishedPieceLengthMm>0){
+      pieces[index].length=String(Number((finishedPieceLengthMm/1000).toFixed(3)));
     }
 
     pieces[index].bendProfile=JSON.parse(JSON.stringify({
@@ -6481,8 +6510,8 @@ if(quotePdfBtn){
     const result=calculate();
     pieces[index].developed=result.rounded;
     pieces[index].folds=profile.angles.length+result.endFolds.count;
-    const savedPieceLengthMm=Math.max(0,Number(result.endFolds.blankLength)||Number(fields.length3D?.value)||0);
-    if(savedPieceLengthMm>0)pieces[index].length=String(Number((savedPieceLengthMm/1000).toFixed(3)));
+    const savedFinishedLengthMm=Math.max(0,Number(fields.length3D?.value)||0);
+    if(savedFinishedLengthMm>0)pieces[index].length=String(Number((savedFinishedLengthMm/1000).toFixed(3)));
     pieces[index].bendProfile=JSON.parse(JSON.stringify({
       profile,
       roughPoints,
@@ -7072,7 +7101,7 @@ if(quotePdfBtn){
       const row=document.createElement("div");
       row.className="rml-fab-row"+(hasPlan?"":" no-plan");
       const developed=Number(piece.developed||piece?.bendProfile?.result?.rounded||0);
-      const lengthMm=Math.round(Number(piece?.bendProfile?.settings?.length3D||0) || Number(piece.length||0)*1000);
+      const lengthMm=Math.round(Number(piece.length||0)*1000 || Number(piece?.bendProfile?.settings?.length3D||0));
       row.innerHTML=`
         <input type="checkbox" data-role="select" ${piece.planSelected&&hasPlan?"checked":""} ${hasPlan?"":"disabled"} aria-label="Sélectionner la pièce ${index+1}">
         <div>
@@ -7797,7 +7826,7 @@ if(quotePdfBtn){
 
     const name=piece.planName||`Pièce ${index+1}`;
     const qty=Math.max(1,Number(piece.qty)||1);
-    const lengthMm=Math.round(Number(bp.settings?.length3D||0)||Number(piece.length||0)*1000);
+    const lengthMm=Math.round(Number(piece.length||0)*1000||Number(bp.settings?.length3D||0));
     const endLeft=Boolean(bp.settings?.endLeftEnabled);
     const endRight=Boolean(bp.settings?.endRightEnabled);
     const endFoldLines=[
