@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V85 longueur unique saisie dessin calepinage</title>
+<title>RML PLIAGE ALU — V86 petit dessinateur simplifié</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1635,6 +1635,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   <!-- V73 : empilage vertical des pièces de même longueur dans la hauteur d'une bande -->
   <!-- V71 : compactage final des pièces vers toutes les zones compatibles des rouleaux précédents -->
   <!-- V69 : remplissage séquentiel des rouleaux et regroupement du reliquat sur le dernier -->
+  <!-- V86 : suppression de la vue de dessus redondante dans le petit dessinateur -->
   <!-- V85 : longueur finie unique synchronisée entre saisie, dessin et calepinage -->
   <!-- V84 : le calepinage utilise la longueur de débit avec les retours en bout -->
   <!-- V68 : dossiers de projets, classement direct et recherche multicritère -->
@@ -1655,7 +1656,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 85</div>
+        <div class="app-version">VERSION 86</div>
       </div>
     </div>
     <div class="install">
@@ -4812,57 +4813,6 @@ if(quotePdfBtn){
     }
   }
 
-  function drawEndFoldsTopView2D(w,h){
-    const endFolds=getEndFoldsData();
-    if(!endFolds.count)return;
-    const boxW=Math.min(360,Math.max(250,w*.36));
-    const boxH=132;
-    const boxX=Math.max(14,w-boxW-14);
-    const boxY=Math.max(14,h-boxH-14);
-    const pad=16;
-    const bodyX=boxX+pad+34;
-    const bodyY=boxY+45;
-    const bodyW=boxW-pad*2-68;
-    const bodyH=42;
-    const flapW=30;
-    ctx.save();
-    ctx.fillStyle="rgba(255,255,255,.96)";
-    ctx.strokeStyle="rgba(15,98,254,.82)";
-    ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.roundRect(boxX,boxY,boxW,boxH,10);ctx.fill();ctx.stroke();
-    ctx.fillStyle="#17324a";
-    ctx.font="800 12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-    ctx.textAlign="left";ctx.textBaseline="middle";
-    ctx.fillText("VUE DE DESSUS — PLIS EN BOUT",boxX+pad,boxY+17);
-    ctx.fillStyle="#dcecf4";
-    ctx.strokeStyle="#17324a";
-    ctx.lineWidth=1.8;
-    ctx.fillRect(bodyX,bodyY,bodyW,bodyH);
-    ctx.strokeRect(bodyX,bodyY,bodyW,bodyH);
-    const drawFlap=(data,isLeft)=>{
-      if(!data.enabled)return;
-      const x=isLeft?bodyX-flapW:bodyX+bodyW;
-      ctx.fillStyle="rgba(80,184,220,.72)";
-      ctx.fillRect(x,bodyY,flapW,bodyH);
-      ctx.strokeStyle="#17324a";ctx.lineWidth=1.3;ctx.strokeRect(x,bodyY,flapW,bodyH);
-      const foldX=isLeft?bodyX:bodyX+bodyW;
-      ctx.strokeStyle="#d62828";ctx.lineWidth=3;ctx.setLineDash([7,4]);
-      ctx.beginPath();ctx.moveTo(foldX,bodyY-7);ctx.lineTo(foldX,bodyY+bodyH+7);ctx.stroke();ctx.setLineDash([]);
-      ctx.fillStyle="#d62828";
-      ctx.font="800 10px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-      ctx.textAlign=isLeft?"left":"right";
-      const textX=isLeft?boxX+pad:boxX+boxW-pad;
-      ctx.fillText(`${isLeft?"G":"D"} : ${fmtNumber(data.height,0)} mm · ${fmtNumber(data.angle,0)}° · ${data.direction}`,textX,boxY+108);
-    };
-    drawFlap(endFolds.left,true);
-    drawFlap(endFolds.right,false);
-    ctx.fillStyle="#17324a";
-    ctx.font="700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
-    ctx.textAlign="center";
-    ctx.fillText(`${fmtNumber(endFolds.finishedLength,0)} mm entre les deux lignes de pli`,bodyX+bodyW/2,bodyY+bodyH/2);
-    ctx.restore();
-  }
-
   function draw(){
     const w=canvas.clientWidth,h=canvas.clientHeight;
     drawGrid(w,h);
@@ -5074,7 +5024,6 @@ if(quotePdfBtn){
       legendLines.forEach((line,index)=>ctx.fillText(line,boxX+pad,boxY+31+index*lineH));
       ctx.restore();
     }
-    drawEndFoldsTopView2D(w,h);
   }
 
 
