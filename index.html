@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V83 projets séparés à la synchronisation</title>
+<title>RML PLIAGE ALU — V84 retours inclus dans le calepinage</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1635,6 +1635,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   <!-- V73 : empilage vertical des pièces de même longueur dans la hauteur d'une bande -->
   <!-- V71 : compactage final des pièces vers toutes les zones compatibles des rouleaux précédents -->
   <!-- V69 : remplissage séquentiel des rouleaux et regroupement du reliquat sur le dernier -->
+  <!-- V84 : le calepinage utilise la longueur de débit avec les retours en bout -->
   <!-- V68 : dossiers de projets, classement direct et recherche multicritère -->
   <!-- V67 : capacité maximale des rouleaux et tolérance atelier de 1 mm au calepinage -->
   <!-- V66 : visibilité forcée des deux relevés en 3D et vue de dessus intégrée au dessin 2D -->
@@ -1653,7 +1654,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 83</div>
+        <div class="app-version">VERSION 84</div>
       </div>
     </div>
     <div class="install">
@@ -2092,6 +2093,46 @@ function syncPieceLengthsFromBendProfiles(){
       piece.length=String(Number((lengthMm/1000).toFixed(3)));
     }
   });
+}
+
+/* Longueur réellement consommée sur la feuille ou le rouleau.
+   Les anciens projets peuvent encore contenir la longueur finie dans
+   piece.length : le résultat mémorisé par le dessin reste donc prioritaire. */
+function getPieceCalepinageLength(piece){
+  const enteredLength=Math.max(0,Number(piece?.length||0)*1000);
+  const bendProfile=piece?.bendProfile;
+  const settings=bendProfile?.settings||{};
+  const endFolds=bendProfile?.result?.endFolds||{};
+  const leftEnabled=Boolean(settings.endLeftEnabled ?? endFolds.left?.enabled);
+  const rightEnabled=Boolean(settings.endRightEnabled ?? endFolds.right?.enabled);
+  const finishedLength=Math.max(0,Number(settings.length3D||endFolds.finishedLength||0));
+
+  if(!leftEnabled && !rightEnabled){
+    const cutLength=enteredLength||finishedLength;
+    return {cutLength,finishedLength:cutLength,returnAllowance:0,hasEndFolds:false};
+  }
+
+  let cutLength=Math.max(0,Number(endFolds.blankLength||0));
+  if(!(cutLength>0) && finishedLength>0){
+    const allowance=(side,enabled)=>{
+      if(!enabled)return 0;
+      const saved=endFolds[side]||{};
+      const prefix=side==="left"?"endLeft":"endRight";
+      const height=Math.max(0,Number(settings[`${prefix}Height`] ?? saved.height ?? 0));
+      const deduction=Math.max(0,Number(saved.deduction||0));
+      return Math.max(0,height-deduction);
+    };
+    cutLength=finishedLength+allowance("left",leftEnabled)+allowance("right",rightEnabled);
+  }
+  if(!(cutLength>0))cutLength=enteredLength||finishedLength;
+
+  const referenceFinished=finishedLength||Math.max(0,cutLength);
+  return {
+    cutLength,
+    finishedLength:referenceFinished,
+    returnAllowance:Math.max(0,cutLength-referenceFinished),
+    hasEndFolds:true
+  };
 }
 function savePieces(){
   syncPieceLengthsFromBendProfiles();
@@ -2702,7 +2743,8 @@ win.document.close();
   const rollCapacities=[];
   pieces.forEach((piece,index)=>{
     const rawDev=Number(piece.developed||0);
-    const rawLong=Number(piece.length||0)*1000;
+    const lengthData=getPieceCalepinageLength(piece);
+    const rawLong=lengthData.cutLength;
     const qty=Math.max(0,Math.floor(Number(piece.qty||0)));
     if(rawDev<=0 || rawLong<=0 || qty<=0)return;
 
@@ -2742,6 +2784,9 @@ win.document.close();
         long,
         sourceDev:rawDev,
         sourceLong:rawLong,
+        finishedLength:lengthData.finishedLength,
+        returnAllowance:lengthData.returnAllowance,
+        hasEndFolds:lengthData.hasEndFolds,
         area:rawDev*rawLong,
         w:long,
         h:dev,
@@ -3311,14 +3356,22 @@ win.document.close();
           pieceNo,
           count,
           developed:Number(sample?.sourceDev ?? sample?.dev ?? 0),
-          length:Number(sample?.sourceLong ?? sample?.long ?? 0)
+          length:Number(sample?.sourceLong ?? sample?.long ?? 0),
+          finishedLength:Number(sample?.finishedLength ?? sample?.sourceLong ?? sample?.long ?? 0),
+          returnAllowance:Number(sample?.returnAllowance||0),
+          hasEndFolds:Boolean(sample?.hasEndFolds)
         };
       });
     const detail=groupedPieces.map(item=>`P${item.pieceNo} : ${item.count} u`).join(" / ");
     const pieceInfos=groupedPieces.map(item=>{
       const developed=item.developed.toLocaleString("fr-FR",{maximumFractionDigits:1});
       const length=item.length.toLocaleString("fr-FR",{maximumFractionDigits:1});
-      return `<span class="piece-chip"><span class="piece-dot"></span><strong>P${item.pieceNo}</strong> : ${item.count} pièce${item.count>1?"s":""} — développé ${developed} mm × longueur ${length} mm</span>`;
+      const finished=item.finishedLength.toLocaleString("fr-FR",{maximumFractionDigits:1});
+      const returns=item.returnAllowance.toLocaleString("fr-FR",{maximumFractionDigits:1});
+      const lengthDetail=item.hasEndFolds&&item.returnAllowance>.05
+        ? `longueur de débit ${length} mm (finie ${finished} mm + retours ${returns} mm)`
+        : `longueur de débit ${length} mm`;
+      return `<span class="piece-chip"><span class="piece-dot"></span><strong>P${item.pieceNo}</strong> : ${item.count} pièce${item.count>1?"s":""} — développé ${developed} mm × ${lengthDetail}</span>`;
     });
 
     const zones=freeZonesForSheet(sheet);
@@ -7752,7 +7805,7 @@ if(quotePdfBtn){
       endRight?`Bout droit : ${Number(bp.settings?.endRightHeight||30).toLocaleString("fr-FR")} mm · ${Number(bp.settings?.endRightAngle||90).toLocaleString("fr-FR")}° · ${bp.settings?.endRightDirection==="bas"?"bas":"haut"}`:""
     ].filter(Boolean);
     const endFoldStartY=Math.min(H-110,Math.max(100,76+(profile.angles||[]).length*18+6));
-    const blankLengthMm=Math.round(Number(piece.length||0)*1000)||lengthMm;
+    const blankLengthMm=Math.round(getPieceCalepinageLength(piece).cutLength)||lengthMm;
     const developed=Number(piece.developed||bp.result?.rounded||0);
     const material=bp.settings?.material||"Aluminium";
     const thickness=bp.settings?.thickness||"—";
