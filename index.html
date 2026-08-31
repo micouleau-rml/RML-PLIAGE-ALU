@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V86 petit dessinateur simplifié</title>
+<title>RML PLIAGE ALU — V87 présentation des résultats du dessin</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1631,10 +1631,77 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] .bend-piece-length-field{flex:0 0 auto;margin-bottom:10px}
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
+/* ===== V87 : RÉSULTATS LISIBLES SOUS LES COMMANDES DE ZOOM ===== */
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-results{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:10px!important;
+  margin:16px 0 0!important;
+  padding:14px!important;
+  border:1px solid #d7e0ea!important;
+  border-radius:14px!important;
+  background:#f6f9fc!important;
+}
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-result{
+  display:flex!important;
+  align-items:baseline!important;
+  justify-content:space-between!important;
+  gap:14px!important;
+  min-width:0!important;
+  padding:11px 13px!important;
+  border:1px solid #dbe4ee!important;
+  border-radius:11px!important;
+  background:#fff!important;
+  box-shadow:0 2px 7px rgba(15,23,42,.05)!important;
+}
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-result span{
+  display:inline!important;
+  margin:0!important;
+  color:#475569!important;
+  font-size:.88rem!important;
+  font-weight:750!important;
+  line-height:1.25!important;
+}
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-result strong{
+  flex:0 0 auto!important;
+  color:#172334!important;
+  font-size:1.05rem!important;
+  font-weight:900!important;
+  line-height:1.2!important;
+  text-align:right!important;
+}
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-result.main{
+  grid-column:1/-1!important;
+  border:2px solid #7aa9f8!important;
+  background:#eef5ff!important;
+}
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-result.main strong{
+  color:#0a4ecc!important;
+  font-size:1.25rem!important;
+}
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-warning{
+  margin:10px 0 0!important;
+  padding:12px 14px!important;
+  border:1px solid #fed7aa!important;
+  border-radius:12px!important;
+  background:#fffaf3!important;
+  color:#7c3b12!important;
+  font-size:.82rem!important;
+  line-height:1.5!important;
+}
+#bendDesignerModal:not([data-large-drawing="true"]) .bend-data-card{
+  margin-top:32px!important;
+}
+@media(max-width:760px){
+  #bendDesignerModal:not([data-large-drawing="true"]) .bend-results{grid-template-columns:1fr!important}
+  #bendDesignerModal:not([data-large-drawing="true"]) .bend-result.main{grid-column:1!important}
+}
+
 </style> 
   <!-- V73 : empilage vertical des pièces de même longueur dans la hauteur d'une bande -->
   <!-- V71 : compactage final des pièces vers toutes les zones compatibles des rouleaux précédents -->
   <!-- V69 : remplissage séquentiel des rouleaux et regroupement du reliquat sur le dernier -->
+  <!-- V87 : présentation structurée des résultats et espacement du tableau des cotes -->
   <!-- V86 : suppression de la vue de dessus redondante dans le petit dessinateur -->
   <!-- V85 : longueur finie unique synchronisée entre saisie, dessin et calepinage -->
   <!-- V84 : le calepinage utilise la longueur de débit avec les retours en bout -->
@@ -1656,7 +1723,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 86</div>
+        <div class="app-version">VERSION 87</div>
       </div>
     </div>
     <div class="install">
@@ -1948,11 +2015,11 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <button class="btn-danger" id="bendResetBtn">Réinitialiser</button>
         </div>
         <div class="bend-results">
-          <div class="bend-result"><span>Somme des cotes extérieures</span><strong id="bendOuterSum">0,00 mm</strong></div>
-          <div class="bend-result"><span>Déduction totale des plis</span><strong id="bendTotalDeduction">0,00 mm</strong></div>
-          <div class="bend-result"><span>Nombre de plis</span><strong id="bendFoldCount">0</strong></div>
-          <div class="bend-result"><span>Rayon / Vé</span><strong id="bendToolSummary">R 1 / V 16</strong></div>
-          <div class="bend-result main"><span>Développé calculé</span><strong id="bendDeveloped">0,0 mm</strong></div>
+          <div class="bend-result"><span>Somme des cotes extérieures :</span><strong id="bendOuterSum">0,00 mm</strong></div>
+          <div class="bend-result"><span>Déduction totale des plis :</span><strong id="bendTotalDeduction">0,00 mm</strong></div>
+          <div class="bend-result"><span>Nombre de plis :</span><strong id="bendFoldCount">0</strong></div>
+          <div class="bend-result"><span>Rayon / Vé :</span><strong id="bendToolSummary">R 1 / V 16</strong></div>
+          <div class="bend-result main"><span>Développé calculé :</span><strong id="bendDeveloped">0,0 mm</strong></div>
         </div>
         <div class="bend-warning" id="bendWarning">Mode CybTouch 15 RML calibré sur les mesures réelles de la machine avec le poinçon P50.200 et la matrice Ve16.50. Les angles 5°, 55°, 90° et 92° utilisent les compensations mesurées ; les autres angles reviennent automatiquement au calcul DIN 6935. La correction machine doit rester à 1,000. Pour un pli écrasé, le calcul utilise automatiquement le prépli 55° et le dessin affiche la forme finale écrasée.</div>
       </div>
