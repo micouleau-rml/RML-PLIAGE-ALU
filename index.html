@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V82 cotations atelier toujours lisibles</title>
+<title>RML PLIAGE ALU — V83 projets séparés à la synchronisation</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1653,7 +1653,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 82</div>
+        <div class="app-version">VERSION 83</div>
       </div>
     </div>
     <div class="install">
@@ -7850,7 +7850,7 @@ if(quotePdfBtn){
 })();
 </script>
 <script>
-/* ===== V75 : CONTENU COMPLET DES PROJETS SYNCHRONISÉ ===== */
+/* ===== V83 : PROJETS COMPLETS SYNCHRONISÉS SANS FUSION DES PIÈCES COURANTES ===== */
 (()=>{
   "use strict";
   const CONFIG_KEY="rml_pliage_supabase_config_v1";
@@ -7865,10 +7865,11 @@ if(quotePdfBtn){
   const ADMIN_PASSWORD_HASH="55912b29b73aa9a8f6d5407fc032ba4ea5c1493517e92454249dd22e9c143739";
   const SYNC_KEYS={
     [STORAGE_KEY_CLIENTS]:"client",
-    [STORAGE_KEY_PIECES]:"piece",
+    // Les pièces ne sont plus synchronisées séparément. Elles appartiennent au
+    // projet complet ; une synchronisation pièce par pièce mélangeait les
+    // commandes ouvertes simultanément sur plusieurs appareils.
     [PROJECTS_KEY]:"project",
-    [PROJECT_FOLDERS_KEY]:"folder",
-    [STORAGE_KEY_CURRENT_PROJECT]:"settings"
+    [PROJECT_FOLDERS_KEY]:"folder"
   };
   const SINGLETON_TYPES=new Set(["settings"]);
   let applyingRemote=false;
@@ -7992,6 +7993,33 @@ if(quotePdfBtn){
     if(this===localStorage && SYNC_KEYS[key])captureLocalChange(key,oldRaw,null);
   };
 
+  function removeLegacyCurrentStateSyncQueue(){
+    // Les anciennes lignes distantes peuvent rester dans Supabase sans danger :
+    // la V83 les ignore. On retire seulement les envois locaux encore en attente.
+    savePending(loadPending().filter(row=>!['piece','settings'].includes(row?.entity_type)));
+    const meta=loadMeta();
+    Object.keys(meta).forEach(key=>{if(key.startsWith("piece:")||key.startsWith("settings:"))delete meta[key];});
+    saveMeta(meta);
+  }
+
+  function savedActiveProject(projectMap=null,settingsValue=null){
+    const projects=projectMap||toMap("project",localStorage.getItem(PROJECTS_KEY));
+    const settings=settingsValue||parse(localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT),{});
+    const runtimeId=typeof currentLoadedProjectId!=="undefined"?currentLoadedProjectId:"";
+    const projectId=String(settings?.projectId||runtimeId||"");
+    return projectId?projects.get(projectId)||null:null;
+  }
+
+  function restorePiecesFromSavedProject(projectMap=null,settingsValue=null){
+    const project=savedActiveProject(projectMap,settingsValue);
+    if(!project||!Array.isArray(project.pieces)||!project.pieces.length)return false;
+    // Remplacement intégral : aucune concaténation et aucune fusion avec la
+    // commande ouverte sur un autre Mac ou iPhone.
+    pieces=restoreBendProfiles(project.pieces,[]);
+    nativeSetItem.call(localStorage,STORAGE_KEY_PIECES,JSON.stringify(pieces));
+    return true;
+  }
+
   function headers(config,extra={}){
     return {apikey:config.key,Authorization:`Bearer ${config.key}`,"Content-Type":"application/json",...extra};
   }
@@ -8009,10 +8037,8 @@ if(quotePdfBtn){
   function readLocalEntities(){
     return {
       client:toMap("client",localStorage.getItem(STORAGE_KEY_CLIENTS)),
-      piece:toMap("piece",localStorage.getItem(STORAGE_KEY_PIECES)),
       project:toMap("project",localStorage.getItem(PROJECTS_KEY)),
-      folder:toMap("folder",localStorage.getItem(PROJECT_FOLDERS_KEY)),
-      settings:toMap("settings",localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT))
+      folder:toMap("folder",localStorage.getItem(PROJECT_FOLDERS_KEY))
     };
   }
 
@@ -8058,14 +8084,17 @@ if(quotePdfBtn){
       if(changed){
         clients=[...locals.client.values()].map(normalizeClient);
         if(!clients.length)clients=structuredClone(defaultClients);
-        pieces=restoreBendProfiles([...locals.piece.values()],pieces);
-        if(!pieces.length)pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
         nativeSetItem.call(localStorage,STORAGE_KEY_CLIENTS,JSON.stringify(clients));
-        nativeSetItem.call(localStorage,STORAGE_KEY_PIECES,JSON.stringify(pieces));
         nativeSetItem.call(localStorage,PROJECTS_KEY,JSON.stringify([...locals.project.values()]));
         nativeSetItem.call(localStorage,PROJECT_FOLDERS_KEY,JSON.stringify([...locals.folder.values()]));
-        const settings=locals.settings.get("current");
-        if(settings)nativeSetItem.call(localStorage,STORAGE_KEY_CURRENT_PROJECT,JSON.stringify(settings));
+        // Le projet actuellement ouvert est propre à chaque appareil. Il ne doit
+        // jamais être imposé par le Mac ou l'iPhone qui a synchronisé en dernier.
+        const settings=parse(localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT),{});
+        if(!restorePiecesFromSavedProject(locals.project,settings)){
+          pieces=restoreBendProfiles(parse(localStorage.getItem(STORAGE_KEY_PIECES),[]),pieces);
+          if(!pieces.length)pieces=[{id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""}];
+          nativeSetItem.call(localStorage,STORAGE_KEY_PIECES,JSON.stringify(pieces));
+        }
         saveMeta(meta);
         renderClientSelect();
         restoreCurrentProjectState();
@@ -8109,7 +8138,7 @@ if(quotePdfBtn){
       localStorage.setItem(CONFIG_KEY,JSON.stringify({...config,lastSyncAt:now()}));
       setSyncStatus(`À jour — dernière synchronisation ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`,"ok");
     }catch(error){
-      console.error("Synchronisation Supabase V75 :",error);
+      console.error("Synchronisation Supabase V83 :",error);
       setSyncStatus(`Échec de synchronisation : ${error.message}`,"error");
     }finally{syncing=false;}
   }
@@ -8190,6 +8219,9 @@ create policy "RML Pliage modification" on public.${TABLE}
   window.addEventListener("offline",()=>setSyncStatus("Hors ligne : les changements sont conservés sur cet appareil."));
   window.addEventListener("storage",event=>{if(SYNC_KEYS[event.key]){captureLocalChange(event.key,event.oldValue,event.newValue);syncNow({quiet:true});}});
   setInterval(()=>syncNow({quiet:true}),60000);
+  removeLegacyCurrentStateSyncQueue();
+  restorePiecesFromSavedProject();
+  renderPieces();
   Object.keys(SYNC_KEYS).forEach(key=>snapshots[key]=localStorage.getItem(key));
   lockSupabaseSettings();
   loadConfigForm();
