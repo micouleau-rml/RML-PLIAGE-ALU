@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V80 dimensions des pièces au calepinage</title>
+<title>RML PLIAGE ALU — V81 ordre identique des pièces et tableaux</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1653,7 +1653,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 80</div>
+        <div class="app-version">VERSION 81</div>
       </div>
     </div>
     <div class="install">
@@ -2357,7 +2357,8 @@ function recalcAll(){
     const totalLigne=matiere+foldsCost+cutsCost+timeCost;
     totalArea+=surfaceFacturee; totalAmount+=totalLigne;
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${index+1}</td><td>${fmtNumber(developedMm,0)}</td><td>${fmtNumber(lengthM,2)}</td><td>${fmtNumber(qty,0)}</td><td>${fmtNumber(folds*qty,0)}</td><td>${fmtNumber(cuts*qty,0)}</td><td>${fmtNumber(time,0)}</td><td>${fmtNumber(waste,2)}</td><td>${fmtNumber(surfaceBrute,3)}</td><td>${fmtNumber(surfaceFacturee,3)}</td><td>${fmtEuro(matiere)}</td><td>${fmtEuro(foldsCost)}</td><td>${fmtEuro(cutsCost)}</td><td>${fmtEuro(timeCost)}</td><td>${fmtEuro(totalLigne)}</td>`;
+    const pieceNumber=pieces.length-index;
+    tr.innerHTML=`<td>${pieceNumber}</td><td>${fmtNumber(developedMm,0)}</td><td>${fmtNumber(lengthM,2)}</td><td>${fmtNumber(qty,0)}</td><td>${fmtNumber(folds*qty,0)}</td><td>${fmtNumber(cuts*qty,0)}</td><td>${fmtNumber(time,0)}</td><td>${fmtNumber(waste,2)}</td><td>${fmtNumber(surfaceBrute,3)}</td><td>${fmtNumber(surfaceFacturee,3)}</td><td>${fmtEuro(matiere)}</td><td>${fmtEuro(foldsCost)}</td><td>${fmtEuro(cutsCost)}</td><td>${fmtEuro(timeCost)}</td><td>${fmtEuro(totalLigne)}</td>`;
     resultTableBody.appendChild(tr);
   });
   document.getElementById("summaryArea").textContent=fmtArea(totalArea);
@@ -2546,7 +2547,7 @@ function generatePdfDocument(type){
   let rows="";
   let total=0;
 
-  pieces.forEach((piece,i)=>{
+  [...pieces].reverse().forEach((piece,i)=>{
     const dev=Number(piece.developed||0);
     const long=Number(piece.length||0);
     const qty=Number(piece.qty||0);
@@ -2575,7 +2576,7 @@ function generatePdfDocument(type){
 
     rows+=`
       <tr>
-        <td>${i+1}</td>
+        <td>${pieces.length-i}</td>
         <td>${dev}</td>
         <td>${long.toFixed(2)}</td>
         <td>${qty}</td>
