@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V81 ordre identique des pièces et tableaux</title>
+<title>RML PLIAGE ALU — V82 cotations atelier toujours lisibles</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1653,7 +1653,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 81</div>
+        <div class="app-version">VERSION 82</div>
       </div>
     </div>
     <div class="install">
@@ -7380,7 +7380,7 @@ if(quotePdfBtn){
     const profile=bp.profile;
     const originalRaw=buildPoints(profile);
 
-    const W=980,H=245;
+    const W=980,H=280;
     const infoW=198;
     const infoGap=24;
     const drawW=W-infoW-infoGap;
@@ -7394,8 +7394,11 @@ if(quotePdfBtn){
     // lorsqu'une collision réelle est détectée.
     // V68.3 : exploitation renforcée de l'encart pour améliorer la lecture à
     // l'atelier. Les petites pièces gagnent environ 20 à 30 % selon leur forme.
-    const annotationMarginX=46;
-    const annotationMarginY=28;
+    // V82 : une marge de cotation réelle est réservée autour de la pièce. Elle
+    // empêche notamment les petites ailes de 15 à 30 mm et leurs numéros d'être
+    // coupés par le bord du plan lorsque le grand segment occupe toute la largeur.
+    const annotationMarginX=104;
+    const annotationMarginY=54;
 
     // V56 : le segment possédant la plus grande dimension est toujours horizontal.
     let longestIndex=0;
@@ -7473,7 +7476,12 @@ if(quotePdfBtn){
 
       const numericLength=Number(profile.lengths[i]||0);
       const isVeryShortDimension=numericLength<=32;
-      const baseOff=isVeryShortDimension?26:32;
+      const isShortDimension=numericLength<=65;
+      // Les petites cotes voisines sont placées sur des niveaux différents afin
+      // que « 15 mm », « 30 mm », etc. ne se superposent plus dans les angles.
+      const baseOff=isVeryShortDimension
+        ? 38+(i%3)*18
+        : (isShortDimension?42+(i%2)*14:38);
       const towardCenter=((center.x-mx)*nx+(center.y-my)*ny)>=0?1:-1;
 
       // V68.2 : toutes les cotes sont impérativement extérieures pour la
@@ -7496,8 +7504,8 @@ if(quotePdfBtn){
       // V68 : l'orientation du texte et de la ligne de cote provient toujours du
       // segment affiché. Aucune cote n'a le droit de redresser ou de modifier le
       // segment, y compris à proximité d'un pli écrasé.
-      const estimatedRadius=Math.max(31,dimensionValue.length*4.8+18);
-      const candidateOffsets=[baseOff,baseOff+14,baseOff+28,baseOff+42,baseOff+58];
+      const estimatedRadius=Math.max(35,dimensionValue.length*5.4+22);
+      const candidateOffsets=[baseOff,baseOff+20,baseOff+40,baseOff+62,baseOff+84];
       // Un seul côté est proposé : l'extérieur. L'anticollision n'est donc plus
       // capable de remettre une cote à l'intérieur du profil.
       const candidateSigns=[preferredSign];
@@ -7537,11 +7545,24 @@ if(quotePdfBtn){
         }
       }
 
-      const {x:dimX,y:dimY,sign,off}=bestCandidate;
+      const {x:rawDimX,y:rawDimY,sign,off}=bestCandidate;
+
+      // Dernière sécurité : le libellé est maintenu entièrement dans le cadre.
+      // S'il doit glisser légèrement le long de la ligne de cote, un trait de
+      // rappel permettra de conserver une association visuelle sans ambiguïté.
+      const verticalText=Math.abs(Math.sin(ang*Math.PI/180))>.7;
+      const safeX=verticalText?26:estimatedRadius+10;
+      const safeY=verticalText?estimatedRadius+10:25;
+      const dimX=Math.max(safeX,Math.min(drawW-safeX,rawDimX));
+      const dimY=Math.max(safeY,Math.min(H-safeY,rawDimY));
+      const labelShift=Math.hypot(dimX-rawDimX,dimY-rawDimY);
 
       dims.push({
         x:dimX,
         y:dimY,
+        rawX:rawDimX,
+        rawY:rawDimY,
+        labelShift,
         ang,
         num:i+1,
         value:dimensionValue,
@@ -7707,8 +7728,9 @@ if(quotePdfBtn){
         <line x1="${a2.x.toFixed(1)}" y1="${a2.y.toFixed(1)}" x2="${b2.x.toFixed(1)}" y2="${b2.y.toFixed(1)}"/>
         <path d="M ${aHead1.x.toFixed(1)} ${aHead1.y.toFixed(1)} L ${a2.x.toFixed(1)} ${a2.y.toFixed(1)} L ${aHead2.x.toFixed(1)} ${aHead2.y.toFixed(1)}"/>
         <path d="M ${bHead1.x.toFixed(1)} ${bHead1.y.toFixed(1)} L ${b2.x.toFixed(1)} ${b2.y.toFixed(1)} L ${bHead2.x.toFixed(1)} ${bHead2.y.toFixed(1)}"/>
+        ${d.labelShift>6?`<line class="dimension-label-leader" x1="${d.rawX.toFixed(1)}" y1="${d.rawY.toFixed(1)}" x2="${d.x.toFixed(1)}" y2="${d.y.toFixed(1)}"/>`:""}
         <g transform="translate(${d.x.toFixed(1)} ${d.y.toFixed(1)}) rotate(${d.ang.toFixed(1)})">
-          <circle cx="-30" cy="0" r="7.5" fill="#111"/><text x="-30" y="3.2" text-anchor="middle" class="num">${d.num}</text><text x="-18" y="5" class="dim">${esc(d.value)}</text>
+          <circle cx="-34" cy="0" r="8" fill="#111"/><text x="-34" y="3.2" text-anchor="middle" class="num">${d.num}</text><text x="-21" y="5.5" class="dim">${esc(d.value)}</text>
         </g>
       </g>`;
     }).join("");
@@ -7729,6 +7751,7 @@ if(quotePdfBtn){
       endLeft?`Bout gauche : ${Number(bp.settings?.endLeftHeight||30).toLocaleString("fr-FR")} mm · ${Number(bp.settings?.endLeftAngle||90).toLocaleString("fr-FR")}° · ${bp.settings?.endLeftDirection==="bas"?"bas":"haut"}`:"",
       endRight?`Bout droit : ${Number(bp.settings?.endRightHeight||30).toLocaleString("fr-FR")} mm · ${Number(bp.settings?.endRightAngle||90).toLocaleString("fr-FR")}° · ${bp.settings?.endRightDirection==="bas"?"bas":"haut"}`:""
     ].filter(Boolean);
+    const endFoldStartY=Math.min(H-110,Math.max(100,76+(profile.angles||[]).length*18+6));
     const blankLengthMm=Math.round(Number(piece.length||0)*1000)||lengthMm;
     const developed=Number(piece.developed||bp.result?.rounded||0);
     const material=bp.settings?.material||"Aluminium";
@@ -7741,8 +7764,9 @@ if(quotePdfBtn){
           .profile{fill:none;stroke:#17324a;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
           .color-arrow line,.color-arrow path{fill:none;stroke:#d62828;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
           .color-arrow text{font:800 10px Arial,sans-serif;fill:#d62828}
-          .dim{font:800 18px Arial,sans-serif;fill:#111;paint-order:stroke;stroke:#fff;stroke-width:5px}
+          .dim{font:800 20px Arial,sans-serif;fill:#111;paint-order:stroke;stroke:#fff;stroke-width:6px}
           .dimension-line line,.dimension-line path{fill:none;stroke:#111;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+          .dimension-line .dimension-label-leader{stroke:#64748b;stroke-width:1;stroke-dasharray:3 3}
           .num{font:800 9px Arial,sans-serif;fill:#fff}
           .angle-letter{font:800 9px Arial,sans-serif;fill:#0f62fe}
           .info{font:700 12px Arial,sans-serif;fill:#17324a}
@@ -7754,7 +7778,7 @@ if(quotePdfBtn){
         <line x1="${drawW+12}" y1="20" x2="${drawW+12}" y2="${H-20}" stroke="#c7d2dc"/>
         <text x="${drawW+30}" y="38" class="info-title">ANGLES</text>
         ${angleLines}
-        ${endFoldLines.map((line,i)=>`<text x="${drawW+30}" y="${Math.max(95,H-110)+i*18}" class="info">${esc(line)}</text>`).join("")}
+        ${endFoldLines.map((line,i)=>`<text x="${drawW+30}" y="${endFoldStartY+i*18}" class="info">${esc(line)}</text>`).join("")}
         <text x="${drawW+30}" y="${H-73}" class="info">Longueur finie : ${lengthMm.toLocaleString("fr-FR")} mm</text>
         <text x="${drawW+30}" y="${H-55}" class="info">Longueur débit : ${blankLengthMm.toLocaleString("fr-FR")} mm</text>
         <text x="${drawW+30}" y="${H-37}" class="info">Développé : ${developed.toLocaleString("fr-FR")} mm</text>
