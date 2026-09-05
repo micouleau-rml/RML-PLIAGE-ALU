@@ -1631,6 +1631,33 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] .bend-piece-length-field{flex:0 0 auto;margin-bottom:10px}
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
+/* ===== V88 : BIBLIOTHÈQUE DE MODÈLES ===== */
+#bendLibraryModal{z-index:2147483600}
+.bend-library-card{width:min(980px,100%)}
+.bend-library-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:10px;margin-bottom:16px}
+.bend-library-toolbar input{width:100%;min-height:46px;padding:10px 13px;border:1px solid #cbd5e1;border-radius:11px;background:#fff;color:#17324a;font:inherit}
+.bend-library-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.bend-library-empty{grid-column:1/-1;padding:30px 18px;border:1px dashed #b7c4d2;border-radius:14px;background:#f8fafc;color:#64748b;text-align:center;line-height:1.55}
+.bend-library-item{display:grid;grid-template-columns:150px minmax(0,1fr);gap:13px;padding:13px;border:1px solid #d8e1eb;border-radius:15px;background:#fbfdff;box-shadow:0 3px 10px rgba(15,23,42,.05)}
+.bend-library-preview{display:flex;align-items:center;justify-content:center;min-height:112px;padding:7px;border:1px solid #dbe5ef;border-radius:11px;background:linear-gradient(180deg,#edf6ff,#f8fbff)}
+.bend-library-preview svg{display:block;width:100%;height:96px}
+.bend-library-info{min-width:0;display:flex;flex-direction:column;justify-content:center}
+.bend-library-name{overflow:hidden;margin-bottom:4px;color:#17324a;font-size:1rem;font-weight:900;text-overflow:ellipsis;white-space:nowrap}
+.bend-library-meta{margin-bottom:10px;color:#64748b;font-size:.82rem;font-weight:700;line-height:1.35}
+.bend-library-actions{display:flex;flex-wrap:wrap;gap:6px}
+.bend-library-actions button{min-height:38px;padding:7px 10px;border-radius:9px;font-size:.78rem}
+#bendSaveLibraryBtn{background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe}
+@media(max-width:760px){
+  .bend-library-toolbar{grid-template-columns:1fr}
+  .bend-library-list{grid-template-columns:1fr}
+  .bend-library-item{grid-template-columns:112px minmax(0,1fr)}
+  .bend-library-preview{min-height:100px}
+}
+@media(max-width:420px){
+  .bend-library-item{grid-template-columns:1fr}
+  .bend-library-preview{min-height:90px}
+}
+
 /* ===== V87 : RÉSULTATS LISIBLES SOUS LES COMMANDES DE ZOOM ===== */
 #bendDesignerModal:not([data-large-drawing="true"]) .bend-results{
   display:grid!important;
@@ -1723,7 +1750,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 87</div>
+        <div class="app-version">VERSION 88</div>
       </div>
     </div>
     <div class="install">
@@ -1731,6 +1758,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
   <button class="btn-primary" id="openSettingsBtn">Réglages</button>
   <button class="btn-light" id="calpinageBtn">📐 Calepinage</button>
   <button class="btn-secondary" id="bendDesignerBtn">📐 Calcul du développé</button>
+  <button class="btn-secondary" id="openBendLibraryBtn">📚 Bibliothèque</button>
   <button class="btn-secondary" id="devisPdfBtn">Devis PDF numéroté</button>
   <button class="btn-secondary" id="clientPdfBtn">Bon client avec prix</button>
   <button class="btn-light" id="atelierPdfBtn">Bon atelier sans prix</button>
@@ -1959,6 +1987,25 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 </div>
 
 
+<!-- ===== V88 : BIBLIOTHÈQUE DE MODÈLES DE PIÈCES ===== -->
+<div class="modal-overlay" id="bendLibraryModal" aria-hidden="true">
+  <div class="modal-card bend-library-card">
+    <div class="modal-head">
+      <div>
+        <h2>📚 Bibliothèque de pièces</h2>
+        <div class="note">Choisissez un modèle : la forme, les plis et les angles sont repris. Il ne reste qu’à adapter les cotes.</div>
+      </div>
+      <button type="button" class="modal-close" id="closeBendLibraryBtn">Fermer</button>
+    </div>
+    <div class="bend-library-toolbar">
+      <input id="bendLibrarySearch" type="search" placeholder="Rechercher un modèle…" autocomplete="off">
+      <button type="button" class="btn-primary" id="bendLibraryCreateBtn">＋ Créer une pièce sans modèle</button>
+    </div>
+    <div id="bendLibraryList" class="bend-library-list"></div>
+  </div>
+</div>
+
+
 <!-- ===== MODULE CALCUL DU DÉVELOPPÉ ===== -->
 <div class="modal-overlay" id="bendDesignerModal">
   <div class="modal-card">
@@ -2002,6 +2049,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <div class="bend-mini-actions">
           <button class="btn-primary" id="bendFinishDrawBtn">Terminer le dessin</button>
           <button class="btn-secondary" id="bendNewPieceBtn">＋ Nouvelle pièce</button>
+          <button class="btn-secondary" id="bendOpenLibraryBtn">📚 Bibliothèque</button>
           <button class="btn-light" id="bendUndoBtn">Annuler le dernier</button>
           <button class="btn-light" id="bendMirrorBtn">Miroir</button>
           <button class="btn-light" id="bendHorizontalBtn" title="Aligne le segment sélectionné, ou le plus long">↔ Horizontal</button>
@@ -2077,6 +2125,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <div class="field"><label for="bendTargetPiece">Insérer dans</label><select id="bendTargetPiece"></select></div>
           <button class="btn-primary" id="bendInsertBtn">Insérer dans le devis</button>
           <button class="btn-light" id="bendSaveProfileBtn">Mémoriser le profil</button>
+          <button class="btn-secondary" id="bendSaveLibraryBtn">Enregistrer dans la bibliothèque</button>
           <button class="btn-light" id="bendShow3DBtn">Afficher la 3D</button>
         </div>
         <div class="bend-calibration-note">
@@ -2092,6 +2141,7 @@ if ("serviceWorker" in navigator) { window.addEventListener("load", () => naviga
 
 const STORAGE_KEY_CLIENTS="pliage_clients_v7";
 const STORAGE_KEY_PIECES="pliage_pieces_v7";
+const STORAGE_KEY_BEND_LIBRARY="rml_pliage_bend_library_v1";
 
 const defaultClients=[{
   id:crypto.randomUUID(),
@@ -2564,6 +2614,7 @@ function exportFullBackup(){
     materialWidth:materialFormat.width,
     materialLength:materialFormat.lengthValue,
     projectFolders:loadProjectFolders(),
+    bendLibrary:JSON.parse(localStorage.getItem(STORAGE_KEY_BEND_LIBRARY)||"[]"),
 
     projectName:document.getElementById("projectName")?.value || "",
 
@@ -3730,6 +3781,7 @@ document.getElementById("importJsonFile").addEventListener("change",async e=>{
       clients=data.clients.map(normalizeClient);
       saveClients();
       if(Array.isArray(data.projectFolders))saveProjectFolders(data.projectFolders);
+      if(Array.isArray(data.bendLibrary))localStorage.setItem(STORAGE_KEY_BEND_LIBRARY,JSON.stringify(data.bendLibrary));
 
       if(hasProjects){
         const restoredProjects=data.projects.map(project=>({
@@ -4375,6 +4427,176 @@ if(quotePdfBtn){
   let profile={lengths:[],angles:[],directions:[],hemmed:[],exactPoints:[]};
   let editingExistingPiece=false;
   let editingPieceIndex=-1;
+  let editingLibraryModelId="";
+
+  const libraryModal=document.getElementById("bendLibraryModal");
+  const libraryList=document.getElementById("bendLibraryList");
+  const librarySearch=document.getElementById("bendLibrarySearch");
+
+  function loadBendLibrary(){
+    try{
+      const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY_BEND_LIBRARY)||"[]");
+      return Array.isArray(parsed)?parsed.filter(item=>item?.id&&item?.bendProfile?.profile?.lengths?.length):[];
+    }catch{return []}
+  }
+
+  function saveBendLibrary(items){
+    localStorage.setItem(STORAGE_KEY_BEND_LIBRARY,JSON.stringify(items));
+  }
+
+  function libraryEscape(value){
+    return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char]));
+  }
+
+  function libraryPreviewSvg(model){
+    let points=Array.isArray(model?.bendProfile?.roughPoints)?cloneProfileData(model.bendProfile.roughPoints):[];
+    if(points.length<2){
+      const savedProfile=model?.bendProfile?.profile||{};
+      const lengths=Array.isArray(savedProfile.lengths)?savedProfile.lengths:[];
+      const angles=Array.isArray(savedProfile.angles)?savedProfile.angles:[];
+      const directions=Array.isArray(savedProfile.directions)?savedProfile.directions:[];
+      let x=0,y=0,heading=0;
+      points=[{x,y}];
+      lengths.forEach((length,index)=>{
+        const displayLength=Math.max(18,Math.sqrt(Math.max(.1,Number(length)||1))*8);
+        x+=Math.cos(heading)*displayLength;
+        y+=Math.sin(heading)*displayLength;
+        points.push({x,y});
+        if(index<angles.length){
+          const turn=Math.PI-(Math.abs(Number(angles[index]))||90)*Math.PI/180;
+          heading+=(directions[index]==="bas"?1:-1)*turn;
+        }
+      });
+    }
+    const xs=points.map(point=>Number(point.x)||0),ys=points.map(point=>Number(point.y)||0);
+    const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+    const width=Math.max(1,maxX-minX),height=Math.max(1,maxY-minY);
+    const scale=Math.min(122/width,76/height);
+    const offsetX=75-(minX+maxX)*scale/2;
+    const offsetY=48-(minY+maxY)*scale/2;
+    const path=points.map(point=>`${((Number(point.x)||0)*scale+offsetX).toFixed(1)},${((Number(point.y)||0)*scale+offsetY).toFixed(1)}`).join(" ");
+    return `<svg viewBox="0 0 150 96" role="img" aria-label="Aperçu du modèle"><polyline points="${path}" fill="none" stroke="#0f62fe" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${((Number(points[0].x)||0)*scale+offsetX).toFixed(1)}" cy="${((Number(points[0].y)||0)*scale+offsetY).toFixed(1)}" r="4" fill="#f59e0b"/></svg>`;
+  }
+
+  function renderBendLibrary(){
+    if(!libraryList)return;
+    const query=String(librarySearch?.value||"").trim().toLocaleLowerCase("fr");
+    const models=loadBendLibrary()
+      .filter(model=>!query||String(model.name||"").toLocaleLowerCase("fr").includes(query))
+      .sort((a,b)=>String(b.updatedAt||"").localeCompare(String(a.updatedAt||"")));
+    if(!models.length){
+      libraryList.innerHTML=`<div class="bend-library-empty">${query?"Aucun modèle ne correspond à cette recherche.":"La bibliothèque est vide.<br>Ouvrez le dessinateur, créez une pièce puis choisissez <strong>Enregistrer dans la bibliothèque</strong>."}</div>`;
+      return;
+    }
+    libraryList.innerHTML=models.map(model=>{
+      const savedProfile=model.bendProfile.profile||{};
+      const endSettings=model.bendProfile.settings||{};
+      const endCount=Number(Boolean(endSettings.endLeftEnabled))+Number(Boolean(endSettings.endRightEnabled));
+      const segmentCount=Array.isArray(savedProfile.lengths)?savedProfile.lengths.length:0;
+      const bendCount=Array.isArray(savedProfile.angles)?savedProfile.angles.length:0;
+      return `<article class="bend-library-item" data-library-id="${libraryEscape(model.id)}">
+        <div class="bend-library-preview">${libraryPreviewSvg(model)}</div>
+        <div class="bend-library-info">
+          <div class="bend-library-name">${libraryEscape(model.name||"Modèle sans nom")}</div>
+          <div class="bend-library-meta">${segmentCount} segment${segmentCount>1?"s":""} · ${bendCount} pli${bendCount>1?"s":""}${endCount?` · ${endCount} pli${endCount>1?"s":""} en bout`:""}</div>
+          <div class="bend-library-actions">
+            <button type="button" class="btn-primary" data-library-action="use">Utiliser</button>
+            <button type="button" class="btn-light" data-library-action="edit">Modifier</button>
+            <button type="button" class="btn-light" data-library-action="rename">Renommer</button>
+            <button type="button" class="btn-danger" data-library-action="delete">Supprimer</button>
+          </div>
+        </div>
+      </article>`;
+    }).join("");
+  }
+
+  function openBendLibrary(){
+    if(!libraryModal)return;
+    if(librarySearch)librarySearch.value="";
+    renderBendLibrary();
+    libraryModal.classList.add("open");
+    libraryModal.setAttribute("aria-hidden","false");
+  }
+
+  function closeBendLibrary(){
+    libraryModal?.classList.remove("open");
+    libraryModal?.setAttribute("aria-hidden","true");
+  }
+
+  function getBlankTargetForLibrary(){
+    let index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
+    const current=pieces[index];
+    if(current && !current.bendProfile && !(Number(current.developed||0)>0))return index;
+    pieces.push({id:crypto.randomUUID(),developed:"",length:"",qty:1,folds:0,cuts:0,time:0,waste:""});
+    savePieces();
+    renderPieces();
+    renderTargets();
+    return pieces.length-1;
+  }
+
+  function loadLibraryModelIntoDesigner(model,{editModel=false}={}){
+    if(!model?.bendProfile?.profile?.lengths?.length)return;
+    const index=getBlankTargetForLibrary();
+    window.RML_ACTIVE_BEND_PIECE_INDEX=index;
+    targetSelect.value=String(index);
+    setLargeDrawingMode(false);
+    modal.classList.add("open");
+    closeBendLibrary();
+    setTimeout(()=>{
+      resizeCanvas();
+      resizeCanvas3D();
+      applySavedProfileToDesigner({bendProfile:cloneProfileData(model.bendProfile),length:""},index);
+      editingExistingPiece=false;
+      editingPieceIndex=-1;
+      editingLibraryModelId=editModel?model.id:"";
+      updateBendActionState();
+      const saveLibraryBtn=document.getElementById("bendSaveLibraryBtn");
+      if(saveLibraryBtn)saveLibraryBtn.textContent=editModel?"Enregistrer les modifications du modèle":"Enregistrer dans la bibliothèque";
+      help.textContent=editModel
+        ? `Modification du modèle « ${model.name} ». Adaptez-le puis enregistrez les modifications du modèle.`
+        : `Modèle « ${model.name} » chargé pour la pièce ${index+1}. Saisissez maintenant les nouvelles cotes.`;
+      renderAll(true);
+    },80);
+  }
+
+  function buildCurrentLibraryProfile(){
+    const result=calculate();
+    return cloneProfileData({
+      profile,
+      roughPoints,
+      display:{viewRotation,viewZoom,activeSegment,activeBend,drawingMode:false},
+      settings:{material:fields.material.value,thickness:fields.thickness.value,vee:fields.vee.value,radius:fields.radius.value,k:fields.k.value,cybFactor:fields.cybFactor?.value,calcMode:fields.calcMode?.value,round:fields.round.value,length3D:fields.length3D?.value,endLeftEnabled:fields.endLeftEnabled?.checked,endLeftHeight:fields.endLeftHeight?.value,endLeftAngle:fields.endLeftAngle?.value,endLeftDirection:fields.endLeftDirection?.value,endRightEnabled:fields.endRightEnabled?.checked,endRightHeight:fields.endRightHeight?.value,endRightAngle:fields.endRightAngle?.value,endRightDirection:fields.endRightDirection?.value},
+      result
+    });
+  }
+
+  function saveCurrentToBendLibrary(){
+    if(drawingMode){
+      if(!deriveProfileFromRough())return alert("Tracez au moins un segment avant d’enregistrer ce modèle.");
+      drawingMode=false;
+      previewPoint=null;
+      renderAll(true);
+    }
+    if(!profile.lengths.length)return alert("Aucune forme à enregistrer dans la bibliothèque.");
+    const models=loadBendLibrary();
+    const edited=models.find(model=>model.id===editingLibraryModelId);
+    const suggested=edited?.name||`Modèle ${models.length+1}`;
+    const name=prompt("Nom du modèle dans la bibliothèque :",suggested)?.trim();
+    if(!name)return;
+    const duplicate=models.find(model=>model.id!==editingLibraryModelId&&model.name.toLocaleLowerCase("fr")===name.toLocaleLowerCase("fr"));
+    if(duplicate&&!confirm(`Un modèle nommé « ${duplicate.name} » existe déjà. Le remplacer ?`))return;
+    const stamp=new Date().toISOString();
+    const target=edited||duplicate;
+    const saved={id:target?.id||crypto.randomUUID(),kind:"bend_library_model",name,bendProfile:buildCurrentLibraryProfile(),createdAt:target?.createdAt||stamp,updatedAt:stamp};
+    const next=models.filter(model=>model.id!==saved.id);
+    next.push(saved);
+    saveBendLibrary(next);
+    editingLibraryModelId="";
+    const saveLibraryBtn=document.getElementById("bendSaveLibraryBtn");
+    if(saveLibraryBtn)saveLibraryBtn.textContent="Enregistrer dans la bibliothèque";
+    setStatus(`Modèle « ${name} » enregistré dans la bibliothèque.`);
+    openBendLibrary();
+  }
 
   function updateBendActionState(){
     const label=editingExistingPiece ? "Enregistrer les modifications" : "Insérer dans le devis";
@@ -5953,6 +6175,9 @@ if(quotePdfBtn){
     window.RML_ACTIVE_BEND_PIECE_INDEX=index;
     editingExistingPiece=true;
     editingPieceIndex=index;
+    editingLibraryModelId="";
+    const saveLibraryBtn=document.getElementById("bendSaveLibraryBtn");
+    if(saveLibraryBtn)saveLibraryBtn.textContent="Enregistrer dans la bibliothèque";
     updateBendActionState();
     help.textContent=`Profil mémorisé de la pièce ${index+1} restauré. Modifiez les cotes puis cliquez sur « Enregistrer les modifications ».`;
     renderAll(true);
@@ -6133,6 +6358,9 @@ if(quotePdfBtn){
     hide3DPanel();
     editingExistingPiece=false;
     editingPieceIndex=-1;
+    editingLibraryModelId="";
+    const saveLibraryBtn=document.getElementById("bendSaveLibraryBtn");
+    if(saveLibraryBtn)saveLibraryBtn.textContent="Enregistrer dans la bibliothèque";
     updateBendActionState();
     roughPoints=[];
     previewPoint=null;
@@ -6567,6 +6795,45 @@ if(quotePdfBtn){
   }
   document.getElementById("bendSaveProfileBtn")?.addEventListener("click",saveBendProfile);
   document.getElementById("bendLargeSaveProxyBtn")?.addEventListener("click",saveBendProfile);
+
+  document.getElementById("openBendLibraryBtn")?.addEventListener("click",openBendLibrary);
+  document.getElementById("bendOpenLibraryBtn")?.addEventListener("click",openBendLibrary);
+  document.getElementById("closeBendLibraryBtn")?.addEventListener("click",closeBendLibrary);
+  document.getElementById("bendSaveLibraryBtn")?.addEventListener("click",saveCurrentToBendLibrary);
+  document.getElementById("bendLibraryCreateBtn")?.addEventListener("click",()=>{
+    closeBendLibrary();
+    modal.classList.add("open");
+    startNewBendPiece();
+  });
+  librarySearch?.addEventListener("input",renderBendLibrary);
+  libraryModal?.addEventListener("click",event=>{if(event.target===libraryModal)closeBendLibrary()});
+  libraryList?.addEventListener("click",event=>{
+    const button=event.target.closest("[data-library-action]");
+    const item=event.target.closest("[data-library-id]");
+    if(!button||!item)return;
+    const models=loadBendLibrary();
+    const model=models.find(entry=>entry.id===item.dataset.libraryId);
+    if(!model)return;
+    const action=button.dataset.libraryAction;
+    if(action==="use")loadLibraryModelIntoDesigner(model);
+    if(action==="edit")loadLibraryModelIntoDesigner(model,{editModel:true});
+    if(action==="rename"){
+      const name=prompt("Nouveau nom du modèle :",model.name)?.trim();
+      if(!name||name===model.name)return;
+      if(models.some(entry=>entry.id!==model.id&&entry.name.toLocaleLowerCase("fr")===name.toLocaleLowerCase("fr"))){alert("Un modèle porte déjà ce nom.");return;}
+      model.name=name;
+      model.updatedAt=new Date().toISOString();
+      saveBendLibrary(models);
+      renderBendLibrary();
+      setStatus(`Modèle renommé « ${name} ».`);
+    }
+    if(action==="delete"){
+      if(!confirm(`Supprimer définitivement le modèle « ${model.name} » de la bibliothèque ?`))return;
+      saveBendLibrary(models.filter(entry=>entry.id!==model.id));
+      renderBendLibrary();
+      setStatus(`Modèle « ${model.name} » supprimé de la bibliothèque.`);
+    }
+  });
 
   calculate();
 })();
@@ -7967,9 +8234,10 @@ if(quotePdfBtn){
     // projet complet ; une synchronisation pièce par pièce mélangeait les
     // commandes ouvertes simultanément sur plusieurs appareils.
     [PROJECTS_KEY]:"project",
-    [PROJECT_FOLDERS_KEY]:"folder"
+    [PROJECT_FOLDERS_KEY]:"folder",
+    [STORAGE_KEY_BEND_LIBRARY]:"settings"
   };
-  const SINGLETON_TYPES=new Set(["settings"]);
+  const SINGLETON_TYPES=new Set();
   let applyingRemote=false;
   let syncing=false;
   let syncTimer=0;
@@ -8094,9 +8362,9 @@ if(quotePdfBtn){
   function removeLegacyCurrentStateSyncQueue(){
     // Les anciennes lignes distantes peuvent rester dans Supabase sans danger :
     // la V83 les ignore. On retire seulement les envois locaux encore en attente.
-    savePending(loadPending().filter(row=>!['piece','settings'].includes(row?.entity_type)));
+    savePending(loadPending().filter(row=>row?.entity_type!=="piece"));
     const meta=loadMeta();
-    Object.keys(meta).forEach(key=>{if(key.startsWith("piece:")||key.startsWith("settings:"))delete meta[key];});
+    Object.keys(meta).forEach(key=>{if(key.startsWith("piece:"))delete meta[key];});
     saveMeta(meta);
   }
 
@@ -8136,7 +8404,8 @@ if(quotePdfBtn){
     return {
       client:toMap("client",localStorage.getItem(STORAGE_KEY_CLIENTS)),
       project:toMap("project",localStorage.getItem(PROJECTS_KEY)),
-      folder:toMap("folder",localStorage.getItem(PROJECT_FOLDERS_KEY))
+      folder:toMap("folder",localStorage.getItem(PROJECT_FOLDERS_KEY)),
+      settings:toMap("settings",localStorage.getItem(STORAGE_KEY_BEND_LIBRARY))
     };
   }
 
@@ -8159,6 +8428,7 @@ if(quotePdfBtn){
     try{
       rows.forEach(row=>{
         if(!locals[row.entity_type])return;
+        if(row.entity_type==="settings" && row.payload?.kind!=="bend_library_model")return;
         const key=rowKey(row.entity_type,row.entity_id);
         const map=locals[row.entity_type];
         if(row.entity_type==="project" && !row.deleted){
@@ -8185,6 +8455,7 @@ if(quotePdfBtn){
         nativeSetItem.call(localStorage,STORAGE_KEY_CLIENTS,JSON.stringify(clients));
         nativeSetItem.call(localStorage,PROJECTS_KEY,JSON.stringify([...locals.project.values()]));
         nativeSetItem.call(localStorage,PROJECT_FOLDERS_KEY,JSON.stringify([...locals.folder.values()]));
+        nativeSetItem.call(localStorage,STORAGE_KEY_BEND_LIBRARY,JSON.stringify([...locals.settings.values()].filter(item=>item?.kind==="bend_library_model")));
         // Le projet actuellement ouvert est propre à chaque appareil. Il ne doit
         // jamais être imposé par le Mac ou l'iPhone qui a synchronisé en dernier.
         const settings=parse(localStorage.getItem(STORAGE_KEY_CURRENT_PROJECT),{});
