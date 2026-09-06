@@ -1,5 +1,5 @@
-/* RML Pliage V92 : page en ligne prioritaire, repli hors ligne. */
-const CACHE_NAME = 'rml-pliage-v92-update-2026-09-06';
+/* RML Pliage V93 : page en ligne prioritaire, repli hors ligne. */
+const CACHE_NAME = 'rml-pliage-v93-save-2026-09-06';
 const BASE = self.registration.scope;
 const INDEX_URL = new URL('index.html', BASE).href;
 const FILES_TO_CACHE = ['index.html', 'manifest.json', 'header-logo.png', 'icon-pliage.png'];
