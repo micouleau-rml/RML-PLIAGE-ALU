@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V94</title>
+<title>RML PLIAGE ALU — V95</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1632,7 +1632,13 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 #bendDesignerModal[data-large-drawing="true"] #bendNewPieceBtn{background:#eaf1ff!important;color:#0f62fe!important}
 
 /* ===== V88 : BIBLIOTHÈQUE DE MODÈLES ===== */
-#bendLibraryModal{z-index:2147483600}
+/* V95 : dialog dans la couche supérieure du navigateur, y compris en plein écran. */
+#bendLibraryModal{z-index:2147483600;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;border:0;box-sizing:border-box;color:#17324a}
+#bendLibraryModal:not([open]){display:none!important}
+#bendLibraryModal[open]{display:flex;align-items:center;justify-content:center}
+#bendLibraryModal::backdrop{background:rgba(15,23,42,.45)}
+#bendLibraryModal .bend-library-card{max-height:90dvh}
+@media(max-width:700px){#bendLibraryModal[open]{align-items:flex-end}}
 .bend-library-card{width:min(980px,100%)}
 .bend-library-toolbar{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:10px;margin-bottom:16px}
 .bend-library-toolbar input{width:100%;min-height:46px;padding:10px 13px;border:1px solid #cbd5e1;border-radius:11px;background:#fff;color:#17324a;font:inherit}
@@ -1750,7 +1756,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 94</div>
+        <div class="app-version">VERSION 95</div>
       </div>
     </div>
     <div class="install">
@@ -1988,7 +1994,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 
 
 <!-- ===== V88 : BIBLIOTHÈQUE DE MODÈLES DE PIÈCES ===== -->
-<div class="modal-overlay" id="bendLibraryModal" aria-hidden="true">
+<dialog class="modal-overlay" id="bendLibraryModal" aria-label="Bibliothèque de pièces" aria-hidden="true">
   <div class="modal-card bend-library-card">
     <div class="modal-head">
       <div>
@@ -2003,7 +2009,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     </div>
     <div id="bendLibraryList" class="bend-library-list"></div>
   </div>
-</div>
+</dialog>
 
 
 <!-- ===== MODULE CALCUL DU DÉVELOPPÉ ===== -->
@@ -2140,7 +2146,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 94;
+  const currentVersion = 95;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -4578,32 +4584,25 @@ if(quotePdfBtn){
     }).join("");
   }
 
-  let openingBendLibrary=false;
-  async function openBendLibrary(){
-    if(!libraryModal || openingBendLibrary)return;
-    openingBendLibrary=true;
-    try{
-      // Safari : attendre la sortie native avant de présenter la bibliothèque.
-      if(getNativeFullscreenElement() || modal.classList.contains("bend-drawing-stage") || modal.getAttribute("data-large-drawing")==="true"){
-        if(!await prepareBendSave())return;
-      }
-      showBendLibrary();
-    }catch(error){
-      console.error("Ouverture bibliothèque :",error);
-      setStatus("La bibliothèque n’a pas pu s’ouvrir. Revenez au calcul puis réessayez.",false);
-    }finally{openingBendLibrary=false;}
-  }
-  function showBendLibrary(){
+  // Ouvrir un dialog natif le place au-dessus du plein écran sans changer le dessin.
+  function openBendLibrary(){
+    if(!libraryModal)return;
     if(librarySearch)librarySearch.value="";
     renderBendLibrary();
-    libraryModal.classList.add("open");
     libraryModal.setAttribute("aria-hidden","false");
+    if(!libraryModal.open)libraryModal.showModal();
+    libraryModal.classList.add("open");
   }
-
   function closeBendLibrary(){
+    if(libraryModal?.open)libraryModal.close();
     libraryModal?.classList.remove("open");
     libraryModal?.setAttribute("aria-hidden","true");
   }
+  libraryModal?.addEventListener("close",()=>{
+    libraryModal.classList.remove("open");
+    libraryModal.setAttribute("aria-hidden","true");
+    if(modal.classList.contains("open"))requestAnimationFrame(()=>resizeCanvas());
+  });
 
   function getBlankTargetForLibrary(){
     let index=Math.max(0,Math.min(pieces.length-1,Number(targetSelect.value)||0));
@@ -4621,7 +4620,7 @@ if(quotePdfBtn){
     const index=getBlankTargetForLibrary();
     window.RML_ACTIVE_BEND_PIECE_INDEX=index;
     targetSelect.value=String(index);
-    setLargeDrawingMode(false);
+    // Conserver le grand dessin et le plein écran lors du chargement du modèle.
     modal.classList.add("open");
     closeBendLibrary();
     setTimeout(()=>{
