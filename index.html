@@ -1750,7 +1750,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 88</div>
+        <div class="app-version">VERSION 89</div>
       </div>
     </div>
     <div class="install">
@@ -5751,6 +5751,33 @@ if(quotePdfBtn){
 
 
   const largeDrawingSavedStyles=new Map();
+  let nativeFullscreenWasActive=false;
+
+  function getNativeFullscreenElement(){
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+
+  function requestNativeFullscreen(){
+    if(getNativeFullscreenElement())return;
+    const root=document.documentElement;
+    const request=root.requestFullscreen || root.webkitRequestFullscreen;
+    if(!request)return;
+    try{
+      const result=request.call(root);
+      if(result?.catch)result.catch(error=>console.warn("Plein écran natif refusé :",error));
+    }catch(error){
+      console.warn("Plein écran natif indisponible :",error);
+    }
+  }
+
+  function exitNativeFullscreen(){
+    const exit=document.exitFullscreen || document.webkitExitFullscreen;
+    if(!getNativeFullscreenElement() || !exit)return;
+    try{
+      const result=exit.call(document);
+      if(result?.catch)result.catch(()=>{});
+    }catch{}
+  }
 
   function saveInlineStyle(element){
     if(element && !largeDrawingSavedStyles.has(element)){
@@ -5855,14 +5882,11 @@ if(quotePdfBtn){
         forceStyle(dataCard,{display:"none"});
       }
 
-      // Le plein écran est réalisé uniquement en CSS.
-      // L’API plein écran native créait parfois une fenêtre blanche sur Mac
-      // lors de « Insérer dans le devis ».
+      // Le dessin occupe tout le document. Le plein écran natif est demandé
+      // directement par le clic utilisateur dans toggleLargeDrawingMode().
     }else{
       restoreInlineStyles();
-      if(document.fullscreenElement && document.exitFullscreen){
-        document.exitFullscreen().catch(()=>{});
-      }
+      exitNativeFullscreen();
     }
 
     if(fullscreenDrawBtn){
@@ -5883,6 +5907,8 @@ if(quotePdfBtn){
     const enabled=!modal.classList.contains("bend-drawing-stage");
 
     try{
+      // Cet appel doit rester directement lié au clic pour être accepté par Safari.
+      if(enabled)requestNativeFullscreen();
       setLargeDrawingMode(enabled);
     }catch(error){
       console.error("Erreur grand dessinateur :",error);
@@ -5893,6 +5919,22 @@ if(quotePdfBtn){
   if(fullscreenDrawBtn){
     fullscreenDrawBtn.onclick=toggleLargeDrawingMode;
   }
+
+  function handleNativeFullscreenChange(){
+    const active=Boolean(getNativeFullscreenElement());
+    if(active){
+      nativeFullscreenWasActive=true;
+      setTimeout(()=>{resizeCanvas();draw();},100);
+      return;
+    }
+    // Si l’utilisateur appuie sur Échap, on revient aussi à la fenêtre normale.
+    if(nativeFullscreenWasActive && modal.classList.contains("bend-drawing-stage")){
+      nativeFullscreenWasActive=false;
+      setLargeDrawingMode(false);
+    }
+  }
+  document.addEventListener("fullscreenchange",handleNativeFullscreenChange);
+  document.addEventListener("webkitfullscreenchange",handleNativeFullscreenChange);
 
 
   function showDimensionsTable(){
