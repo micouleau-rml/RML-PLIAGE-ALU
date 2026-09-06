@@ -1750,7 +1750,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 89</div>
+        <div class="app-version">VERSION 90</div>
       </div>
     </div>
     <div class="install">
@@ -2050,6 +2050,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
           <button class="btn-primary" id="bendFinishDrawBtn">Terminer le dessin</button>
           <button class="btn-secondary" id="bendNewPieceBtn">＋ Nouvelle pièce</button>
           <button class="btn-secondary" id="bendOpenLibraryBtn">📚 Bibliothèque</button>
+          <button type="button" class="btn-secondary" id="bendInsertSegmentOpenBtn">＋ Insérer un segment</button>
           <button class="btn-light" id="bendUndoBtn">Annuler le dernier</button>
           <button class="btn-light" id="bendMirrorBtn">Miroir</button>
           <button class="btn-light" id="bendHorizontalBtn" title="Aligne le segment sélectionné, ou le plus long">↔ Horizontal</button>
@@ -5749,6 +5750,61 @@ if(quotePdfBtn){
     return true;
   }
 
+
+  // V90 : insertion locale avec choix du pli ajouté, sans modifier les autres cotes.
+  function openInsertSegment(){
+    if(drawingMode || !profile.lengths.length){
+      alert("Terminez le dessin avant d’insérer un segment.");return;
+    }
+    document.getElementById("bendInsertSegmentDialog")?.remove();
+    const dialog=document.createElement("dialog");
+    dialog.id="bendInsertSegmentDialog";
+    dialog.style.cssText="width:min(440px,90vw);max-height:85vh;overflow:auto;border:1px solid #cbd5e1;border-radius:16px;padding:20px;color:#17324a;background:white";
+    dialog.innerHTML=`<form method="dialog">
+      <h3 style="margin-top:0">Insérer un segment</h3>
+      <p>Choisissez sa place dans l’ordre des segments du tableau.</p>
+      <label>Position <select id="insertSegmentSide"><option value="after">Après</option><option value="before">Avant</option></select></label>
+      <label>Segment <select id="insertSegmentReference">${profile.lengths.map((value,i)=>`<option value="${i}">Segment ${i+1} — ${fmtNumber(value,1)} mm</option>`).join("")}</select></label>
+      <label>Cote du nouveau segment (mm)<input id="insertSegmentLength" type="number" min="0.1" step="any" value="50" required></label>
+      <label>Angle intérieur du nouveau pli (°)<input id="insertSegmentAngle" type="number" min="0.1" max="179.9" step="any" value="90" required></label>
+      <label>Sens du nouveau pli<select id="insertSegmentDirection"><option value="haut">Haut</option><option value="bas">Bas</option></select></label>
+      <p class="note">Les cotes existantes sont conservées. Le nouveau pli peut réorienter la suite du profil.</p>
+      <div style="display:flex;gap:10px;margin-top:16px"><button type="button" class="btn-light" id="insertSegmentCancel">Annuler</button><button class="btn-primary" type="submit">Insérer</button></div>
+    </form>`;
+    dialog.querySelectorAll("label").forEach(el=>el.style.cssText="display:block;margin:10px 0;font-weight:700");
+    dialog.querySelectorAll("input,select").forEach(el=>el.style.cssText="display:block;width:100%;min-height:42px;margin-top:4px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px");
+    document.body.appendChild(dialog);
+    dialog.querySelector("#insertSegmentReference").value=String(activeSegment>=0 && activeSegment<profile.lengths.length?activeSegment:profile.lengths.length-1);
+    dialog.querySelector("#insertSegmentCancel").onclick=()=>dialog.close();
+    dialog.addEventListener("close",()=>dialog.remove());
+    dialog.querySelector("form").addEventListener("submit",event=>{
+      event.preventDefault();
+      const ref=Number(dialog.querySelector("#insertSegmentReference").value);
+      const after=dialog.querySelector("#insertSegmentSide").value==="after";
+      const length=Number(dialog.querySelector("#insertSegmentLength").value);
+      const angle=Number(dialog.querySelector("#insertSegmentAngle").value);
+      const direction=dialog.querySelector("#insertSegmentDirection").value;
+      if(!Number.isInteger(ref)||ref<0||ref>=profile.lengths.length||!Number.isFinite(length)||length<.1||!Number.isFinite(angle)||angle<.1||angle>179.9)return;
+      const position=ref+(after?1:0);
+      // Après : le pli existant suivant suit le nouveau segment.
+      // Avant : le pli existant précédent reste avant le nouveau segment.
+      const bendIndex=after?ref:Math.min(ref,profile.angles.length);
+      profile.lengths.splice(position,0,length);
+      profile.angles.splice(bendIndex,0,angle);
+      profile.directions.splice(bendIndex,0,direction);
+      profile.hemmed.splice(bendIndex,0,false);
+      profile.exactPoints=[];
+      roughPoints=[];
+      activeSegment=position;
+      activeBend=bendIndex;
+      previewPoint=null;
+      dialog.close();
+      renderAll(true);
+      help.textContent=`Segment ${position+1} ajouté. Vérifiez les cotes puis enregistrez la pièce.`;
+    });
+    dialog.showModal();
+  }
+  document.getElementById("bendInsertSegmentOpenBtn")?.addEventListener("click",openInsertSegment);
 
   const largeDrawingSavedStyles=new Map();
   let nativeFullscreenWasActive=false;
