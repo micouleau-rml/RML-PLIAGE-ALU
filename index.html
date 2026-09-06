@@ -1756,7 +1756,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 96</div>
+        <div class="app-version">VERSION 97</div>
       </div>
     </div>
     <div class="install">
@@ -2146,7 +2146,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 96;
+  const currentVersion = 97;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -5148,6 +5148,7 @@ if(quotePdfBtn){
     const vertices=source.map(point=>({...point}));
     const output=[{...vertices[0]}];
     const segments=[];
+    const hems={};
     const arcRadius=Math.max(1.5,Number(radius)||5);
 
     for(let i=1;i<vertices.length;i++){
@@ -5175,6 +5176,7 @@ if(quotePdfBtn){
       const availableOutgoing=Math.max(1.5,nextLength*.08);
       const r=Math.max(1.5,Math.min(arcRadius,availableIncoming,availableOutgoing));
       const center={x:corner.x+nx*r,y:corner.y+ny*r};
+      hems[i-1]={center:{...center},radius:r,outward:{x:ux,y:uy}};
       const startAngle=Math.atan2(corner.y-center.y,corner.x-center.x);
       const steps=24;
 
@@ -5198,7 +5200,7 @@ if(quotePdfBtn){
       }
     }
 
-    return {points:output,vertices,segments};
+    return {points:output,vertices,segments,hems};
   }
 
   function buildRoundedHemPolyline(points,radius=18){
@@ -5323,10 +5325,10 @@ if(quotePdfBtn){
 
     // V46 : le numéro du segment est intégré à gauche de la cote extérieure.
 
-    // Cotes parallèles aux segments
+    // Cotes parallèles aux segments réels, après décalage des ourlets.
     for(let i=0;i<mapped.length-1;i++){
-      const a=mapped[i];
-      const b=mapped[i+1];
+      const a=finishedGeometry.segments[i].a;
+      const b=finishedGeometry.segments[i].b;
       const dx=b.x-a.x;
       const dy=b.y-a.y;
       const L=Math.max(1,Math.hypot(dx,dy));
@@ -5357,7 +5359,7 @@ if(quotePdfBtn){
         let clearance=Infinity;
         for(let j=0;j<mapped.length-1;j++){
           if(j===i)continue;
-          clearance=Math.min(clearance,pointSegmentDistance(px,py,mapped[j],mapped[j+1]));
+          clearance=Math.min(clearance,pointSegmentDistance(px,py,finishedGeometry.segments[j].a,finishedGeometry.segments[j].b));
         }
         return clearance;
       };
@@ -5369,6 +5371,14 @@ if(quotePdfBtn){
       }else{
         const towardCenter=((profileCenter.x-mx)*nx+(profileCenter.y-my)*ny)>=0 ? 1 : -1;
         exteriorSign=-towardCenter;
+      }
+
+      // V97 : éloigner la cote de l'autre aile du pli écrasé.
+      const hemNeighbor=profile.hemmed?.[i] ? i+1 : profile.hemmed?.[i-1] ? i-1 : -1;
+      if(hemNeighbor>=0 && finishedGeometry.segments[hemNeighbor]){
+        const other=finishedGeometry.segments[hemNeighbor];
+        const side=((other.a.x+other.b.x)/2-mx)*nx+((other.a.y+other.b.y)/2-my)*ny;
+        if(Math.abs(side)>0.001)exteriorSign=side>0?-1:1;
       }
 
       const tx=mx+nx*nearOffset*exteriorSign;
@@ -5434,8 +5444,9 @@ if(quotePdfBtn){
 
       // V46 : repère alphabétique placé à l'intérieur du profil.
       const inward=((profileCenter.x-p1.x)*bx+(profileCenter.y-p1.y)*by)>=0 ? 1 : -1;
-      const markerX=p1.x+bx*22*inward;
-      const markerY=p1.y+by*22*inward;
+      const hem=finishedGeometry.hems?.[i-1];
+      const markerX=hem ? hem.center.x+hem.outward.x*(hem.radius+12) : p1.x+bx*22*inward;
+      const markerY=hem ? hem.center.y+hem.outward.y*(hem.radius+12) : p1.y+by*22*inward;
       ctx.save();
       ctx.fillStyle="rgba(255,255,255,.96)";
       ctx.strokeStyle="#0f62fe";
