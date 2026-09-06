@@ -1750,7 +1750,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 90</div>
+        <div class="app-version">VERSION 91</div>
       </div>
     </div>
     <div class="install">
@@ -5103,7 +5103,7 @@ if(quotePdfBtn){
     }
   }
 
-  function draw(){
+  function drawBase(){
     const w=canvas.clientWidth,h=canvas.clientHeight;
     drawGrid(w,h);
 
@@ -5751,60 +5751,102 @@ if(quotePdfBtn){
   }
 
 
-  // V90 : insertion locale avec choix du pli ajouté, sans modifier les autres cotes.
-  function openInsertSegment(){
-    if(drawingMode || !profile.lengths.length){
-      alert("Terminez le dessin avant d’insérer un segment.");return;
+  // V91 : placement à la souris, attaché à un sommet du profil.
+  let segmentPlacement=null;
+  function cancelSegmentPlacement(){
+    segmentPlacement=null;
+    canvas.style.cursor="";
+    document.getElementById("bendPlacementNotice")?.remove();
+    draw();
+  }
+  function placementNotice(message){
+    let box=document.getElementById("bendPlacementNotice");
+    if(!box){
+      box=document.createElement("div");box.id="bendPlacementNotice";
+      box.style.cssText="position:fixed;bottom:16px;left:16px;z-index:2147483500;max-width:min(500px,90vw);padding:12px;border-radius:12px;background:#fff7d6;color:#713f12;box-shadow:0 4px 18px #0004;font-weight:700";
+      const text=document.createElement("span");box.appendChild(text);
+      const button=document.createElement("button");button.textContent="Annuler";button.type="button";button.className="btn-light";button.style.marginLeft="10px";button.onclick=cancelSegmentPlacement;box.appendChild(button);
+      document.body.appendChild(box);
     }
-    document.getElementById("bendInsertSegmentDialog")?.remove();
-    const dialog=document.createElement("dialog");
-    dialog.id="bendInsertSegmentDialog";
-    dialog.style.cssText="width:min(440px,90vw);max-height:85vh;overflow:auto;border:1px solid #cbd5e1;border-radius:16px;padding:20px;color:#17324a;background:white";
-    dialog.innerHTML=`<form method="dialog">
-      <h3 style="margin-top:0">Insérer un segment</h3>
-      <p>Choisissez sa place dans l’ordre des segments du tableau.</p>
-      <label>Position <select id="insertSegmentSide"><option value="after">Après</option><option value="before">Avant</option></select></label>
-      <label>Segment <select id="insertSegmentReference">${profile.lengths.map((value,i)=>`<option value="${i}">Segment ${i+1} — ${fmtNumber(value,1)} mm</option>`).join("")}</select></label>
-      <label>Cote du nouveau segment (mm)<input id="insertSegmentLength" type="number" min="0.1" step="any" value="50" required></label>
-      <label>Angle intérieur du nouveau pli (°)<input id="insertSegmentAngle" type="number" min="0.1" max="179.9" step="any" value="90" required></label>
-      <label>Sens du nouveau pli<select id="insertSegmentDirection"><option value="haut">Haut</option><option value="bas">Bas</option></select></label>
-      <p class="note">Les cotes existantes sont conservées. Le nouveau pli peut réorienter la suite du profil.</p>
-      <div style="display:flex;gap:10px;margin-top:16px"><button type="button" class="btn-light" id="insertSegmentCancel">Annuler</button><button class="btn-primary" type="submit">Insérer</button></div>
-    </form>`;
-    dialog.querySelectorAll("label").forEach(el=>el.style.cssText="display:block;margin:10px 0;font-weight:700");
-    dialog.querySelectorAll("input,select").forEach(el=>el.style.cssText="display:block;width:100%;min-height:42px;margin-top:4px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px");
-    document.body.appendChild(dialog);
-    dialog.querySelector("#insertSegmentReference").value=String(activeSegment>=0 && activeSegment<profile.lengths.length?activeSegment:profile.lengths.length-1);
-    dialog.querySelector("#insertSegmentCancel").onclick=()=>dialog.close();
-    dialog.addEventListener("close",()=>dialog.remove());
-    dialog.querySelector("form").addEventListener("submit",event=>{
-      event.preventDefault();
-      const ref=Number(dialog.querySelector("#insertSegmentReference").value);
-      const after=dialog.querySelector("#insertSegmentSide").value==="after";
-      const length=Number(dialog.querySelector("#insertSegmentLength").value);
-      const angle=Number(dialog.querySelector("#insertSegmentAngle").value);
-      const direction=dialog.querySelector("#insertSegmentDirection").value;
-      if(!Number.isInteger(ref)||ref<0||ref>=profile.lengths.length||!Number.isFinite(length)||length<.1||!Number.isFinite(angle)||angle<.1||angle>179.9)return;
-      const position=ref+(after?1:0);
-      // Après : le pli existant suivant suit le nouveau segment.
-      // Avant : le pli existant précédent reste avant le nouveau segment.
-      const bendIndex=after?ref:Math.min(ref,profile.angles.length);
-      profile.lengths.splice(position,0,length);
-      profile.angles.splice(bendIndex,0,angle);
-      profile.directions.splice(bendIndex,0,direction);
-      profile.hemmed.splice(bendIndex,0,false);
-      profile.exactPoints=[];
-      roughPoints=[];
-      activeSegment=position;
-      activeBend=bendIndex;
-      previewPoint=null;
-      dialog.close();
-      renderAll(true);
-      help.textContent=`Segment ${position+1} ajouté. Vérifiez les cotes puis enregistrez la pièce.`;
+    box.firstChild.textContent=message;
+  }
+  function openInsertSegment(){
+    if(drawingMode||!profile.lengths.length){alert("Terminez le dessin avant d’insérer un segment.");return;}
+    segmentPlacement={anchor:null,hover:0,point:null};
+    canvas.style.cursor="crosshair";
+    placementNotice("Cliquez sur un point jaune pour choisir où ajouter le segment.");
+    draw();
+  }
+  function placementGeometry(){
+    buildExactPoints();
+    return fitPoints(profile.exactPoints,canvas.clientWidth,canvas.clientHeight,90);
+  }
+  function nearestPlacementPoint(p,points){
+    let best=0;
+    points.forEach((q,i)=>{if(Math.hypot(q.x-p.x,q.y-p.y)<Math.hypot(points[best].x-p.x,points[best].y-p.y))best=i;});
+    return best;
+  }
+  function placementValues(points,p){
+    const j=segmentPlacement.anchor,a=points[j];
+    const scale=Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y)/profile.lengths[0];
+    const length=Math.max(.1,Math.round(Math.hypot(p.x-a.x,p.y-a.y)/scale*10)/10);
+    // Au début, le segment se parcourt du point libre vers le profil existant.
+    const heading=j===0?Math.atan2(a.y-p.y,a.x-p.x):Math.atan2(p.y-a.y,p.x-a.x);
+    const oldHeading=j===0?Math.atan2(points[1].y-a.y,points[1].x-a.x):Math.atan2(a.y-points[j-1].y,a.x-points[j-1].x);
+    let turn=j===0?oldHeading-heading:heading-oldHeading;
+    turn=Math.atan2(Math.sin(turn),Math.cos(turn));
+    const angle=Math.max(.1,Math.min(179.9,Math.round((180-Math.abs(turn)*180/Math.PI)*10)/10));
+    return {length,angle,direction:turn<0?"haut":"bas",heading};
+  }
+  function draw(){
+    drawBase();
+    if(!segmentPlacement||drawingMode)return;
+    const points=placementGeometry();
+    ctx.save();
+    points.forEach((p,i)=>{
+      ctx.fillStyle="#facc15";ctx.strokeStyle="#17202a";ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(p.x,p.y,i===segmentPlacement.hover?10:6,0,Math.PI*2);ctx.fill();ctx.stroke();
     });
-    dialog.showModal();
+    if(segmentPlacement.anchor!==null&&segmentPlacement.point){
+      const a=points[segmentPlacement.anchor],p=segmentPlacement.point;
+      ctx.strokeStyle="#facc15";ctx.lineWidth=5;ctx.setLineDash([9,5]);
+      ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(p.x,p.y);ctx.stroke();ctx.setLineDash([]);
+      const v=placementValues(points,p);
+      const label=`${fmtNumber(v.length,1)} mm · ${fmtNumber(v.angle,1)}°`;
+      ctx.font="bold 15px sans-serif";ctx.textAlign="left";
+      const width=ctx.measureText(label).width+16,x=Math.max(4,Math.min(canvas.clientWidth-width-4,p.x+14)),y=Math.max(28,Math.min(canvas.clientHeight-8,p.y-14));
+      ctx.fillStyle="#17202a";ctx.fillRect(x,y-22,width,28);ctx.fillStyle="#fff";ctx.fillText(label,x+8,y-3);
+    }
+    ctx.restore();
+  }
+  function moveSegmentPlacement(p){
+    const points=placementGeometry();
+    segmentPlacement.hover=nearestPlacementPoint(p,points);
+    segmentPlacement.point=p;draw();
+  }
+  function fixSegmentPlacement(p){
+    const points=placementGeometry();
+    if(segmentPlacement.anchor===null){
+      const i=nearestPlacementPoint(p,points);
+      if(Math.hypot(points[i].x-p.x,points[i].y-p.y)>30)return;
+      segmentPlacement.anchor=i;segmentPlacement.point=p;
+      placementNotice("Déplacez la souris pour orienter et dimensionner le segment, puis cliquez pour le fixer.");draw();return;
+    }
+    const position=segmentPlacement.anchor,a=points[position];
+    if(Math.hypot(p.x-a.x,p.y-a.y)<10)return;
+    const v=placementValues(points,p),bendIndex=Math.max(0,position-1);
+    profile.lengths.splice(position,0,v.length);
+    profile.angles.splice(bendIndex,0,v.angle);
+    profile.directions.splice(bendIndex,0,v.direction);
+    profile.hemmed.splice(bendIndex,0,false);
+    if(position===0)viewRotation=v.heading;
+    profile.exactPoints=[];roughPoints=[];previewPoint=null;
+    activeSegment=position;activeBend=bendIndex;
+    cancelSegmentPlacement();renderAll(true);
+    help.textContent=`Segment ${position+1} ajouté. Ajustez sa cote dans le tableau, puis enregistrez les modifications.`;
   }
   document.getElementById("bendInsertSegmentOpenBtn")?.addEventListener("click",openInsertSegment);
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"&&segmentPlacement){event.preventDefault();cancelSegmentPlacement();}});
 
   const largeDrawingSavedStyles=new Map();
   let nativeFullscreenWasActive=false;
@@ -6217,6 +6259,7 @@ if(quotePdfBtn){
   }
 
   function applySavedProfileToDesigner(piece,index){
+    if(segmentPlacement)cancelSegmentPlacement();
     syncPieceBendLengthFromEntry(piece);
     const saved=piece?.bendProfile;
     if(!saved?.profile?.lengths?.length)return false;
@@ -6453,6 +6496,7 @@ if(quotePdfBtn){
   }
 
   function reset(){
+    if(segmentPlacement)cancelSegmentPlacement();
     hide3DPanel();
     editingExistingPiece=false;
     editingPieceIndex=-1;
@@ -6555,6 +6599,7 @@ if(quotePdfBtn){
 
   canvas.addEventListener("pointerdown",e=>{
     const p=pointerPos(e);
+    if(segmentPlacement){e.preventDefault();if(e.button===0&&!e.ctrlKey)fixSegmentPlacement(p);return;}
 
     // Après validation, un clic sur le plan sélectionne le segment correspondant
     // et surligne immédiatement sa ligne dans le tableau.
@@ -6581,6 +6626,7 @@ if(quotePdfBtn){
     draw();
   });
   const movePointer=e=>{
+    if(segmentPlacement){e.preventDefault();moveSegmentPlacement(pointerPos(e));return;}
     if(!drawingMode||!roughPoints.length)return;
     e.preventDefault();
     previewPoint=pointerPos(e);
@@ -6701,6 +6747,7 @@ if(quotePdfBtn){
     },80);
   }
   function close(){
+    if(segmentPlacement)cancelSegmentPlacement();
     setLargeDrawingMode(false);
     modal.classList.remove("open");
   }
