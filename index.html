@@ -1756,7 +1756,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 95</div>
+        <div class="app-version">VERSION 96</div>
       </div>
     </div>
     <div class="install">
@@ -2146,7 +2146,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 95;
+  const currentVersion = 96;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -5142,15 +5142,18 @@ if(quotePdfBtn){
   function buildRoundedHemGeometry(points,radius=18){
     const source=Array.isArray(points)?points.map(point=>({...point})):[];
     if(source.length<3 || !profile.hemmed?.some(Boolean)){
-      return {points:source,vertices:source.map(point=>({...point}))};
+      return {points:source,vertices:source.map(point=>({...point})),segments:source.slice(1).map((point,i)=>({a:{...source[i]},b:{...point}}))};
     }
 
     const vertices=source.map(point=>({...point}));
     const output=[{...vertices[0]}];
+    const segments=[];
     const arcRadius=Math.max(1.5,Number(radius)||5);
 
     for(let i=1;i<vertices.length;i++){
       const corner=vertices[i];
+      // V96 : chaque segment démarre à la sortie réelle du pli précédent.
+      segments.push({a:{...output[output.length-1]},b:{...corner}});
       output.push({...corner});
 
       if(i>=vertices.length-1 || !profile.hemmed?.[i-1])continue;
@@ -5195,7 +5198,7 @@ if(quotePdfBtn){
       }
     }
 
-    return {points:output,vertices};
+    return {points:output,vertices,segments};
   }
 
   function buildRoundedHemPolyline(points,radius=18){
@@ -5220,9 +5223,10 @@ if(quotePdfBtn){
     }
   }
 
-  function drawActiveGeometry(mapped){
+  function drawActiveGeometry(mapped,segments){
     if(activeSegment>=0 && activeSegment<mapped.length-1){
-      const a=mapped[activeSegment],b=mapped[activeSegment+1];
+      const segment=segments?.[activeSegment];
+      const a=segment?.a || mapped[activeSegment],b=segment?.b || mapped[activeSegment+1];
       ctx.strokeStyle="#f59e0b";
       ctx.lineWidth=7;
       ctx.lineCap="round";
@@ -5306,7 +5310,7 @@ if(quotePdfBtn){
     const mapped=finishedGeometry.vertices;
     drawPolyline(finishedProfilePoints,false);
     if(!mapped.length)return;
-    drawActiveGeometry(mapped);
+    drawActiveGeometry(mapped,finishedGeometry.segments);
 
     // V39 : suppression de tous les points de sommet sur le profil 2D.
 
