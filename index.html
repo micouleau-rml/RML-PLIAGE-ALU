@@ -1750,7 +1750,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 91</div>
+        <div class="app-version">VERSION 92</div>
       </div>
     </div>
     <div class="install">
@@ -2138,7 +2138,74 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 </div>
 
 <script>
-if ("serviceWorker" in navigator) { window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {})); }
+/* V92 : détection sans rechargement imposé pendant le travail. */
+(() => {
+  const currentVersion = 92;
+  let registration = null, checking = false, applying = false, reloadTimer = 0;
+  const pageUrl = new URL('./index.html', location.href).href;
+  function offerUpdate() {
+    if (document.getElementById('rmlUpdateBanner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'rmlUpdateBanner';
+    banner.setAttribute('role', 'status');
+    banner.style.cssText = 'position:fixed;bottom:12px;left:12px;right:12px;z-index:2147483600;background:#fff;border:2px solid #0f62fe;border-radius:14px;padding:14px;box-shadow:0 8px 30px #0003;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;color:#17324a';
+    const text = document.createElement('span');
+    text.textContent = 'Nouvelle version disponible. Enregistrez votre travail avant de mettre à jour.';
+    const button = document.createElement('button');
+    button.className = 'btn-primary';button.textContent = 'Mettre à jour';
+    button.onclick = async () => {
+      if (applying) return;
+      if (document.getElementById('bendDesignerModal')?.classList.contains('open')) {
+        alert('Enregistrez les modifications de la pièce ou du modèle, puis fermez le dessinateur avant de mettre à jour.');return;
+      }
+      if (!navigator.onLine) { alert('Reconnectez-vous à Internet pour mettre à jour.');return; }
+      applying = true;button.disabled = true;button.textContent = 'Mise à jour…';
+      try { await registration?.update(); } catch (_) {}
+      if (registration?.waiting) registration.waiting.postMessage({type:'RML_APPLY_UPDATE'});
+      reloadTimer = setTimeout(() => location.reload(), 1800);
+    };
+    banner.append(text, button);document.body.appendChild(banner);
+  }
+  async function checkVersion() {
+    if (checking || !navigator.onLine || document.visibilityState === 'hidden') return;
+    checking = true;
+    try {
+      const response = await fetch(pageUrl, {cache:'no-store'});
+      if (response.ok) {
+        const html = await response.text();
+        const found = html.match(/class=["']app-version["'][^>]*>\s*VERSION\s+(\d+)/i);
+        if (found && Number(found[1]) > currentVersion) offerUpdate();
+      }
+    } catch (_) {} finally { checking = false; }
+    if (registration) {
+      try { await registration.update(); } catch (_) {}
+      if (registration.waiting) offerUpdate();
+    }
+  }
+  window.addEventListener('load', async () => {
+    if (!/^https?:$/.test(location.protocol)) return;
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (applying) {clearTimeout(reloadTimer);location.reload();}
+      });
+      try {
+        registration = await navigator.serviceWorker.register('./service-worker.js', {updateViaCache:'none'});
+        if (registration.waiting) offerUpdate();
+        registration.addEventListener('updatefound', () => {
+          const worker = registration.installing;
+          worker?.addEventListener('statechange', () => {
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) offerUpdate();
+          });
+        });
+      } catch (_) {}
+    }
+    checkVersion();
+    setInterval(checkVersion, 60000);
+    window.addEventListener('online', checkVersion);
+    document.addEventListener('visibilitychange', checkVersion);
+  });
+})();
+
 
 const STORAGE_KEY_CLIENTS="pliage_clients_v7";
 const STORAGE_KEY_PIECES="pliage_pieces_v7";
