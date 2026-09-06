@@ -1750,7 +1750,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 92</div>
+        <div class="app-version">VERSION 93</div>
       </div>
     </div>
     <div class="install">
@@ -2140,7 +2140,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 92;
+  const currentVersion = 93;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -4638,7 +4638,78 @@ if(quotePdfBtn){
     });
   }
 
-  function saveCurrentToBendLibrary(){
+  // V93 : les sauvegardes attendent la sortie effective du plein écran Safari.
+  let bendSaveBusy=false;
+  async function prepareBendSave(){
+    if(segmentPlacement){
+      placementNotice("Fixez le segment avec un clic ou annulez son placement avant d’enregistrer.");
+      return false;
+    }
+    if(getNativeFullscreenElement()){
+      const exit=document.exitFullscreen || document.webkitExitFullscreen;
+      if(!exit)return false;
+      const left=await new Promise(resolve=>{
+        let timer;
+        const done=()=>{
+          if(getNativeFullscreenElement())return;
+          cleanup();resolve(true);
+        };
+        const cleanup=()=>{
+          clearTimeout(timer);
+          document.removeEventListener("fullscreenchange",done);
+          document.removeEventListener("webkitfullscreenchange",done);
+        };
+        document.addEventListener("fullscreenchange",done);
+        document.addEventListener("webkitfullscreenchange",done);
+        timer=setTimeout(()=>{cleanup();resolve(!getNativeFullscreenElement());},2000);
+        try{Promise.resolve(exit.call(document)).then(done,()=>{cleanup();resolve(false);});}
+        catch{cleanup();resolve(false);}
+      });
+      if(!left){
+        setStatus("Quittez le plein écran avec Échap, puis cliquez à nouveau sur Enregistrer.",false);
+        return false;
+      }
+    }
+    setLargeDrawingMode(false);
+    modal.classList.add("open");
+    await new Promise(resolve=>setTimeout(resolve,150));
+    resizeCanvas();
+    return true;
+  }
+  function askLibraryModelName(suggested){
+    return new Promise(resolve=>{
+      const dialog=document.createElement("dialog");
+      dialog.id="bendLibraryNameDialog";
+      dialog.style.cssText="width:min(440px,90vw);border:1px solid #cbd5e1;border-radius:16px;padding:22px;background:white;color:#17324a";
+      dialog.innerHTML='<form><h3>Enregistrer dans la bibliothèque</h3><label for="bendLibraryNameInput">Nom du modèle</label><input id="bendLibraryNameInput" maxlength="120" required style="display:block;width:100%;padding:12px;margin:12px 0;font-size:16px"><div style="display:flex;gap:10px"><button type="button" class="btn-light">Annuler</button><button type="submit" class="btn-primary">Enregistrer</button></div></form>';
+      const input=dialog.querySelector("input");input.value=suggested;
+      let result=null;
+      dialog.querySelector('button[type="button"]').onclick=()=>dialog.close();
+      dialog.querySelector("form").onsubmit=event=>{
+        event.preventDefault();
+        if(!input.value.trim())return;
+        result=input.value.trim();dialog.close();
+      };
+      dialog.addEventListener("close",()=>{dialog.remove();resolve(result);},{once:true});
+      document.body.appendChild(dialog);dialog.showModal();input.focus();input.select();
+    });
+  }
+  async function runBendSave(action){
+    if(bendSaveBusy)return;
+    bendSaveBusy=true;
+    try{if(await prepareBendSave())await action();}
+    catch(error){
+      console.error("Enregistrement impossible :",error);
+      setStatus("Enregistrement impossible : "+(error?.message||"erreur inconnue"),false);
+      const notice=document.createElement("dialog");
+      notice.style.cssText="max-width:90vw;padding:22px;border-radius:14px";
+      const text=document.createElement("p");text.textContent="L’enregistrement n’a pas abouti. Votre dessin reste ouvert. Détail : "+(error?.message||"erreur inconnue");
+      const button=document.createElement("button");button.textContent="Revenir au dessin";button.onclick=()=>notice.close();
+      notice.append(text,button);notice.addEventListener("close",()=>notice.remove());document.body.appendChild(notice);notice.showModal();
+    }finally{bendSaveBusy=false;}
+  }
+
+  async function saveCurrentToBendLibrary(){
     if(drawingMode){
       if(!deriveProfileFromRough())return alert("Tracez au moins un segment avant d’enregistrer ce modèle.");
       drawingMode=false;
@@ -4649,7 +4720,7 @@ if(quotePdfBtn){
     const models=loadBendLibrary();
     const edited=models.find(model=>model.id===editingLibraryModelId);
     const suggested=edited?.name||`Modèle ${models.length+1}`;
-    const name=prompt("Nom du modèle dans la bibliothèque :",suggested)?.trim();
+    const name=await askLibraryModelName(suggested);
     if(!name)return;
     const duplicate=models.find(model=>model.id!==editingLibraryModelId&&model.name.toLocaleLowerCase("fr")===name.toLocaleLowerCase("fr"));
     if(duplicate&&!confirm(`Un modèle nommé « ${duplicate.name} » existe déjà. Le remplacer ?`))return;
@@ -6950,8 +7021,8 @@ if(quotePdfBtn){
     setStatus(`Pièce ${index+1} enregistrée — nouvelle pièce ${newIndex+1} prête.`);
     window.dispatchEvent(new CustomEvent("rml:choose-exterior",{detail:{pieceIndex:index}}));
   }
-  document.getElementById("bendInsertBtn")?.addEventListener("click",insertBendIntoQuote);
-  document.getElementById("bendLargeInsertProxyBtn")?.addEventListener("click",insertBendIntoQuote);
+  document.getElementById("bendInsertBtn")?.addEventListener("click",()=>runBendSave(insertBendIntoQuote));
+  document.getElementById("bendLargeInsertProxyBtn")?.addEventListener("click",()=>runBendSave(insertBendIntoQuote));
   function saveBendProfile(){
     if(drawingMode){
       if(!deriveProfileFromRough())return alert("Tracez au moins un segment avant de mémoriser la pièce.");
@@ -7002,16 +7073,16 @@ if(quotePdfBtn){
     renderTargets();
     targetSelect.value=String(index);
 
-    alert(`Pièce ${index+1} mémorisée${savedProject ? ` dans le projet « ${savedProject.name} »` : ""}. Choisissez maintenant son côté extérieur.`);
+    setStatus(`Pièce ${index+1} mémorisée${savedProject ? ` dans le projet « ${savedProject.name} »` : ""}. Choisissez maintenant son côté extérieur.`);
     window.dispatchEvent(new CustomEvent("rml:choose-exterior",{detail:{pieceIndex:index}}));
   }
-  document.getElementById("bendSaveProfileBtn")?.addEventListener("click",saveBendProfile);
-  document.getElementById("bendLargeSaveProxyBtn")?.addEventListener("click",saveBendProfile);
+  document.getElementById("bendSaveProfileBtn")?.addEventListener("click",()=>runBendSave(saveBendProfile));
+  document.getElementById("bendLargeSaveProxyBtn")?.addEventListener("click",()=>runBendSave(saveBendProfile));
 
   document.getElementById("openBendLibraryBtn")?.addEventListener("click",openBendLibrary);
   document.getElementById("bendOpenLibraryBtn")?.addEventListener("click",openBendLibrary);
   document.getElementById("closeBendLibraryBtn")?.addEventListener("click",closeBendLibrary);
-  document.getElementById("bendSaveLibraryBtn")?.addEventListener("click",saveCurrentToBendLibrary);
+  document.getElementById("bendSaveLibraryBtn")?.addEventListener("click",()=>runBendSave(saveCurrentToBendLibrary));
   document.getElementById("bendLibraryCreateBtn")?.addEventListener("click",()=>{
     closeBendLibrary();
     modal.classList.add("open");
@@ -7470,7 +7541,7 @@ if(quotePdfBtn){
 }
 .rml-arrow-place.active{background:#fff0f0;color:#b42318}
 #rmlArrowEditor{
-  position:fixed;inset:0;z-index:100010;display:none;background:rgba(15,32,48,.82);
+  position:fixed;inset:0;z-index:2147483550;display:none;background:rgba(15,32,48,.82);
   padding:18px;box-sizing:border-box;overflow:auto
 }
 #rmlArrowEditor.open{display:flex;align-items:flex-start;justify-content:center}
