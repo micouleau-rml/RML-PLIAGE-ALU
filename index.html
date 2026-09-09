@@ -1756,7 +1756,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 98</div>
+        <div class="app-version">VERSION 99</div>
       </div>
     </div>
     <div class="install">
@@ -2030,7 +2030,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     <div class="bend-toolbar">
       <div class="field"><label for="bendMaterial">Matière</label><select id="bendMaterial"><option value="alu">Aluminium</option><option value="steel">Acier</option><option value="inox">Inox</option></select></div>
       <div class="field"><label for="bendThickness">Épaisseur (mm)</label><input id="bendThickness" type="number" min="0.1" step="0.1" value="1"></div>
-      <div class="field"><label for="bendVee">Vé (mm)</label><input id="bendVee" type="number" min="1" step="0.1" value="16.5"></div>
+      <div class="field"><label for="bendVee">Vé (mm)</label><input id="bendVee" type="number" min="1" step="1" value="16"></div>
       <div class="field"><label for="bendRadius">Rayon intérieur (mm)</label><input id="bendRadius" type="number" min="0" step="0.1" value="1"></div>
       <div class="field">
         <label for="bendCalcMode">Mode de calcul</label>
@@ -2146,7 +2146,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 98;
+  const currentVersion = 99;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -4880,7 +4880,7 @@ if(quotePdfBtn){
       // Le tableau RML n'est valable qu'avec l'outillage qui a servi aux mesures.
       // On corrige aussi automatiquement les anciens modèles mémorisés avec R/V erronés.
       fields.radius.value="1";
-      fields.vee.value="16.5";
+      fields.vee.value="16";
     }
     fields.radius.readOnly=calibrated;
     fields.vee.readOnly=calibrated;
