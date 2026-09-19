@@ -140,7 +140,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
   font-size:1.35rem;
 }
 
-.projects-toolbar{display:grid;grid-template-columns:minmax(180px,1.5fr) minmax(150px,1fr) auto auto;gap:9px;margin:0 0 16px;align-items:center}
+.projects-toolbar{display:block;margin:0 0 16px}
 .projects-toolbar input,.projects-toolbar select{width:100%;min-height:42px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#17324a}
 .projects-toolbar button{min-height:42px;padding:9px 12px;border-radius:10px}
 .projects-empty{padding:24px;text-align:center;color:#64748b;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc}
@@ -235,6 +235,20 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
   background:#fecaca;
 }
 
+.project-client-group{margin-bottom:10px;border:1px solid #dbe3ee;border-radius:15px;background:#fff;overflow:hidden}
+.project-client-toggle{width:100%;min-height:52px;padding:12px 15px;border:0;border-radius:0;background:#eef5ff;color:#17324a;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left}
+.project-client-toggle:hover{background:#e2edff}
+.project-client-name{font-size:1rem;font-weight:900;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-client-summary{display:flex;align-items:center;gap:9px;color:#526579;font-size:.85rem;font-weight:800;white-space:nowrap}
+.project-client-arrow{font-size:1rem;transition:transform .16s ease}
+.project-client-group.open .project-client-arrow{transform:rotate(90deg)}
+.project-client-projects{padding:9px 11px 2px;background:#fff}
+.project-client-projects[hidden]{display:none}
+.client-project-header,.client-project-row{display:grid;grid-template-columns:minmax(160px,1fr) 110px 145px;gap:12px;align-items:center}
+.client-project-header{padding:1px 10px 7px;color:#687684;font-size:.76rem;font-weight:800}
+.client-project-row{margin-bottom:8px;padding:10px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}
+.client-no-project{margin:0 0 8px;padding:13px;color:#64748b;text-align:center;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc}
+
 /* Adaptation iPhone */
 @media(max-width:700px){
   .projects-modal{
@@ -249,8 +263,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
     border-radius:22px 22px 0 0;
   }
 
-  .projects-toolbar{grid-template-columns:1fr 1fr}
-  .projects-toolbar input{grid-column:1/-1}
+  .projects-toolbar{display:block}
 
   .projects-header,
   .project-item{
@@ -292,6 +305,14 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
     width:36px;
     min-width:36px;
   }
+
+  .project-client-toggle{padding:11px 10px}
+  .project-client-name{font-size:.9rem}
+  .project-client-summary{font-size:.72rem}
+  .project-client-projects{padding:7px 7px 1px}
+  .client-project-header,.client-project-row{grid-template-columns:minmax(105px,1fr) 72px 102px;gap:6px}
+  .client-project-header{padding:1px 7px 6px;font-size:.64rem}
+  .client-project-row{padding:8px 7px}
 }
 /* ===== CORRECTIF IPHONE FINAL ===== */
 #mobileSettingsBtn{display:none}
@@ -1756,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 100</div>
+        <div class="app-version">VERSION 101</div>
       </div>
     </div>
     <div class="install">
@@ -2146,7 +2167,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 100;
+  const currentVersion = 101;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -4287,20 +4308,9 @@ function loadProjects(){
   header.append(title,closeTop);box.appendChild(header);
 
   const toolbar=document.createElement("div");toolbar.className="projects-toolbar";
-  const search=document.createElement("input");search.type="search";search.placeholder="Rechercher un projet, un client ou une couleur…";search.setAttribute("aria-label","Rechercher dans les projets");
-  const folderFilter=document.createElement("select");folderFilter.setAttribute("aria-label","Filtrer par dossier");
-  const refreshFolderOptions=(selectedValue="all")=>{
-    folderFilter.innerHTML=`<option value="all">Tous les dossiers</option><option value="none">Sans dossier</option>`+folders.map(folder=>`<option value="${safeHtml(folder.id)}">📁 ${safeHtml(folder.name)}</option>`).join("");
-    folderFilter.value=[...folderFilter.options].some(option=>option.value===selectedValue)?selectedValue:"all";
-  };
-  refreshFolderOptions();
-  const addFolder=document.createElement("button");addFolder.type="button";addFolder.className="btn-primary";addFolder.textContent="＋ Nouveau dossier";
-  const deleteFolder=document.createElement("button");deleteFolder.type="button";deleteFolder.className="btn-danger";deleteFolder.textContent="Supprimer dossier";
-  toolbar.append(search,folderFilter,addFolder,deleteFolder);box.appendChild(toolbar);
+  const search=document.createElement("input");search.type="search";search.placeholder="Rechercher un client ou un projet…";search.setAttribute("aria-label","Rechercher dans les projets");
+  toolbar.appendChild(search);box.appendChild(toolbar);
 
-  const tableHeader=document.createElement("div");tableHeader.className="projects-header";
-  tableHeader.innerHTML=`<span>Client</span><span>Référence</span><span>Dossier</span><span>Date</span><span>Actions</span>`;
-  box.appendChild(tableHeader);
   const list=document.createElement("div");box.appendChild(list);
 
   const saveProjectsList=()=>localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
@@ -4327,48 +4337,69 @@ function loadProjects(){
   const renderRows=()=>{
     list.innerHTML="";
     const query=search.value.trim().toLocaleLowerCase("fr-FR");
-    const selectedFolder=folderFilter.value;
-    let visible=0;
-    projects.forEach(project=>{
-      const client=clients.find(c=>c.id===project.clientId);
-      const clientName=client?.name||project.client?.name||project.clientName||"Client non renseigné";
-      const reference=project.name||project.projectName||"Projet sans référence";
-      const folder=folders.find(item=>item.id===project.folderId);
-      const folderName=folder?.name||"Sans dossier";
-      const color=project.color||project.projectColor||"";
-      const matchesFolder=selectedFolder==="all"||(selectedFolder==="none"?!project.folderId:project.folderId===selectedFolder);
-      const matchesSearch=!query||`${clientName} ${reference} ${folderName} ${color}`.toLocaleLowerCase("fr-FR").includes(query);
-      if(!matchesFolder||!matchesSearch)return;
-      visible++;
-      const rawDate=project.modifiedAt||project.date||project.exportedAt||project.createdAt;
-      const date=rawDate?new Date(rawDate).toLocaleDateString("fr-FR"):"—";
-      const row=document.createElement("div");row.className="project-item";
-      const clientCell=document.createElement("div");clientCell.className="project-client";clientCell.textContent=clientName;clientCell.title=clientName;
-      const referenceCell=document.createElement("div");referenceCell.className="project-reference";referenceCell.textContent=reference;referenceCell.title=reference;
-      const folderSelect=document.createElement("select");folderSelect.className="project-folder-select";folderSelect.innerHTML=`<option value="">Sans dossier</option>`+folders.map(item=>`<option value="${safeHtml(item.id)}">📁 ${safeHtml(item.name)}</option>`).join("");folderSelect.value=project.folderId||"";
-      folderSelect.addEventListener("change",()=>{project.folderId=folderSelect.value;project.modifiedAt=new Date().toISOString();saveProjectsList();renderRows();});
-      const dateCell=document.createElement("div");dateCell.className="project-date";dateCell.textContent=date;
-      const actions=document.createElement("div");actions.className="project-actions";
-      const del=document.createElement("button");del.type="button";del.className="delete-project";del.title="Supprimer";del.textContent="🗑";
-      del.addEventListener("click",()=>{if(!confirm(`Supprimer définitivement ce projet ?\n\n${reference}`))return;projects=projects.filter(item=>item.id!==project.id);saveProjectsList();renderRows();});
-      const open=document.createElement("button");open.type="button";open.className="open-project";open.textContent="Ouvrir";open.addEventListener("click",()=>openSelectedProject(project));
-      actions.append(del,open);row.append(clientCell,referenceCell,folderSelect,dateCell,actions);list.appendChild(row);
+    const groups=new Map();
+    clients.forEach(client=>{
+      const name=String(client?.name||"").trim();
+      if(name)groups.set(`id:${client.id}`,{name,clientId:client.id,projects:[]});
     });
-    if(!visible){const empty=document.createElement("div");empty.className="projects-empty";empty.textContent=projects.length?"Aucun projet ne correspond à la recherche.":"Aucun projet enregistré. Vous pouvez déjà créer vos dossiers.";list.appendChild(empty);}
+    projects.forEach(project=>{
+      const storedId=project.clientId||project.selectedClientId||project.client?.id||"";
+      const clientName=projectClientName(project);
+      const key=storedId&&groups.has(`id:${storedId}`)?`id:${storedId}`:`name:${normalizedName(clientName)}`;
+      if(!groups.has(key))groups.set(key,{name:clientName,clientId:storedId,projects:[]});
+      groups.get(key).projects.push(project);
+    });
+
+    const sortedGroups=[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base",numeric:true}));
+    let visibleGroups=0;
+    sortedGroups.forEach(group=>{
+      group.projects.sort((a,b)=>String(a.name||a.projectName||"").localeCompare(String(b.name||b.projectName||""),"fr",{sensitivity:"base",numeric:true}));
+      const clientMatches=!query||group.name.toLocaleLowerCase("fr-FR").includes(query);
+      const matchingProjects=group.projects.filter(project=>{
+        const reference=project.name||project.projectName||"Projet sans référence";
+        const color=project.color||project.projectColor||"";
+        return !query||clientMatches||`${reference} ${color}`.toLocaleLowerCase("fr-FR").includes(query);
+      });
+      if(query&&!clientMatches&&!matchingProjects.length)return;
+      visibleGroups++;
+
+      const section=document.createElement("section");section.className="project-client-group";
+      const toggle=document.createElement("button");toggle.type="button";toggle.className="project-client-toggle";
+      const clientName=document.createElement("span");clientName.className="project-client-name";clientName.textContent=group.name;
+      const summary=document.createElement("span");summary.className="project-client-summary";
+      const count=document.createElement("span");count.textContent=`${group.projects.length} projet${group.projects.length>1?"s":""}`;
+      const arrow=document.createElement("span");arrow.className="project-client-arrow";arrow.textContent="▶";
+      summary.append(count,arrow);toggle.append(clientName,summary);
+      const contents=document.createElement("div");contents.className="project-client-projects";
+      const startsOpen=Boolean(query);
+      contents.hidden=!startsOpen;section.classList.toggle("open",startsOpen);
+      toggle.setAttribute("aria-expanded",String(startsOpen));
+      toggle.addEventListener("click",()=>{const open=contents.hidden;contents.hidden=!open;section.classList.toggle("open",open);toggle.setAttribute("aria-expanded",String(open));});
+
+      if(!group.projects.length){
+        const empty=document.createElement("div");empty.className="client-no-project";empty.textContent="Aucun projet enregistré pour ce client.";contents.appendChild(empty);
+      }else{
+        const rowHeader=document.createElement("div");rowHeader.className="client-project-header";rowHeader.innerHTML="<span>Référence du projet</span><span>Date</span><span>Actions</span>";contents.appendChild(rowHeader);
+        matchingProjects.forEach(project=>{
+          const reference=project.name||project.projectName||"Projet sans référence";
+          const rawDate=project.modifiedAt||project.date||project.exportedAt||project.createdAt;
+          const date=rawDate?new Date(rawDate).toLocaleDateString("fr-FR"):"—";
+          const row=document.createElement("div");row.className="client-project-row";
+          const referenceCell=document.createElement("div");referenceCell.className="project-reference";referenceCell.textContent=reference;referenceCell.title=reference;
+          const dateCell=document.createElement("div");dateCell.className="project-date";dateCell.textContent=date;
+          const actions=document.createElement("div");actions.className="project-actions";
+          const del=document.createElement("button");del.type="button";del.className="delete-project";del.title="Supprimer";del.textContent="🗑";
+          del.addEventListener("click",()=>{if(!confirm(`Supprimer définitivement ce projet ?\n\n${reference}`))return;projects=projects.filter(item=>item.id!==project.id);saveProjectsList();renderRows();});
+          const open=document.createElement("button");open.type="button";open.className="open-project";open.textContent="Ouvrir";open.addEventListener("click",()=>openSelectedProject(project));
+          actions.append(del,open);row.append(referenceCell,dateCell,actions);contents.appendChild(row);
+        });
+      }
+      section.append(toggle,contents);list.appendChild(section);
+    });
+    if(!visibleGroups){const empty=document.createElement("div");empty.className="projects-empty";empty.textContent="Aucun client ou projet ne correspond à la recherche.";list.appendChild(empty);}
   };
 
-  search.addEventListener("input",renderRows);folderFilter.addEventListener("change",renderRows);
-  addFolder.addEventListener("click",()=>{
-    const name=(prompt("Nom du nouveau dossier :")||"").trim();if(!name)return;
-    if(folders.some(folder=>folder.name.toLocaleLowerCase("fr-FR")===name.toLocaleLowerCase("fr-FR")))return alert("Ce dossier existe déjà.");
-    const folder={id:crypto.randomUUID(),name};folders.push(folder);folders.sort((a,b)=>a.name.localeCompare(b.name,"fr"));saveProjectFolders(folders);refreshFolderOptions(folder.id);renderRows();
-  });
-  deleteFolder.addEventListener("click",()=>{
-    const id=folderFilter.value;if(id==="all"||id==="none")return alert("Sélectionnez d’abord le dossier à supprimer.");
-    const folder=folders.find(item=>item.id===id);if(!folder)return;
-    if(!confirm(`Supprimer le dossier « ${folder.name} » ?\n\nLes projets seront conservés dans « Sans dossier ».`))return;
-    projects.forEach(project=>{if(project.folderId===id)project.folderId="";});folders=folders.filter(item=>item.id!==id);saveProjectsList();saveProjectFolders(folders);refreshFolderOptions("all");renderRows();
-  });
+  search.addEventListener("input",renderRows);
 
   renderRows();modal.appendChild(box);document.body.appendChild(modal);
   setTimeout(()=>search.focus(),50);
