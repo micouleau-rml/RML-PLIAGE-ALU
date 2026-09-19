@@ -1756,7 +1756,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 99</div>
+        <div class="app-version">VERSION 100</div>
       </div>
     </div>
     <div class="install">
@@ -2146,7 +2146,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 99;
+  const currentVersion = 100;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -4240,7 +4240,42 @@ function loadProjects(){
   let projects=JSON.parse(localStorage.getItem(PROJECTS_KEY)||"[]");
   let folders=loadProjectFolders();
   const safeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
-  projects.sort((a,b)=>new Date(b.modifiedAt||b.date||b.exportedAt||0)-new Date(a.modifiedAt||a.date||a.exportedAt||0));
+  const normalizedName=value=>String(value||"").trim().toLocaleUpperCase("fr-FR");
+  const projectClientName=project=>{
+    const client=clients.find(c=>c.id===(project.clientId||project.selectedClientId||project.client?.id));
+    return client?.name||project.client?.name||project.clientName||"Client non renseigné";
+  };
+
+  // V100 : chaque client possède automatiquement son dossier dans « Mes projets ».
+  let foldersChanged=false;
+  clients.forEach(client=>{
+    const name=String(client?.name||"").trim();
+    if(!name || folders.some(folder=>normalizedName(folder.name)===normalizedName(name)))return;
+    folders.push({id:crypto.randomUUID(),name});
+    foldersChanged=true;
+  });
+  let projectsChanged=false;
+  projects.forEach(project=>{
+    if(project.folderId && folders.some(folder=>folder.id===project.folderId))return;
+    const clientName=projectClientName(project);
+    if(!clientName || clientName==="Client non renseigné")return;
+    let folder=folders.find(item=>normalizedName(item.name)===normalizedName(clientName));
+    if(!folder){
+      folder={id:crypto.randomUUID(),name:clientName};
+      folders.push(folder);
+      foldersChanged=true;
+    }
+    project.folderId=folder.id;
+    projectsChanged=true;
+  });
+  folders.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"fr",{sensitivity:"base",numeric:true}));
+  projects.sort((a,b)=>{
+    const byClient=projectClientName(a).localeCompare(projectClientName(b),"fr",{sensitivity:"base",numeric:true});
+    if(byClient)return byClient;
+    return String(a.name||a.projectName||"").localeCompare(String(b.name||b.projectName||""),"fr",{sensitivity:"base",numeric:true});
+  });
+  if(foldersChanged)saveProjectFolders(folders);
+  if(projectsChanged)localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
 
   document.getElementById("projectsModal")?.remove();
   const modal=document.createElement("div");
