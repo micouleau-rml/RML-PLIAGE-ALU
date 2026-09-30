@@ -140,7 +140,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
   font-size:1.35rem;
 }
 
-.projects-toolbar{display:grid;grid-template-columns:minmax(180px,1.5fr) minmax(150px,1fr) auto auto;gap:9px;margin:0 0 16px;align-items:center}
+.projects-toolbar{display:block;margin:0 0 16px}
 .projects-toolbar input,.projects-toolbar select{width:100%;min-height:42px;padding:9px 11px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#17324a}
 .projects-toolbar button{min-height:42px;padding:9px 12px;border-radius:10px}
 .projects-empty{padding:24px;text-align:center;color:#64748b;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc}
@@ -235,6 +235,20 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
   background:#fecaca;
 }
 
+.project-client-group{margin-bottom:10px;border:1px solid #dbe3ee;border-radius:15px;background:#fff;overflow:hidden}
+.project-client-toggle{width:100%;min-height:52px;padding:12px 15px;border:0;border-radius:0;background:#eef5ff;color:#17324a;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left}
+.project-client-toggle:hover{background:#e2edff}
+.project-client-name{font-size:1rem;font-weight:900;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-client-summary{display:flex;align-items:center;gap:9px;color:#526579;font-size:.85rem;font-weight:800;white-space:nowrap}
+.project-client-arrow{font-size:1rem;transition:transform .16s ease}
+.project-client-group.open .project-client-arrow{transform:rotate(90deg)}
+.project-client-projects{padding:9px 11px 2px;background:#fff}
+.project-client-projects[hidden]{display:none}
+.client-project-header,.client-project-row{display:grid;grid-template-columns:minmax(160px,1fr) 110px 145px;gap:12px;align-items:center}
+.client-project-header{padding:1px 10px 7px;color:#687684;font-size:.76rem;font-weight:800}
+.client-project-row{margin-bottom:8px;padding:10px;border:1px solid #e2e8f0;border-radius:11px;background:#f8fafc}
+.client-no-project{margin:0 0 8px;padding:13px;color:#64748b;text-align:center;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc}
+
 /* Adaptation iPhone */
 @media(max-width:700px){
   .projects-modal{
@@ -249,8 +263,7 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
     border-radius:22px 22px 0 0;
   }
 
-  .projects-toolbar{grid-template-columns:1fr 1fr}
-  .projects-toolbar input{grid-column:1/-1}
+  .projects-toolbar{display:block}
 
   .projects-header,
   .project-item{
@@ -292,6 +305,14 @@ tr:last-child td{border-bottom:none}.note{font-size:.86rem;color:var(--muted);ma
     width:36px;
     min-width:36px;
   }
+
+  .project-client-toggle{padding:11px 10px}
+  .project-client-name{font-size:.9rem}
+  .project-client-summary{font-size:.72rem}
+  .project-client-projects{padding:7px 7px 1px}
+  .client-project-header,.client-project-row{grid-template-columns:minmax(105px,1fr) 72px 102px;gap:6px}
+  .client-project-header{padding:1px 7px 6px;font-size:.64rem}
+  .client-project-row{padding:8px 7px}
 }
 /* ===== CORRECTIF IPHONE FINAL ===== */
 #mobileSettingsBtn{display:none}
@@ -1756,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 97</div>
+        <div class="app-version">VERSION 102</div>
       </div>
     </div>
     <div class="install">
@@ -2146,7 +2167,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 97;
+  const currentVersion = 102;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -2931,6 +2952,126 @@ win.document.write(html);
 win.document.close();
 }
 
+function enableInteractiveCalepinage(win,data){
+  const doc=win.document, NS="http://www.w3.org/2000/svg";
+  const initial=JSON.parse(JSON.stringify(data.sheets));
+  let layouts=JSON.parse(JSON.stringify(initial)), selected=null, drag=null, history=[];
+  const key="rml_calepinage_interactif_v102:"+JSON.stringify([data.client,data.project,data.width,data.height,data.pieceIds,initial.map(parts=>parts.map(p=>[p.uid,p.sourceDev,p.sourceLong]))]);
+  const blocks=[...doc.querySelectorAll(".drawing-block")];
+  const style=doc.createElement("style");
+  style.textContent=".layout-tools{position:sticky;top:0;z-index:5;background:#eef6ff;border:1px solid #93b8ff;border-radius:10px;padding:10px;margin:12px 0;font-size:13px}.layout-tools button{font-size:13px;padding:8px 12px}.layout-tools button:disabled{opacity:.45}.layout-status{display:block;margin:6px;color:#17395c}.layout-piece{cursor:grab}.layout-piece text{pointer-events:none}.drawing-block svg{touch-action:none;user-select:none}@media print{.layout-tools{display:none!important}.layout-piece{cursor:default}}";
+  doc.head.appendChild(style);
+  const toolbar=doc.createElement("div"); toolbar.className="layout-tools";
+  toolbar.innerHTML='<strong>Calepinage interactif</strong><div>Glissez les pièces avec la souris. Les bords s’alignent automatiquement sur les pièces voisines.</div><button data-action="rotate">Tourner la pièce à 90°</button><button data-action="undo">Annuler</button><button data-action="save">Enregistrer la disposition</button><button data-action="reset">Revenir au placement automatique</button><span class="layout-status" role="status"></span>';
+  blocks[0].before(toolbar);
+  const status=toolbar.querySelector(".layout-status"), rotate=toolbar.querySelector('[data-action="rotate"]'), undo=toolbar.querySelector('[data-action="undo"]');
+  const say=message=>{status.textContent=message;};
+  const clone=value=>JSON.parse(JSON.stringify(value));
+  const overlaps=(a,b)=>a.x<b.x+b.w-.001&&a.x+a.w>b.x+.001&&a.y<b.y+b.h-.001&&a.y+a.h>b.y+.001;
+  const valid=(part,parts)=>[part.x,part.y,part.w,part.h].every(Number.isFinite)&&part.w>0&&part.h>0&&part.x>=-.001&&part.y>=-.001&&part.x+part.w<=data.width+.001&&part.y+part.h<=data.height+.001&&!parts.some(other=>other.uid!==part.uid&&overlaps(part,other));
+  const validSaved=value=>Array.isArray(value)&&value.length===initial.length&&value.every((parts,i)=>Array.isArray(parts)&&parts.length===initial[i].length&&parts.every(p=>{
+    const original=initial[i].find(a=>a.uid===p.uid);
+    return original&&parts.filter(a=>a.uid===p.uid).length===1&&((Math.abs(p.w-original.w)<.001&&Math.abs(p.h-original.h)<.001)||(Math.abs(p.w-original.h)<.001&&Math.abs(p.h-original.w)<.001))&&valid(p,parts);
+  }));
+  try{const saved=JSON.parse(win.localStorage.getItem(key));if(validSaved(saved)){layouts=saved;say("Disposition enregistrée restaurée.");}}catch(e){}
+  function freeZones(parts){
+    let zones=[{x:0,y:0,w:data.width,h:data.height}];
+    parts.forEach(p=>{
+      zones=zones.flatMap(z=>{
+        if(!overlaps(z,p))return [z];
+        const x=Math.max(z.x,p.x),y=Math.max(z.y,p.y),r=Math.min(z.x+z.w,p.x+p.w),b=Math.min(z.y+z.h,p.y+p.h);
+        return [{x:z.x,y:z.y,w:z.w,h:y-z.y},{x:z.x,y:b,w:z.w,h:z.y+z.h-b},{x:z.x,y,w:x-z.x,h:b-y},{x:r,y,w:z.x+z.w-r,h:b-y}].filter(a=>a.w>.001&&a.h>.001);
+      });
+    });
+    let merged=true;
+    while(merged){merged=false;outer:for(let i=0;i<zones.length;i++)for(let j=i+1;j<zones.length;j++){
+      const a=zones[i],b=zones[j],near=(x,y)=>Math.abs(x-y)<.001;
+      if(near(a.x,b.x)&&near(a.w,b.w)&&(near(a.y+a.h,b.y)||near(b.y+b.h,a.y))){zones[i]={x:a.x,y:Math.min(a.y,b.y),w:a.w,h:a.h+b.h};}
+      else if(near(a.y,b.y)&&near(a.h,b.h)&&(near(a.x+a.w,b.x)||near(b.x+b.w,a.x))){zones[i]={x:Math.min(a.x,b.x),y:a.y,w:a.w+b.w,h:a.h};}
+      else continue;
+      zones.splice(j,1);merged=true;break outer;
+    }}
+    return zones.sort((a,b)=>b.w*b.h-a.w*a.h);
+  }
+  const reusable=z=>Math.max(z.w,z.h)>=300-.001&&Math.min(z.w,z.h)>=150-.001;
+  const number=(n,d=1)=>n.toLocaleString("fr-FR",{maximumFractionDigits:d});
+  const area=n=>number(n/1000000,2)+" m²";
+  const pct=n=>number(100*n/(data.width*data.height))+" %";
+  const colors=["#f8c8dc","#fca5a5","#dbeafe","#fde68a","#e9d5ff","#fed7aa"];
+  function node(tag,attrs,text){const element=doc.createElementNS(NS,tag);Object.entries(attrs).forEach(([k,v])=>element.setAttribute(k,v));if(text!=null)element.textContent=text;return element;}
+  function render(){
+    let totalUsed=0,totalReusable=0,totalLost=0;
+    layouts.forEach((parts,i)=>{
+      const block=blocks[i],svg=block.querySelector("svg"),zones=freeZones(parts);
+      svg.replaceChildren(node("rect",{x:0,y:0,width:data.width*data.scale,height:data.height*data.scale,fill:"white",stroke:"#111"}));
+      const used=parts.reduce((sum,p)=>sum+p.w*p.h,0),reuse=zones.filter(reusable).reduce((sum,z)=>sum+z.w*z.h,0),lost=Math.max(0,data.width*data.height-used-reuse);
+      totalUsed+=used;totalReusable+=reuse;totalLost+=lost;
+      const info=block.querySelector(".zones-line");info.replaceChildren();const strong=doc.createElement("strong");strong.textContent="Zones restantes : ";info.append(strong);
+      zones.forEach((z,index)=>{
+        const color=reusable(z)?colors[index%colors.length]:"#e5e7eb",cx=(z.x+z.w/2)*data.scale,cy=(z.y+z.h/2)*data.scale;
+        svg.append(node("rect",{x:z.x*data.scale,y:z.y*data.scale,width:z.w*data.scale,height:z.h*data.scale,fill:color,stroke:"#555","stroke-dasharray":"6,4"}));
+        if(z.w*data.scale>18&&z.h*data.scale>10)svg.append(node("text",{x:cx,y:cy,"font-size":8,"text-anchor":"middle","dominant-baseline":"middle"},"Z"+(index+1)));
+        const chip=doc.createElement("span");chip.className="zone-chip";chip.textContent=" Z"+(index+1)+" : "+number(z.w)+" × "+number(z.h)+" mm — "+(reusable(z)?"réutilisable":"non exploitable")+(index<zones.length-1?" / ":"");info.append(chip);
+      });
+      parts.forEach(p=>{
+        const active=selected&&selected.sheet===i&&selected.uid===p.uid,g=node("g",{class:"layout-piece","data-uid":p.uid});
+        const cx=(p.x+p.w/2)*data.scale,cy=(p.y+p.h/2)*data.scale;
+        g.append(node("rect",{x:p.x*data.scale,y:p.y*data.scale,width:p.w*data.scale,height:p.h*data.scale,fill:active?"#b9dcff":"#dff3df",stroke:active?"#0f62fe":"#111","stroke-width":active?2:1}));
+        const font=Math.max(6,Math.min(12,Math.min(p.w,p.h)*data.scale/2.8));
+        g.append(node("text",{x:cx,y:cy,"font-size":font,"text-anchor":"middle","dominant-baseline":"middle",...(p.w<p.h?{transform:"rotate(-90 "+cx+" "+cy+")"}:{})},"P"+p.pieceNo+" - "+number(p.sourceDev)+" × "+number(p.sourceLong)));
+        svg.append(g);
+      });
+      const kpis=block.querySelectorAll(".sheet-kpis span");[used,reuse,lost].forEach((n,j)=>kpis[j].textContent=area(n)+" — "+pct(n));
+      const row=doc.querySelectorAll(".sheet > table > tbody > tr")[i];if(row)[used,reuse,lost].forEach((n,j)=>row.cells[j+3].textContent=pct(n));
+    });
+    const totals=doc.querySelectorAll(".summary-grid strong"),all=data.width*data.height*layouts.length,waste=totalReusable+totalLost;
+    const globalPct=n=>number(100*n/all)+" %";
+    if(totals.length>=8){totals[3].textContent=area(totalUsed)+" — "+globalPct(totalUsed);totals[4].textContent=area(totalReusable)+" — "+globalPct(totalReusable);totals[5].textContent=area(totalLost)+" — "+globalPct(totalLost);totals[6].textContent=number(waste?100*totalReusable/waste:0)+" % des chutes";totals[7].textContent=number(waste?100*totalLost/waste:0)+" % des chutes";}
+    rotate.disabled=!selected;undo.disabled=!history.length;
+  }
+  function commit(before,message){history.push(before);if(history.length>40)history.shift();say(message+" Cliquez sur Enregistrer la disposition pour la conserver.");render();}
+  function coordinates(event,svg){const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;const pos=point.matrixTransform(svg.getScreenCTM().inverse());return {x:pos.x/data.scale,y:pos.y/data.scale};}
+  blocks.forEach((block,i)=>{
+    const svg=block.querySelector("svg");
+    svg.addEventListener("pointerdown",event=>{
+      if(event.button!==0)return;const target=event.target.closest(".layout-piece");if(!target){selected=null;render();return;}
+      const part=layouts[i].find(p=>p.uid===target.dataset.uid),point=coordinates(event,svg);
+      selected={sheet:i,uid:part.uid};drag={part,start:clone(part),before:clone(layouts),dx:point.x-part.x,dy:point.y-part.y,id:event.pointerId,moved:false};
+      svg.setPointerCapture(event.pointerId);event.preventDefault();render();say("P"+part.pieceNo+" sélectionnée — glissez-la ou tournez-la à 90°.");
+    });
+    svg.addEventListener("pointermove",event=>{
+      if(!drag||drag.id!==event.pointerId)return;
+      const p=drag.part,point=coordinates(event,svg),others=layouts[i].filter(a=>a.uid!==p.uid),rect=svg.getBoundingClientRect(),snap=8*data.width/rect.width;
+      let x=Math.max(0,Math.min(data.width-p.w,point.x-drag.dx)),y=Math.max(0,Math.min(data.height-p.h,point.y-drag.dy));
+      const xs=[0,data.width-p.w],ys=[0,data.height-p.h];others.forEach(a=>{xs.push(a.x,a.x+a.w,a.x-p.w,a.x+a.w-p.w);ys.push(a.y,a.y+a.h,a.y-p.h,a.y+a.h-p.h);});
+      const closest=(v,list)=>list.reduce((best,n)=>Math.abs(n-v)<Math.abs(best-v)?n:best,v+snap+1);
+      const sx=closest(x,xs),sy=closest(y,ys);if(Math.abs(sx-x)<=snap)x=sx;if(Math.abs(sy-y)<=snap)y=sy;
+      const candidate={...p,x:Math.round(x*10)/10,y:Math.round(y*10)/10};
+      if(valid(candidate,layouts[i])){Object.assign(p,candidate);drag.moved=true;render();say("P"+p.pieceNo+" — position "+number(p.x)+" × "+number(p.y)+" mm.");}
+      else say("Placement bloqué : chevauchement ou dépassement. Déplacez la pièce dans une zone libre.");
+    });
+    svg.addEventListener("pointerup",event=>{if(!drag||drag.id!==event.pointerId)return;const current=drag;drag=null;if(svg.hasPointerCapture(event.pointerId))svg.releasePointerCapture(event.pointerId);if(current.moved)commit(current.before,"Pièce déplacée.");});
+    svg.addEventListener("pointercancel",()=>{if(drag){layouts=drag.before;drag=null;render();say("Déplacement annulé.");}});
+  });
+  toolbar.addEventListener("click",event=>{
+    const action=event.target.dataset.action;if(!action)return;
+    if(action==="rotate"&&selected){const parts=layouts[selected.sheet],p=parts.find(a=>a.uid===selected.uid),before=clone(layouts),candidate={...p,w:p.h,h:p.w,rotated:!p.rotated};
+      let placement=valid(candidate,parts)?candidate:null;
+      if(!placement){
+        const xs=[p.x,0,data.width-candidate.w],ys=[p.y,0,data.height-candidate.h];
+        parts.filter(a=>a.uid!==p.uid).forEach(a=>{xs.push(a.x,a.x+a.w,a.x-candidate.w);ys.push(a.y,a.y+a.h,a.y-candidate.h);});
+        let distance=Infinity;
+        xs.forEach(x=>ys.forEach(y=>{const trial={...candidate,x,y},d=(x-p.x)**2+(y-p.y)**2;if(d<distance&&valid(trial,parts)){placement=trial;distance=d;}}));
+      }
+      if(placement){Object.assign(p,placement);commit(before,"Pièce tournée à 90° et placée dans une zone libre.");}else say("Rotation impossible : aucune zone libre ne peut accueillir la pièce tournée. Déplacez les pièces voisines.");
+    }else if(action==="undo"&&history.length){layouts=history.pop();selected=null;render();say("Dernière modification annulée.");}
+    else if(action==="reset"){commit(clone(layouts),"Placement automatique restauré.");layouts=clone(initial);selected=null;render();}
+    else if(action==="save"){try{win.localStorage.setItem(key,JSON.stringify(layouts));say("Disposition enregistrée. Elle sera restaurée pour ces mêmes pièces et ce format.");}catch(e){say("Enregistrement impossible : le stockage du navigateur est indisponible.");}}
+  });
+  const note=doc.querySelector(".summary .note");note.textContent="Placement automatique modifiable à la souris. Les zones restantes sont recalculées après chaque déplacement. Vérifiez l’ordre des coupes à la cisaille avant fabrication.";
+  win.addEventListener("beforeprint",()=>{selected=null;render();});
+  render();if(!status.textContent)say("Sélectionnez une pièce pour la déplacer ou la tourner.");
+}
   function generateCalpinageDocument(){
   const client=getCurrentClient();
   const project=(projectName?.value || "Projet sans nom").trim();
@@ -3806,6 +3947,7 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
   win.document.open();
   win.document.write(html);
   win.document.close();
+  enableInteractiveCalepinage(win,{width:sheetL,height:sheetW,scale,sheets:sheets.map(s=>s.parts),project,client:client?.id||client?.name||"",pieceIds:pieces.map(p=>p.id)});
 }
 document.getElementById("addPieceBtn").addEventListener("click",()=>addPiece());
 document.getElementById("duplicateLastBtn").addEventListener("click",duplicateLastPiece);
@@ -4240,7 +4382,42 @@ function loadProjects(){
   let projects=JSON.parse(localStorage.getItem(PROJECTS_KEY)||"[]");
   let folders=loadProjectFolders();
   const safeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
-  projects.sort((a,b)=>new Date(b.modifiedAt||b.date||b.exportedAt||0)-new Date(a.modifiedAt||a.date||a.exportedAt||0));
+  const normalizedName=value=>String(value||"").trim().toLocaleUpperCase("fr-FR");
+  const projectClientName=project=>{
+    const client=clients.find(c=>c.id===(project.clientId||project.selectedClientId||project.client?.id));
+    return client?.name||project.client?.name||project.clientName||"Client non renseigné";
+  };
+
+  // V100 : chaque client possède automatiquement son dossier dans « Mes projets ».
+  let foldersChanged=false;
+  clients.forEach(client=>{
+    const name=String(client?.name||"").trim();
+    if(!name || folders.some(folder=>normalizedName(folder.name)===normalizedName(name)))return;
+    folders.push({id:crypto.randomUUID(),name});
+    foldersChanged=true;
+  });
+  let projectsChanged=false;
+  projects.forEach(project=>{
+    if(project.folderId && folders.some(folder=>folder.id===project.folderId))return;
+    const clientName=projectClientName(project);
+    if(!clientName || clientName==="Client non renseigné")return;
+    let folder=folders.find(item=>normalizedName(item.name)===normalizedName(clientName));
+    if(!folder){
+      folder={id:crypto.randomUUID(),name:clientName};
+      folders.push(folder);
+      foldersChanged=true;
+    }
+    project.folderId=folder.id;
+    projectsChanged=true;
+  });
+  folders.sort((a,b)=>String(a.name||"").localeCompare(String(b.name||""),"fr",{sensitivity:"base",numeric:true}));
+  projects.sort((a,b)=>{
+    const byClient=projectClientName(a).localeCompare(projectClientName(b),"fr",{sensitivity:"base",numeric:true});
+    if(byClient)return byClient;
+    return String(a.name||a.projectName||"").localeCompare(String(b.name||b.projectName||""),"fr",{sensitivity:"base",numeric:true});
+  });
+  if(foldersChanged)saveProjectFolders(folders);
+  if(projectsChanged)localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
 
   document.getElementById("projectsModal")?.remove();
   const modal=document.createElement("div");
@@ -4252,20 +4429,9 @@ function loadProjects(){
   header.append(title,closeTop);box.appendChild(header);
 
   const toolbar=document.createElement("div");toolbar.className="projects-toolbar";
-  const search=document.createElement("input");search.type="search";search.placeholder="Rechercher un projet, un client ou une couleur…";search.setAttribute("aria-label","Rechercher dans les projets");
-  const folderFilter=document.createElement("select");folderFilter.setAttribute("aria-label","Filtrer par dossier");
-  const refreshFolderOptions=(selectedValue="all")=>{
-    folderFilter.innerHTML=`<option value="all">Tous les dossiers</option><option value="none">Sans dossier</option>`+folders.map(folder=>`<option value="${safeHtml(folder.id)}">📁 ${safeHtml(folder.name)}</option>`).join("");
-    folderFilter.value=[...folderFilter.options].some(option=>option.value===selectedValue)?selectedValue:"all";
-  };
-  refreshFolderOptions();
-  const addFolder=document.createElement("button");addFolder.type="button";addFolder.className="btn-primary";addFolder.textContent="＋ Nouveau dossier";
-  const deleteFolder=document.createElement("button");deleteFolder.type="button";deleteFolder.className="btn-danger";deleteFolder.textContent="Supprimer dossier";
-  toolbar.append(search,folderFilter,addFolder,deleteFolder);box.appendChild(toolbar);
+  const search=document.createElement("input");search.type="search";search.placeholder="Rechercher un client ou un projet…";search.setAttribute("aria-label","Rechercher dans les projets");
+  toolbar.appendChild(search);box.appendChild(toolbar);
 
-  const tableHeader=document.createElement("div");tableHeader.className="projects-header";
-  tableHeader.innerHTML=`<span>Client</span><span>Référence</span><span>Dossier</span><span>Date</span><span>Actions</span>`;
-  box.appendChild(tableHeader);
   const list=document.createElement("div");box.appendChild(list);
 
   const saveProjectsList=()=>localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));
@@ -4292,48 +4458,69 @@ function loadProjects(){
   const renderRows=()=>{
     list.innerHTML="";
     const query=search.value.trim().toLocaleLowerCase("fr-FR");
-    const selectedFolder=folderFilter.value;
-    let visible=0;
-    projects.forEach(project=>{
-      const client=clients.find(c=>c.id===project.clientId);
-      const clientName=client?.name||project.client?.name||project.clientName||"Client non renseigné";
-      const reference=project.name||project.projectName||"Projet sans référence";
-      const folder=folders.find(item=>item.id===project.folderId);
-      const folderName=folder?.name||"Sans dossier";
-      const color=project.color||project.projectColor||"";
-      const matchesFolder=selectedFolder==="all"||(selectedFolder==="none"?!project.folderId:project.folderId===selectedFolder);
-      const matchesSearch=!query||`${clientName} ${reference} ${folderName} ${color}`.toLocaleLowerCase("fr-FR").includes(query);
-      if(!matchesFolder||!matchesSearch)return;
-      visible++;
-      const rawDate=project.modifiedAt||project.date||project.exportedAt||project.createdAt;
-      const date=rawDate?new Date(rawDate).toLocaleDateString("fr-FR"):"—";
-      const row=document.createElement("div");row.className="project-item";
-      const clientCell=document.createElement("div");clientCell.className="project-client";clientCell.textContent=clientName;clientCell.title=clientName;
-      const referenceCell=document.createElement("div");referenceCell.className="project-reference";referenceCell.textContent=reference;referenceCell.title=reference;
-      const folderSelect=document.createElement("select");folderSelect.className="project-folder-select";folderSelect.innerHTML=`<option value="">Sans dossier</option>`+folders.map(item=>`<option value="${safeHtml(item.id)}">📁 ${safeHtml(item.name)}</option>`).join("");folderSelect.value=project.folderId||"";
-      folderSelect.addEventListener("change",()=>{project.folderId=folderSelect.value;project.modifiedAt=new Date().toISOString();saveProjectsList();renderRows();});
-      const dateCell=document.createElement("div");dateCell.className="project-date";dateCell.textContent=date;
-      const actions=document.createElement("div");actions.className="project-actions";
-      const del=document.createElement("button");del.type="button";del.className="delete-project";del.title="Supprimer";del.textContent="🗑";
-      del.addEventListener("click",()=>{if(!confirm(`Supprimer définitivement ce projet ?\n\n${reference}`))return;projects=projects.filter(item=>item.id!==project.id);saveProjectsList();renderRows();});
-      const open=document.createElement("button");open.type="button";open.className="open-project";open.textContent="Ouvrir";open.addEventListener("click",()=>openSelectedProject(project));
-      actions.append(del,open);row.append(clientCell,referenceCell,folderSelect,dateCell,actions);list.appendChild(row);
+    const groups=new Map();
+    clients.forEach(client=>{
+      const name=String(client?.name||"").trim();
+      if(name)groups.set(`id:${client.id}`,{name,clientId:client.id,projects:[]});
     });
-    if(!visible){const empty=document.createElement("div");empty.className="projects-empty";empty.textContent=projects.length?"Aucun projet ne correspond à la recherche.":"Aucun projet enregistré. Vous pouvez déjà créer vos dossiers.";list.appendChild(empty);}
+    projects.forEach(project=>{
+      const storedId=project.clientId||project.selectedClientId||project.client?.id||"";
+      const clientName=projectClientName(project);
+      const key=storedId&&groups.has(`id:${storedId}`)?`id:${storedId}`:`name:${normalizedName(clientName)}`;
+      if(!groups.has(key))groups.set(key,{name:clientName,clientId:storedId,projects:[]});
+      groups.get(key).projects.push(project);
+    });
+
+    const sortedGroups=[...groups.values()].sort((a,b)=>a.name.localeCompare(b.name,"fr",{sensitivity:"base",numeric:true}));
+    let visibleGroups=0;
+    sortedGroups.forEach(group=>{
+      group.projects.sort((a,b)=>String(a.name||a.projectName||"").localeCompare(String(b.name||b.projectName||""),"fr",{sensitivity:"base",numeric:true}));
+      const clientMatches=!query||group.name.toLocaleLowerCase("fr-FR").includes(query);
+      const matchingProjects=group.projects.filter(project=>{
+        const reference=project.name||project.projectName||"Projet sans référence";
+        const color=project.color||project.projectColor||"";
+        return !query||clientMatches||`${reference} ${color}`.toLocaleLowerCase("fr-FR").includes(query);
+      });
+      if(query&&!clientMatches&&!matchingProjects.length)return;
+      visibleGroups++;
+
+      const section=document.createElement("section");section.className="project-client-group";
+      const toggle=document.createElement("button");toggle.type="button";toggle.className="project-client-toggle";
+      const clientName=document.createElement("span");clientName.className="project-client-name";clientName.textContent=group.name;
+      const summary=document.createElement("span");summary.className="project-client-summary";
+      const count=document.createElement("span");count.textContent=`${group.projects.length} projet${group.projects.length>1?"s":""}`;
+      const arrow=document.createElement("span");arrow.className="project-client-arrow";arrow.textContent="▶";
+      summary.append(count,arrow);toggle.append(clientName,summary);
+      const contents=document.createElement("div");contents.className="project-client-projects";
+      const startsOpen=Boolean(query);
+      contents.hidden=!startsOpen;section.classList.toggle("open",startsOpen);
+      toggle.setAttribute("aria-expanded",String(startsOpen));
+      toggle.addEventListener("click",()=>{const open=contents.hidden;contents.hidden=!open;section.classList.toggle("open",open);toggle.setAttribute("aria-expanded",String(open));});
+
+      if(!group.projects.length){
+        const empty=document.createElement("div");empty.className="client-no-project";empty.textContent="Aucun projet enregistré pour ce client.";contents.appendChild(empty);
+      }else{
+        const rowHeader=document.createElement("div");rowHeader.className="client-project-header";rowHeader.innerHTML="<span>Référence du projet</span><span>Date</span><span>Actions</span>";contents.appendChild(rowHeader);
+        matchingProjects.forEach(project=>{
+          const reference=project.name||project.projectName||"Projet sans référence";
+          const rawDate=project.modifiedAt||project.date||project.exportedAt||project.createdAt;
+          const date=rawDate?new Date(rawDate).toLocaleDateString("fr-FR"):"—";
+          const row=document.createElement("div");row.className="client-project-row";
+          const referenceCell=document.createElement("div");referenceCell.className="project-reference";referenceCell.textContent=reference;referenceCell.title=reference;
+          const dateCell=document.createElement("div");dateCell.className="project-date";dateCell.textContent=date;
+          const actions=document.createElement("div");actions.className="project-actions";
+          const del=document.createElement("button");del.type="button";del.className="delete-project";del.title="Supprimer";del.textContent="🗑";
+          del.addEventListener("click",()=>{if(!confirm(`Supprimer définitivement ce projet ?\n\n${reference}`))return;projects=projects.filter(item=>item.id!==project.id);saveProjectsList();renderRows();});
+          const open=document.createElement("button");open.type="button";open.className="open-project";open.textContent="Ouvrir";open.addEventListener("click",()=>openSelectedProject(project));
+          actions.append(del,open);row.append(referenceCell,dateCell,actions);contents.appendChild(row);
+        });
+      }
+      section.append(toggle,contents);list.appendChild(section);
+    });
+    if(!visibleGroups){const empty=document.createElement("div");empty.className="projects-empty";empty.textContent="Aucun client ou projet ne correspond à la recherche.";list.appendChild(empty);}
   };
 
-  search.addEventListener("input",renderRows);folderFilter.addEventListener("change",renderRows);
-  addFolder.addEventListener("click",()=>{
-    const name=(prompt("Nom du nouveau dossier :")||"").trim();if(!name)return;
-    if(folders.some(folder=>folder.name.toLocaleLowerCase("fr-FR")===name.toLocaleLowerCase("fr-FR")))return alert("Ce dossier existe déjà.");
-    const folder={id:crypto.randomUUID(),name};folders.push(folder);folders.sort((a,b)=>a.name.localeCompare(b.name,"fr"));saveProjectFolders(folders);refreshFolderOptions(folder.id);renderRows();
-  });
-  deleteFolder.addEventListener("click",()=>{
-    const id=folderFilter.value;if(id==="all"||id==="none")return alert("Sélectionnez d’abord le dossier à supprimer.");
-    const folder=folders.find(item=>item.id===id);if(!folder)return;
-    if(!confirm(`Supprimer le dossier « ${folder.name} » ?\n\nLes projets seront conservés dans « Sans dossier ».`))return;
-    projects.forEach(project=>{if(project.folderId===id)project.folderId="";});folders=folders.filter(item=>item.id!==id);saveProjectsList();saveProjectFolders(folders);refreshFolderOptions("all");renderRows();
-  });
+  search.addEventListener("input",renderRows);
 
   renderRows();modal.appendChild(box);document.body.appendChild(modal);
   setTimeout(()=>search.focus(),50);
@@ -4874,7 +5061,22 @@ if(quotePdfBtn){
     return points[points.length-1].deduction;
   }
 
+  function enforceCybTouchRmlTooling(){
+    const calibrated=fields.calcMode?.value==="cybtouch-rml";
+    if(calibrated){
+      // Le tableau RML n'est valable qu'avec l'outillage qui a servi aux mesures.
+      // On corrige aussi automatiquement les anciens modèles mémorisés avec R/V erronés.
+      fields.radius.value="1";
+      fields.vee.value="16";
+    }
+    fields.radius.readOnly=calibrated;
+    fields.vee.readOnly=calibrated;
+    fields.radius.title=calibrated?"Valeur verrouillée par la calibration RML P50.200 / Ve16.50":"";
+    fields.vee.title=calibrated?"Valeur verrouillée par la calibration RML P50.200 / Ve16.50":"";
+  }
+
   function getBendData(i){
+    enforceCybTouchRmlTooling();
     const t=Math.max(.01,Number(fields.thickness.value)||1);
     const r=Math.max(0,Number(fields.radius.value)||0);
     const isHem=Boolean(profile.hemmed?.[i]);
@@ -4949,6 +5151,7 @@ if(quotePdfBtn){
   }
 
   function calculate(){
+    enforceCybTouchRmlTooling();
     const outer=profile.lengths.reduce((sum,v)=>sum+(Number(v)||0),0);
     let deduction=0;
     profile.angles.forEach((_,i)=>deduction+=getBendData(i).deduction);
