@@ -1777,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 102</div>
+        <div class="app-version">VERSION 103</div>
       </div>
     </div>
     <div class="install">
@@ -2167,7 +2167,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 102;
+  const currentVersion = 103;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -2965,14 +2965,24 @@ function enableInteractiveCalepinage(win,data){
   toolbar.innerHTML='<strong>Calepinage interactif</strong><div>Glissez les pièces avec la souris. Les bords s’alignent automatiquement sur les pièces voisines.</div><button data-action="rotate">Tourner la pièce à 90°</button><button data-action="undo">Annuler</button><button data-action="save">Enregistrer la disposition</button><button data-action="reset">Revenir au placement automatique</button><span class="layout-status" role="status"></span>';
   blocks[0].before(toolbar);
   const status=toolbar.querySelector(".layout-status"), rotate=toolbar.querySelector('[data-action="rotate"]'), undo=toolbar.querySelector('[data-action="undo"]');
+  const destinationSelect=doc.createElement("select");
+  destinationSelect.setAttribute("aria-label","Support de destination");destinationSelect.style.cssText="font-size:14px;padding:8px;margin:4px";
+  blocks.forEach((block,i)=>{const option=doc.createElement("option");option.value=i;option.textContent="Vers le support "+(i+1);destinationSelect.append(option);});
+  const transfer=doc.createElement("button");transfer.dataset.action="transfer";transfer.textContent="Déplacer vers ce support";
+  status.before(destinationSelect,transfer);
+  toolbar.querySelector("div").textContent="Glissez les pièces sur cette feuille ou sur une autre. Pour une feuille éloignée, sélectionnez-la dans la liste puis cliquez sur Déplacer vers ce support.";
   const say=message=>{status.textContent=message;};
   const clone=value=>JSON.parse(JSON.stringify(value));
   const overlaps=(a,b)=>a.x<b.x+b.w-.001&&a.x+a.w>b.x+.001&&a.y<b.y+b.h-.001&&a.y+a.h>b.y+.001;
   const valid=(part,parts)=>[part.x,part.y,part.w,part.h].every(Number.isFinite)&&part.w>0&&part.h>0&&part.x>=-.001&&part.y>=-.001&&part.x+part.w<=data.width+.001&&part.y+part.h<=data.height+.001&&!parts.some(other=>other.uid!==part.uid&&overlaps(part,other));
-  const validSaved=value=>Array.isArray(value)&&value.length===initial.length&&value.every((parts,i)=>Array.isArray(parts)&&parts.length===initial[i].length&&parts.every(p=>{
-    const original=initial[i].find(a=>a.uid===p.uid);
-    return original&&parts.filter(a=>a.uid===p.uid).length===1&&((Math.abs(p.w-original.w)<.001&&Math.abs(p.h-original.h)<.001)||(Math.abs(p.w-original.h)<.001&&Math.abs(p.h-original.w)<.001))&&valid(p,parts);
-  }));
+  const validSaved=value=>{
+    if(!Array.isArray(value)||value.length!==initial.length||!value.every(Array.isArray))return false;
+    const all=value.flat(),originals=initial.flat();
+    return all.length===originals.length&&new Set(all.map(p=>p.uid)).size===all.length&&value.every(parts=>parts.every(p=>{
+      const original=originals.find(a=>a.uid===p.uid);
+      return original&&((Math.abs(p.w-original.w)<.001&&Math.abs(p.h-original.h)<.001)||(Math.abs(p.w-original.h)<.001&&Math.abs(p.h-original.w)<.001))&&valid(p,parts);
+    }));
+  };
   try{const saved=JSON.parse(win.localStorage.getItem(key));if(validSaved(saved)){layouts=saved;say("Disposition enregistrée restaurée.");}}catch(e){}
   function freeZones(parts){
     let zones=[{x:0,y:0,w:data.width,h:data.height}];
@@ -3022,12 +3032,17 @@ function enableInteractiveCalepinage(win,data){
         svg.append(g);
       });
       const kpis=block.querySelectorAll(".sheet-kpis span");[used,reuse,lost].forEach((n,j)=>kpis[j].textContent=area(n)+" — "+pct(n));
-      const row=doc.querySelectorAll(".sheet > table > tbody > tr")[i];if(row)[used,reuse,lost].forEach((n,j)=>row.cells[j+3].textContent=pct(n));
+      const groups=new Map();parts.forEach(p=>{if(!groups.has(p.pieceNo))groups.set(p.pieceNo,{part:p,count:0});groups.get(p.pieceNo).count++;});
+      const list=[...groups.entries()].sort((a,b)=>a[0]-b[0]);
+      const piecesLine=block.querySelector(".pieces-line");piecesLine.replaceChildren();const title=doc.createElement("strong");title.textContent="Pièces à couper : ";piecesLine.append(title);
+      list.forEach(([no,g])=>{const chip=doc.createElement("span");chip.className="piece-chip";chip.textContent="P"+no+" : "+g.count+" pièce"+(g.count>1?"s":"")+" — développé "+number(g.part.sourceDev)+" mm × longueur de débit "+number(g.part.sourceLong)+" mm";piecesLine.append(chip);});
+      if(!parts.length)piecesLine.append("Support vide — disponible pour recevoir des pièces.");
+      const row=doc.querySelectorAll(".sheet > table > tbody > tr")[i];if(row){row.cells[1].textContent=list.map(([no,g])=>"P"+no+" : "+g.count+" u").join(" / ")||"Vide";row.cells[2].textContent=parts.length;[used,reuse,lost].forEach((n,j)=>row.cells[j+3].textContent=pct(n));}
     });
     const totals=doc.querySelectorAll(".summary-grid strong"),all=data.width*data.height*layouts.length,waste=totalReusable+totalLost;
     const globalPct=n=>number(100*n/all)+" %";
     if(totals.length>=8){totals[3].textContent=area(totalUsed)+" — "+globalPct(totalUsed);totals[4].textContent=area(totalReusable)+" — "+globalPct(totalReusable);totals[5].textContent=area(totalLost)+" — "+globalPct(totalLost);totals[6].textContent=number(waste?100*totalReusable/waste:0)+" % des chutes";totals[7].textContent=number(waste?100*totalLost/waste:0)+" % des chutes";}
-    rotate.disabled=!selected;undo.disabled=!history.length;
+    rotate.disabled=!selected;transfer.disabled=!selected||Number(destinationSelect.value)===selected.sheet;undo.disabled=!history.length;
   }
   function commit(before,message){history.push(before);if(history.length>40)history.shift();say(message+" Cliquez sur Enregistrer la disposition pour la conserver.");render();}
   function coordinates(event,svg){const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;const pos=point.matrixTransform(svg.getScreenCTM().inverse());return {x:pos.x/data.scale,y:pos.y/data.scale};}
@@ -3036,18 +3051,24 @@ function enableInteractiveCalepinage(win,data){
     svg.addEventListener("pointerdown",event=>{
       if(event.button!==0)return;const target=event.target.closest(".layout-piece");if(!target){selected=null;render();return;}
       const part=layouts[i].find(p=>p.uid===target.dataset.uid),point=coordinates(event,svg);
-      selected={sheet:i,uid:part.uid};drag={part,start:clone(part),before:clone(layouts),dx:point.x-part.x,dy:point.y-part.y,id:event.pointerId,moved:false};
+      selected={sheet:i,uid:part.uid};drag={part,sheet:i,start:clone(part),before:clone(layouts),dx:point.x-part.x,dy:point.y-part.y,id:event.pointerId,moved:false};
       svg.setPointerCapture(event.pointerId);event.preventDefault();render();say("P"+part.pieceNo+" sélectionnée — glissez-la ou tournez-la à 90°.");
     });
     svg.addEventListener("pointermove",event=>{
       if(!drag||drag.id!==event.pointerId)return;
-      const p=drag.part,point=coordinates(event,svg),others=layouts[i].filter(a=>a.uid!==p.uid),rect=svg.getBoundingClientRect(),snap=8*data.width/rect.width;
+      const destination=blocks.findIndex(b=>{const r=b.querySelector("svg").getBoundingClientRect();return event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom;});
+      if(destination<0){say("Amenez la souris sur la feuille cible. Vous pouvez faire défiler avec la molette en maintenant la pièce.");return;}
+      const targetSvg=blocks[destination].querySelector("svg");
+      const p=drag.part,point=coordinates(event,targetSvg),others=layouts[destination].filter(a=>a.uid!==p.uid),rect=targetSvg.getBoundingClientRect(),snap=8*data.width/rect.width;
       let x=Math.max(0,Math.min(data.width-p.w,point.x-drag.dx)),y=Math.max(0,Math.min(data.height-p.h,point.y-drag.dy));
       const xs=[0,data.width-p.w],ys=[0,data.height-p.h];others.forEach(a=>{xs.push(a.x,a.x+a.w,a.x-p.w,a.x+a.w-p.w);ys.push(a.y,a.y+a.h,a.y-p.h,a.y+a.h-p.h);});
       const closest=(v,list)=>list.reduce((best,n)=>Math.abs(n-v)<Math.abs(best-v)?n:best,v+snap+1);
       const sx=closest(x,xs),sy=closest(y,ys);if(Math.abs(sx-x)<=snap)x=sx;if(Math.abs(sy-y)<=snap)y=sy;
       const candidate={...p,x:Math.round(x*10)/10,y:Math.round(y*10)/10};
-      if(valid(candidate,layouts[i])){Object.assign(p,candidate);drag.moved=true;render();say("P"+p.pieceNo+" — position "+number(p.x)+" × "+number(p.y)+" mm.");}
+      if(valid(candidate,layouts[destination])){
+        if(destination!==drag.sheet){layouts[drag.sheet]=layouts[drag.sheet].filter(a=>a.uid!==p.uid);layouts[destination].push(p);drag.sheet=destination;selected.sheet=destination;}
+        Object.assign(p,candidate);drag.moved=true;render();say("P"+p.pieceNo+" — support "+(destination+1)+" — position "+number(p.x)+" × "+number(p.y)+" mm.");
+      }
       else say("Placement bloqué : chevauchement ou dépassement. Déplacez la pièce dans une zone libre.");
     });
     svg.addEventListener("pointerup",event=>{if(!drag||drag.id!==event.pointerId)return;const current=drag;drag=null;if(svg.hasPointerCapture(event.pointerId))svg.releasePointerCapture(event.pointerId);if(current.moved)commit(current.before,"Pièce déplacée.");});
@@ -3055,6 +3076,14 @@ function enableInteractiveCalepinage(win,data){
   });
   toolbar.addEventListener("click",event=>{
     const action=event.target.dataset.action;if(!action)return;
+    if(action==="transfer"&&selected){
+      const target=Number(destinationSelect.value),p=layouts[selected.sheet].find(a=>a.uid===selected.uid);
+      if(target===selected.sheet)return;
+      const xs=[0,data.width-p.w,p.x],ys=[0,data.height-p.h,p.y];layouts[target].forEach(a=>{xs.push(a.x,a.x+a.w,a.x-p.w);ys.push(a.y,a.y+a.h,a.y-p.h);});
+      let placement=null,distance=Infinity;xs.forEach(x=>ys.forEach(y=>{const candidate={...p,x,y},d=x*x+y*y;if(d<distance&&valid(candidate,layouts[target])){placement=candidate;distance=d;}}));
+      if(!placement){say("Ce support n’a pas de zone libre assez grande. Tournez la pièce ou déplacez les pièces voisines.");return;}
+      const before=clone(layouts);layouts[selected.sheet]=layouts[selected.sheet].filter(a=>a.uid!==p.uid);Object.assign(p,placement);layouts[target].push(p);selected.sheet=target;commit(before,"Pièce déplacée vers le support "+(target+1)+".");return;
+    }
     if(action==="rotate"&&selected){const parts=layouts[selected.sheet],p=parts.find(a=>a.uid===selected.uid),before=clone(layouts),candidate={...p,w:p.h,h:p.w,rotated:!p.rotated};
       let placement=valid(candidate,parts)?candidate:null;
       if(!placement){
@@ -3068,6 +3097,7 @@ function enableInteractiveCalepinage(win,data){
     else if(action==="reset"){commit(clone(layouts),"Placement automatique restauré.");layouts=clone(initial);selected=null;render();}
     else if(action==="save"){try{win.localStorage.setItem(key,JSON.stringify(layouts));say("Disposition enregistrée. Elle sera restaurée pour ces mêmes pièces et ce format.");}catch(e){say("Enregistrement impossible : le stockage du navigateur est indisponible.");}}
   });
+  destinationSelect.addEventListener("change",()=>{transfer.disabled=!selected||Number(destinationSelect.value)===selected.sheet;});
   const note=doc.querySelector(".summary .note");note.textContent="Placement automatique modifiable à la souris. Les zones restantes sont recalculées après chaque déplacement. Vérifiez l’ordre des coupes à la cisaille avant fabrication.";
   win.addEventListener("beforeprint",()=>{selected=null;render();});
   render();if(!status.textContent)say("Sélectionnez une pièce pour la déplacer ou la tourner.");
