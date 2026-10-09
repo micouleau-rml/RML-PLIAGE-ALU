@@ -1906,6 +1906,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <button class="btn-danger" id="quotePdfBtn">Visualiser PDF</button>  
         <div class="project-action-grid">
           <button class="btn-primary" id="saveProjectBtn">Enregistrer projet</button>
+          <button type="button" class="btn-primary" id="rmlSendAtelierBtn" style="background:#176b48">Envoyer à l’atelier (équipe 8)</button>
           <button class="btn-secondary" id="loadProjectBtn">Mes projets</button>
         </div>
         <div class="manual-backup-wrap">
@@ -9143,5 +9144,37 @@ create policy "RML Pliage modification" on public.${TABLE}
 })();
 </script>
 <!-- V60 validée : grand dessinateur simplifié -->
+<script>
+/* RML Atelier V17 — Envoi à l’ERP, projet complet ou sélection de pièces. */
+(function(){
+ const ERP_URL='https://jbtsncvuobptxyzcoqpf.supabase.co';
+ const ERP_KEY='sb_publishable_Cef7tlefoqP-rNh-akbcUw_OnYxbAQr';
+ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ function getPieces(){return Array.isArray(window.pieces)?window.pieces:typeof pieces!=='undefined'?pieces:[]}
+ function project(){return typeof persistCurrentProjectRecord==='function'?persistCurrentProjectRecord({createIfMissing:true}):null}
+ function modal(){
+  const proj=project();if(!proj){alert('Enregistrez le projet avant de l’envoyer.');return}
+  const rows=Array.isArray(proj.pieces)?proj.pieces:[];if(!rows.length){alert('Ce projet ne contient aucune pièce.');return}
+  const client=typeof clients!=='undefined'?clients.find(c=>String(c.id)===String(proj.clientId)):null;
+  const overlay=document.createElement('div');overlay.id='rmlAtelierOverlay';overlay.style='position:fixed;inset:0;background:#0009;z-index:999999;display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML=`<div style="background:white;color:#182333;border-radius:14px;padding:20px;max-width:750px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 10px 50px #0004"><h2 style="margin-top:0">Envoyer à l’atelier — Équipe 8</h2><div><b>${esc(proj.name)}</b> · ${esc(client?.name||'Client non renseigné')}</div><p><label><input type="radio" name="rmlMode" value="all" checked> Projet complet</label> &nbsp; <label><input type="radio" name="rmlMode" value="selected"> Pièces sélectionnées</label></p><div id="rmlPieceChoices" style="max-height:40vh;overflow:auto;border:1px solid #ddd;border-radius:8px">${rows.map((x,i)=>`<label style="display:flex;align-items:center;gap:12px;padding:9px;border-bottom:1px solid #eee"><input type="checkbox" data-piece="${i}" checked><span style="flex:1">Pièce ${i+1} — ${esc(x.name||x.nom||x.label||x.designation||'')}</span><span>Qté</span><input type="number" min="1" step="1" data-qty="${i}" value="${Math.max(1,Math.round(Number(x.quantity??x.qty??x.quantite??1)||1))}" style="width:75px;padding:5px"></label>`).join('')}</div><p><label>Priorité <select id="rmlAtelierPriority"><option value="normale">Normale</option><option value="urgente">Urgente</option></select></label> &nbsp; <label>Date souhaitée <input type="date" id="rmlAtelierDue"></label></p><div id="rmlAtelierMsg" style="color:#b42318;min-height:22px"></div><div style="display:flex;justify-content:flex-end;gap:10px"><button type="button" id="rmlAtelierCancel">Annuler</button><button type="button" id="rmlAtelierConfirm" style="background:#176b48;color:white;border:0;border-radius:8px;padding:10px 16px">Confirmer l’envoi</button></div></div>`;
+  document.body.appendChild(overlay);const q=s=>overlay.querySelector(s);q('#rmlAtelierCancel').onclick=()=>overlay.remove();
+  overlay.querySelectorAll('[name=rmlMode]').forEach(el=>el.onchange=()=>{const all=q('[name=rmlMode]:checked').value==='all';overlay.querySelectorAll('[data-piece]').forEach(c=>{c.checked=all;c.disabled=all})});
+  q('#rmlAtelierConfirm').onclick=async()=>{
+   const chosen=rows.map((x,i)=>({x,i,check:q(`[data-piece="${i}"]`),qty:q(`[data-qty="${i}"]`)})).filter(o=>o.check.checked);
+   if(!chosen.length){q('#rmlAtelierMsg').textContent='Sélectionnez au moins une pièce.';return}
+   if(chosen.some(o=>!Number.isInteger(Number(o.qty.value))||Number(o.qty.value)<1)){q('#rmlAtelierMsg').textContent='Quantités invalides.';return}
+   const btn=q('#rmlAtelierConfirm');btn.disabled=true;q('#rmlAtelierMsg').textContent='Transmission en cours…';
+   const payload={source_project_id:String(proj.id),source_app:'RML_PLIAGE_V95',project_name:proj.name,client_name:client?.name||'',mode:q('[name=rmlMode]:checked').value,priority:q('#rmlAtelierPriority').value,due_date:q('#rmlAtelierDue').value||null,team_number:8,material:{thickness:proj.thickness,color:proj.color,sheetFormat:proj.sheetFormat,materialMode:proj.materialMode},items:chosen.map(o=>({source_index:o.i,quantity:Number(o.qty.value),piece:o.x}))};
+   try{
+    const response=await fetch(ERP_URL+'/rest/v1/erp_bending_orders',{method:'POST',headers:{apikey:ERP_KEY,Authorization:'Bearer '+ERP_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({source_project_id:payload.source_project_id,source_app:payload.source_app,project_name:payload.project_name,client_name:payload.client_name,mode:payload.mode,priority:payload.priority,due_date:payload.due_date,team_number:8,payload,status:'a_fabriquer'})});
+    if(!response.ok){const t=await response.text();throw Error(response.status+' '+t.slice(0,300))}
+    alert('Commande envoyée à l’atelier de pliage — Équipe 8.');overlay.remove();
+   }catch(err){q('#rmlAtelierMsg').textContent='Envoi impossible : '+err.message+' — Vérifiez que le SQL Atelier V17 a été exécuté.';btn.disabled=false}
+  };
+ }
+ document.getElementById('rmlSendAtelierBtn')?.addEventListener('click',modal);
+})();
+</script>
 </body>
 </html>
