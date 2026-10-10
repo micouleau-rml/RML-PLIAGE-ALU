@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V108</title>
+<title>RML PLIAGE ALU — V110</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1777,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 108</div>
+        <div class="app-version">VERSION 110</div>
       </div>
     </div>
     <div class="install">
@@ -3913,7 +3913,8 @@ th{background:#f2f2f2;}
 .piece-chip{display:inline-block;white-space:nowrap;margin:1px 3px 1px 0;padding:3px 6px;border:1px solid #9fcca4;border-radius:6px;background:#eef9ef;}
 .piece-dot{display:inline-block;width:9px;height:9px;border-radius:2px;border:1px solid #111;background:#dff3df;margin-right:4px;vertical-align:middle;}
 .zones-line{margin:4px 0 6px;font-size:10px;line-height:1.35;}
-.zone-chip{white-space:nowrap;}
+.zone-chip{display:inline-block;white-space:normal;overflow-wrap:break-word;vertical-align:top;margin:2px 5px 2px 0;padding:2px 4px;border-radius:3px;background:#f8fafc;}
+.zones-line{overflow-wrap:anywhere;word-break:normal;max-width:100%;}
 .zone-dot{display:inline-block;width:9px;height:9px;border-radius:50%;border:1px solid #111;margin-right:3px;vertical-align:middle;}
 svg{max-width:100%;height:auto;margin:0 auto;}
 .actions{text-align:center;margin-top:20px;}
@@ -4001,7 +4002,10 @@ button{padding:10px 18px;font-size:15px;border:none;border-radius:8px;background
         const raw=candidateKey.slice('rml_calepinage_atelier_html_v105:rml_calepinage_interactif_v102:'.length);
         let oldSignature;try{oldSignature=JSON.parse(raw)}catch(e){continue}
         if(oldSignature[0]!==signature[0]||oldSignature[1]!==signature[1]||Number(oldSignature[2])!==Number(signature[2])||Number(oldSignature[3])!==Number(signature[3]))continue;
-        if(JSON.stringify(oldSignature[4])!==JSON.stringify(signature[4])||identity(oldSignature[5])!==target)continue;
+        // Les identifiants et l'ordre de répartition peuvent changer à l'envoi.
+        // Comparer uniquement les dimensions réelles des exemplaires à découper.
+        const measures=a=>(a||[]).flat().map(p=>[Number(p[1]),Number(p[2])].map(n=>Math.round(n*1000)/1000).join('x')).sort().join('|');
+        if(measures(oldSignature[5])!==measures(signature[5]))continue;
         const saved=localStorage.getItem(candidateKey);
         if(saved?.includes('drawing-block')&&saved.includes('layout-piece')){matched=saved;break}
       }
