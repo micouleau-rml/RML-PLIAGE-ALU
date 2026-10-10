@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V106</title>
+<title>RML PLIAGE ALU — V107</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1777,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 106</div>
+        <div class="app-version">VERSION 107</div>
       </div>
     </div>
     <div class="install">
@@ -9198,17 +9198,23 @@ create policy "RML Pliage modification" on public.${TABLE}
    const btn=q('#rmlAtelierConfirm');btn.disabled=true;q('#rmlAtelierMsg').textContent='Transmission en cours…';
    const payload={source_project_id:String(proj.id),source_app:'RML_PLIAGE_V95',project_name:proj.name,client_name:client?.name||'',mode:q('[name=rmlMode]:checked').value,priority:q('#rmlAtelierPriority').value,due_date:q('#rmlAtelierDue').value||null,team_number:8,material:{thickness:proj.thickness,color:proj.color,sheetFormat:proj.sheetFormat,materialMode:proj.materialMode},items:chosen.map(o=>({source_index:o.i,quantity:Number(o.qty.value),piece:o.x,plan_html:typeof window.RML_CAPTURE_PLAN==='function'?window.RML_CAPTURE_PLAN(o.x,o.i):null})),calpinage_html:typeof window.RML_CAPTURE_CALPINAGE==='function'?window.RML_CAPTURE_CALPINAGE(chosen.map(o=>({piece:o.x,quantity:Number(o.qty.value)}))):null};
    try{
+    // Identifiant conservé dans le projet synchronisé entre les postes, pas seulement dans ce navigateur.
     const orderKey='rml_atelier_order_id_'+String(proj.id);
-    let existingId=q('#rmlAtelierNewOrder')?.checked?null:localStorage.getItem(orderKey);
-    let method=existingId?'PATCH':'POST';
-    let url=ERP_URL+'/rest/v1/erp_bending_orders'+(existingId?'?id=eq.'+encodeURIComponent(existingId):'');
-    let body=existingId?{project_name:payload.project_name,client_name:payload.client_name,mode:payload.mode,priority:payload.priority,due_date:payload.due_date,payload,updated_at:new Date().toISOString()}:{source_project_id:payload.source_project_id,source_app:payload.source_app,project_name:payload.project_name,client_name:payload.client_name,mode:payload.mode,priority:payload.priority,due_date:payload.due_date,team_number:8,payload,status:'a_fabriquer'};
-    let response=await fetch(url,{method,headers:{apikey:ERP_KEY,Authorization:'Bearer '+ERP_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:JSON.stringify(body)});
-    if(existingId&&response.ok){const returned=await response.clone().json();if(!returned.length){response={ok:false,status:404,text:async()=> 'Commande atelier introuvable : créez une nouvelle commande.'}}}
-    if(response.ok&&!existingId){const returned=await response.clone().json();if(returned[0]?.id)localStorage.setItem(orderKey,String(returned[0].id));}
-    if(!response.ok){const t=await response.text();throw Error(response.status+' '+t.slice(0,300))}
+    const existingId=q('#rmlAtelierNewOrder')?.checked?null:(proj.atelierOrderId||localStorage.getItem(orderKey));
+    const rpcName=existingId?'rml_atelier_update_order':'rml_atelier_create_order';
+    const rpcArgs=existingId?{p_order_id:existingId,p_source_project_id:String(proj.id),p_payload:payload}:{p_payload:payload};
+    const response=await fetch(ERP_URL+'/rest/v1/rpc/'+rpcName,{method:'POST',headers:{apikey:ERP_KEY,Authorization:'Bearer '+ERP_KEY,'Content-Type':'application/json'},body:JSON.stringify(rpcArgs)});
+    if(!response.ok){const t=await response.text();throw Error(response.status+' '+t.slice(0,350))}
+    const returnedId=String(await response.json()).replace(/^"|"$/g,'');
+    if(!returnedId)throw Error('Identifiant de commande non retourné par Supabase.');
+    // Mise à jour du projet : la synchronisation Supabase RML Pliage diffuse cet ID aux autres ordinateurs.
+    const projects=JSON.parse(localStorage.getItem(PROJECTS_KEY)||'[]');
+    const idx=projects.findIndex(p=>String(p.id)===String(proj.id));
+    if(idx>=0){projects[idx].atelierOrderId=returnedId;projects[idx].modifiedAt=new Date().toISOString();localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));}
+    localStorage.setItem(orderKey,returnedId);
+    if(typeof window.RML_SUPABASE_SYNC?.syncNow==='function')await window.RML_SUPABASE_SYNC.syncNow({quiet:true});
     alert(existingId?'Commande atelier mise à jour sans doublon.':'Nouvelle commande envoyée à l’atelier — Équipe 8.');overlay.remove();
-   }catch(err){q('#rmlAtelierMsg').textContent='Envoi impossible : '+err.message+' — Vérifiez que le SQL Atelier V17 a été exécuté.';btn.disabled=false}
+   }catch(err){q('#rmlAtelierMsg').textContent='Envoi impossible : '+err.message+'  — Exécutez le SQL Atelier V19.8 (fonctions RPC).';btn.disabled=false}
   };
  }
  document.getElementById('rmlSendAtelierBtn')?.addEventListener('click',modal);
