@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V111</title>
+<title>RML PLIAGE ALU — V114</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1777,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 111</div>
+        <div class="app-version">VERSION 114</div>
       </div>
     </div>
     <div class="install">
@@ -2168,7 +2168,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 111;
+  const currentVersion = 114;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -8919,6 +8919,7 @@ if(quotePdfBtn){
 
   function queueRow(type,id,payload,deleted=false,updatedAt=now()){
     if(!id)return;
+    if(deleted)return; // V113 : interdiction de créer des tombstones
     const pending=loadPending();
     const key=rowKey(type,id);
     const row={
@@ -8947,9 +8948,10 @@ if(quotePdfBtn){
     after.forEach((payload,id)=>{
       if(JSON.stringify(before.get(id))!==JSON.stringify(payload))queueRow(type,id,payload,false,stamp);
     });
-    before.forEach((payload,id)=>{
-      if(!after.has(id))queueRow(type,id,{},true,stamp);
-    });
+    // V113 : une disparition locale (restauration, changement de poste ou bug)
+    // ne déclenche JAMAIS une suppression sur Supabase.
+    // Les suppressions distantes restent désactivées jusqu'à une procédure dédiée.
+
     snapshots[storageKey]=newRaw;
   }
 
@@ -9052,7 +9054,24 @@ if(quotePdfBtn){
         }
         const localStamp=meta[key]?.updatedAt||"";
         if(localStamp && localStamp>=row.updated_at)return;
-        if(row.deleted)map.delete(row.entity_id);else map.set(row.entity_id,row.payload||{});
+        // V113 : une suppression distante ne peut jamais effacer des données locales.
+        if(row.deleted){
+          if(map.has(row.entity_id)){
+            queueRow(row.entity_type,row.entity_id,map.get(row.entity_id),false,now());
+          }
+          return;
+        }
+        if(row.entity_type==="project" && map.has(row.entity_id)){
+          // V113 : ne jamais écraser un projet existant avec une copie distante.
+          // Le poste local conserve sa version jusqu'à une vraie résolution de conflit.
+          const local=map.get(row.entity_id);
+          if(local && Object.keys(local).length){
+            if(JSON.stringify(local)!==JSON.stringify(row.payload||{}))
+              queueRow("project",row.entity_id,local,false,now());
+            return;
+          }
+        }
+        map.set(row.entity_id,row.payload||{});
         meta[key]={updatedAt:row.updated_at,deleted:!!row.deleted};
         changed=true;
       });
@@ -9101,9 +9120,11 @@ if(quotePdfBtn){
   }
 
   async function pushPending(config){
-    const pending=loadPending();
-    if(!pending.length)return 0;
-    const rows=pending.map(row=>({...row,workspace_id:config.workspace}));
+    // V113 : purger les suppressions mises en attente par d'anciennes versions.
+    const pending=loadPending().filter(row=>!row.deleted && row.payload && Object.keys(row.payload).length);
+    if(!pending.length){savePending([]);return 0;}
+    savePending(pending);
+    const rows=pending.map(row=>({...row,workspace_id:config.workspace,deleted:false}));
     await request(config,TABLE,{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)});
     const sentKeys=new Set(rows.map(row=>rowKey(row.entity_type,row.entity_id)+":"+row.updated_at));
     savePending(loadPending().filter(row=>!sentKeys.has(rowKey(row.entity_type,row.entity_id)+":"+row.updated_at)));
@@ -9111,6 +9132,11 @@ if(quotePdfBtn){
   }
 
   async function syncNow({quiet=false}={}){
+    // V114 : verrouillage INCONDITIONNEL des échanges réseau.
+    // Aucun état local ni distant ne peut être modifié par la synchronisation.
+    setSyncStatus("Sécurité V114 : synchronisation Supabase désactivée. Données locales conservées.");
+    return;
+    if(localStorage.getItem("rml_v112_sync_pause")==="1"){setSyncStatus("Synchronisation en pause : restauration à vérifier.");return;}
     if(syncing)return;
     const config=loadConfig();
     if(!validConfig(config)){if(!quiet)setSyncStatus("Renseignez l’URL, la clé et l’espace de synchronisation.","error");return;}
@@ -9137,6 +9163,9 @@ if(quotePdfBtn){
   }
 
   function scheduleSync(){
+    // V114 : aucun envoi automatique, y compris après changement local.
+    return;
+    if(localStorage.getItem("rml_v112_sync_pause")==="1")return;
     clearTimeout(syncTimer);
     setSyncStatus(navigator.onLine?"Modification locale enregistrée.":"Hors ligne : modification locale enregistrée.");
     syncTimer=setTimeout(()=>syncNow({quiet:true}),1500);
@@ -9185,8 +9214,7 @@ create policy "RML Pliage modification" on public.${TABLE}
     const config={url:normalizeUrl($("supabaseUrl").value),key:$("supabaseKey").value.trim(),workspace:$("supabaseWorkspace").value.trim()||DEFAULT_SUPABASE_CONFIG.workspace};
     if(!validConfig(config)){setSyncStatus("Configuration incomplète ou URL invalide.","error");return;}
     nativeSetItem.call(localStorage,CONFIG_KEY,JSON.stringify(config));
-    setSyncStatus("Configuration enregistrée. Premier rapprochement en cours…");
-    syncNow();
+    setSyncStatus("Configuration enregistrée. Synchronisation désactivée pour protéger les projets.");
   });
   $("syncSupabaseNowBtn")?.addEventListener("click",()=>syncNow());
   $("syncSupabaseMainBtn")?.addEventListener("click",()=>syncNow());
@@ -9218,7 +9246,15 @@ create policy "RML Pliage modification" on public.${TABLE}
   Object.keys(SYNC_KEYS).forEach(key=>snapshots[key]=localStorage.getItem(key));
   lockSupabaseSettings();
   loadConfigForm();
-  if(validConfig(loadConfig()))setTimeout(()=>syncNow({quiet:true}),600);
+  // V113 : première ouverture volontairement sans synchronisation automatique.
+  if(!localStorage.getItem("rml_v113_initialized")){
+    localStorage.setItem("rml_v113_initialized","1");
+    localStorage.setItem("rml_v112_sync_pause","1");
+  }
+  setSyncStatus("Sécurité V114 : synchronisation Supabase désactivée. Sauvegardez vos projets localement.");
+  for(const id of ["syncSupabaseMainBtn","syncSupabaseNowBtn"]){
+    const button=$(id);if(button){button.disabled=true;button.title="Désactivé en V114 pour protéger les projets";button.textContent="Synchronisation suspendue";}
+  }
   window.RML_SUPABASE_SYNC={syncNow,status:()=>({configured:validConfig(loadConfig()),pending:loadPending().length,config:{...loadConfig(),key:loadConfig().key?"••••••••":""}})};
 })();
 </script>
@@ -9268,5 +9304,7 @@ create policy "RML Pliage modification" on public.${TABLE}
  document.getElementById('rmlSendAtelierBtn')?.addEventListener('click',modal);
 })();
 </script>
+
+
 </body>
 </html>
