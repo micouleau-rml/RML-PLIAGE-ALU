@@ -4462,7 +4462,7 @@ function loadProjects(){
   const safeHtml=value=>String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
   const normalizedName=value=>String(value||"").trim().toLocaleUpperCase("fr-FR");
   const projectClientName=project=>{
-    const client=clients.find(c=>c.id===(project.clientId||project.selectedClientId||project.client?.id));
+    const client=clients.find(c=>String(c.id)===String(project.clientId||project.selectedClientId||project.client?.id||""));
     return client?.name||project.client?.name||project.clientName||"Client non renseigné";
   };
 
@@ -4544,7 +4544,10 @@ function loadProjects(){
     projects.forEach(project=>{
       const storedId=project.clientId||project.selectedClientId||project.client?.id||"";
       const clientName=projectClientName(project);
-      const key=storedId&&groups.has(`id:${storedId}`)?`id:${storedId}`:`name:${normalizedName(clientName)}`;
+      // V109 : retrouver le dossier existant par nom si l'identifiant client a changé.
+      const matchingClient=clients.find(c=>normalizedName(c.name)===normalizedName(clientName));
+      const key=storedId&&groups.has(`id:${storedId}`)?`id:${storedId}`:
+        matchingClient?`id:${matchingClient.id}`:`name:${normalizedName(clientName)}`;
       if(!groups.has(key))groups.set(key,{name:clientName,clientId:storedId,projects:[]});
       groups.get(key).projects.push(project);
     });
@@ -9049,6 +9052,16 @@ if(quotePdfBtn){
         clients=[...locals.client.values()].map(normalizeClient);
         if(!clients.length)clients=structuredClone(defaultClients);
         nativeSetItem.call(localStorage,STORAGE_KEY_CLIENTS,JSON.stringify(clients));
+        // V109 : copie de sécurité non destructive avant toute mise à jour distante.
+        // Cette copie est locale à l'appareil et ne remplace pas une sauvegarde Supabase.
+        try{
+          const oldProjects=localStorage.getItem(PROJECTS_KEY);
+          const incomingProjects=JSON.stringify([...locals.project.values()]);
+          if(oldProjects && oldProjects!==incomingProjects && JSON.parse(oldProjects).length){
+            const backupKey="rml_pliage_projects_backup_v109_"+new Date().toISOString();
+            nativeSetItem.call(localStorage,backupKey,oldProjects);
+          }
+        }catch(error){console.warn("Sauvegarde pré-synchronisation impossible",error);}
         nativeSetItem.call(localStorage,PROJECTS_KEY,JSON.stringify([...locals.project.values()]));
         nativeSetItem.call(localStorage,PROJECT_FOLDERS_KEY,JSON.stringify([...locals.folder.values()]));
         nativeSetItem.call(localStorage,STORAGE_KEY_BEND_LIBRARY,JSON.stringify([...locals.settings.values()].filter(item=>item?.kind==="bend_library_model")));
@@ -9066,7 +9079,14 @@ if(quotePdfBtn){
         renderClientForm();
         renderPieces();
         updatePriceDisplay();
-        document.getElementById("projectsModal")?.remove();
+        // V109 : conserver la fenêtre et rafraîchir les compteurs après synchronisation.
+        const projectModal=document.getElementById("projectsModal");
+        if(projectModal){
+          const oldQuery=projectModal.querySelector('input[type="search"]')?.value||"";
+          loadProjects();
+          const newSearch=document.getElementById("projectsModal")?.querySelector('input[type="search"]');
+          if(newSearch && oldQuery){newSearch.value=oldQuery;newSearch.dispatchEvent(new Event("input"));}
+        }
       }
     }finally{applyingRemote=false;}
     Object.keys(SYNC_KEYS).forEach(key=>snapshots[key]=localStorage.getItem(key));
