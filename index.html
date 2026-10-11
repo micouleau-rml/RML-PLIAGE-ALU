@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V110</title>
+<title>RML PLIAGE ALU — V111</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1777,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 110</div>
+        <div class="app-version">VERSION 111</div>
       </div>
     </div>
     <div class="install">
@@ -2168,7 +2168,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
 <script>
 /* V92 : détection sans rechargement imposé pendant le travail. */
 (() => {
-  const currentVersion = 103;
+  const currentVersion = 111;
   let registration = null, checking = false, applying = false, reloadTimer = 0;
   const pageUrl = new URL('./index.html', location.href).href;
   function offerUpdate() {
@@ -2207,7 +2207,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
     } catch (_) {} finally { checking = false; }
     if (registration) {
       try { await registration.update(); } catch (_) {}
-      if (registration.waiting) offerUpdate();
+      // Un service worker en attente ne prouve pas qu’une version applicative plus récente existe.
     }
   }
   window.addEventListener('load', async () => {
@@ -2218,11 +2218,11 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
       });
       try {
         registration = await navigator.serviceWorker.register('./service-worker.js', {updateViaCache:'none'});
-        if (registration.waiting) offerUpdate();
+        // Ne pas afficher de bandeau sur la seule présence d’un worker en attente.
         registration.addEventListener('updatefound', () => {
           const worker = registration.installing;
           worker?.addEventListener('statechange', () => {
-            if (worker.state === 'installed' && navigator.serviceWorker.controller) offerUpdate();
+            if (worker.state === 'installed' && navigator.serviceWorker.controller) checkVersion();
           });
         });
       } catch (_) {}
@@ -4509,6 +4509,14 @@ function loadProjects(){
   const toolbar=document.createElement("div");toolbar.className="projects-toolbar";
   const search=document.createElement("input");search.type="search";search.placeholder="Rechercher un client ou un projet…";search.setAttribute("aria-label","Rechercher dans les projets");
   toolbar.appendChild(search);box.appendChild(toolbar);
+  // V111 : diagnostic local non destructif lorsque les projets semblent absents.
+  if(!projects.length){
+    const backupKeys=Object.keys(localStorage).filter(key=>key.startsWith("rml_pliage_projects_backup_v109_"));
+    const diagnostic=document.createElement("div");
+    diagnostic.style.cssText="margin:10px 0;padding:11px 13px;background:#fff8e8;border:1px solid #e8cb85;border-radius:9px;color:#694a12;font-size:13px;line-height:1.5";
+    diagnostic.textContent="Aucun projet enregistré dans ce navigateur. " + (backupKeys.length ? `${backupKeys.length} copie(s) de sécurité locale(s) détectée(s). Ne les effacez pas.` : "Aucune copie de sécurité V109 détectée ici.") + " Vérifiez l’état de synchronisation Supabase avant toute restauration.";
+    box.appendChild(diagnostic);
+  }
 
   const list=document.createElement("div");box.appendChild(list);
 
