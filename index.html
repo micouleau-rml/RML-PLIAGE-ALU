@@ -8759,6 +8759,7 @@ if(quotePdfBtn){
   "use strict";
   const CONFIG_KEY="rml_pliage_supabase_config_v1";
   const META_KEY="rml_pliage_sync_meta_v1";
+  const BASELINE_KEY="rml_pliage_sync_baselines_v120";
   const PENDING_KEY="rml_pliage_sync_pending_v1";
   const TABLE="rml_pliage_sync";
   const DEFAULT_SUPABASE_CONFIG={
@@ -8790,7 +8791,24 @@ if(quotePdfBtn){
     if(value && typeof value==='object')return '{'+Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>JSON.stringify(k)+':'+stableJson(value[k])).join(',')+'}';
     return JSON.stringify(value);
   }
-  const sameData=(a,b)=>stableJson(a)===stableJson(b);
+  // Les propriétés absentes et les champs facultatifs vides sont équivalents.
+  // L'ordre des propriétés n'entre pas en compte ; l'ordre des listes reste significatif.
+  function normalized(value){
+    if(Array.isArray(value))return value.map(normalized);
+    if(value && typeof value==='object'){
+      const out={};
+      for(const key of Object.keys(value).sort()){
+        const v=normalized(value[key]);
+        if(v==="" || v===null || v===undefined)continue;
+        out[key]=v;
+      }
+      return out;
+    }
+    return value;
+  }
+  const sameData=(a,b)=>stableJson(normalized(a))===stableJson(normalized(b));
+  const loadBaselines=()=>parse(localStorage.getItem(BASELINE_KEY),{});
+  const saveBaselines=value=>nativeSetItem.call(localStorage,BASELINE_KEY,JSON.stringify(value));
   const now=()=>new Date().toISOString();
   const parse=(raw,fallback)=>{try{return raw?JSON.parse(raw):fallback}catch{return fallback}};
   const loadConfig=()=>{
@@ -9072,6 +9090,8 @@ if(quotePdfBtn){
 
   // V116 : rapprochement conservateur. Aucune suppression et aucun écrasement
   // de ligne distante existante. Un conflit doit être résolu manuellement.
+  // V120 : synchronisation non destructive, avec base commune pour détecter
+  // les modifications indépendantes. Les conflits ne bloquent pas les autres lignes.
   async function syncNow({quiet=false}={}){
     if(syncing)return;
     const config=loadConfig();
@@ -9082,7 +9102,6 @@ if(quotePdfBtn){
     try{
       const workspace=encodeURIComponent(config.workspace);
       const base=`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`;
-      // Pagination pour ne pas ignorer silencieusement des projets après 1000 lignes.
       let remote=[];
       for(let offset=0;offset<100000;offset+=500){
         const page=await request(config,base,{headers:{Range:`${offset}-${offset+499}`}});
@@ -9093,19 +9112,33 @@ if(quotePdfBtn){
       }
       const remoteMap=new Map(remote.map(row=>[rowKey(row.entity_type,row.entity_id),row]));
       const locals=readLocalEntities();
-      const pending=[];
-      const incoming=[];
-      let conflicts=0, ignored=0;
-      const conflictRecords=[];
+      const baselines=loadBaselines();
+      const nextBaselines={...baselines};
+      const incoming=[], toInsert=[], toUpdate=[], conflicts=[];
+      let unchanged=0;
       for(const [type,map] of Object.entries(locals)){
         for(const [id,payload] of map){
-          const key=rowKey(type,id), row=remoteMap.get(key);
-          if(!payload || !Object.keys(payload).length){ignored++;continue;}
+          if(!payload || !Object.keys(payload).length)continue;
+          if(type==="settings" && payload.kind!=="bend_library_model")continue;
+          const key=rowKey(type,id),row=remoteMap.get(key);
           if(!row || row.deleted || !row.payload || !Object.keys(row.payload).length){
-            pending.push({workspace_id:config.workspace,entity_type:type,entity_id:id,payload:clone(payload),updated_at:now(),deleted:false});
-          }else if(!sameData(payload,row.payload)){
-            conflicts++; // Ne pas écraser la version locale NI la version distante.
-            conflictRecords.push({entity_type:type,entity_id:id,local:clone(payload),remote:clone(row.payload),remote_updated_at:row.updated_at});
+            // A deleted remote row is NOT resurrected automatically: retain as conflict.
+            if(row){conflicts.push({entity_type:type,entity_id:id,local:clone(payload),remote:clone(row.payload||{}),remote_updated_at:row.updated_at,reason:"suppression distante"});continue;}
+            toInsert.push({workspace_id:config.workspace,entity_type:type,entity_id:id,payload:clone(payload),updated_at:now(),deleted:false});
+            continue;
+          }
+          if(sameData(payload,row.payload)){
+            unchanged++;
+            nextBaselines[key]={payload:clone(payload),remote_updated_at:row.updated_at};
+            continue;
+          }
+          const prior=baselines[key];
+          if(prior && sameData(prior.payload,row.payload) && !sameData(prior.payload,payload)){
+            toUpdate.push({type,id,key,payload:clone(payload),remoteStamp:row.updated_at});
+          }else if(prior && sameData(prior.payload,payload) && !sameData(prior.payload,row.payload)){
+            incoming.push(row); // Remote alone changed since common baseline.
+          }else{
+            conflicts.push({entity_type:type,entity_id:id,local:clone(payload),remote:clone(row.payload),remote_updated_at:row.updated_at});
           }
         }
       }
@@ -9115,43 +9148,85 @@ if(quotePdfBtn){
         if(row.entity_type==="settings" && row.payload?.kind!=="bend_library_model")continue;
         if(!map.has(row.entity_id))incoming.push(row);
       }
-      // V116 : audit local exportable. Les deux variantes des conflits sont
-      // enregistrées sans altérer les projets, clients ou paramètres existants.
-      // La clé est mise à jour à chaque audit ; aucune résolution implicite.
-      // V118 : audit STRICTEMENT en lecture seule : ni import local, ni écriture Supabase,
-      // ni purge de la file d'attente. Les 2 variantes restent intactes.
+      // Archive the previous audit, preserving both variants of every conflict.
       const oldReport=parse(localStorage.getItem("rml_v116_conflicts"),null);
       if(oldReport?.conflicts?.length){
         nativeSetItem.call(localStorage,"rml_v116_conflicts_archive_"+Date.now(),JSON.stringify(oldReport));
       }
       nativeSetItem.call(localStorage,"rml_v116_conflicts",JSON.stringify({
-        audited_at:now(),workspace:config.workspace,conflicts:conflictRecords,
-        remote_only:incoming.map(row=>({entity_type:row.entity_type,entity_id:row.entity_id})),
-        local_only:pending.map(row=>({entity_type:row.entity_type,entity_id:row.entity_id}))
+        audited_at:now(),workspace:config.workspace,conflicts,
+        remote_only:incoming.filter(row=>!locals[row.entity_type]?.has(row.entity_id)).map(row=>({entity_type:row.entity_type,entity_id:row.entity_id})),
+        local_only:toInsert.map(row=>({entity_type:row.entity_type,entity_id:row.entity_id}))
       }));
-      // Sauvegarde avant toute réception ; jamais d'effacement automatique.
-      const backup={at:now(),clients:localStorage.getItem(STORAGE_KEY_CLIENTS),projects:localStorage.getItem(PROJECTS_KEY),folders:localStorage.getItem(PROJECT_FOLDERS_KEY),settings:localStorage.getItem(STORAGE_KEY_BEND_LIBRARY)};
+      // Backup prior to ANY change on either side.
+      const backup={at:now(),clients:localStorage.getItem(STORAGE_KEY_CLIENTS),projects:localStorage.getItem(PROJECTS_KEY),folders:localStorage.getItem(PROJECT_FOLDERS_KEY),settings:localStorage.getItem(STORAGE_KEY_BEND_LIBRARY),pending:loadPending(),baselines};
       nativeSetItem.call(localStorage,"rml_sync_backup_"+Date.now(),JSON.stringify(backup));
-      // Réception uniquement des identifiants absents localement.
-      if(incoming.length)applyRemoteRows(incoming);
-      // Envoi uniquement des identifiants absents de Supabase.
-      // Les 13 conflits restent intégralement intacts, sur les deux supports.
-      const safeKeys=new Set(pending.map(row=>rowKey(row.entity_type,row.entity_id)));
-      const oldQueue=loadPending();
-      const safeRows=pending.map(row=>{
-        const queued=oldQueue.find(item=>rowKey(item.entity_type,item.entity_id)===rowKey(row.entity_type,row.entity_id));
-        return queued && !queued.deleted?queued:row;
-      });
-      if(safeRows.length){
-        await request(config,TABLE,{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(safeRows)});
+      let received=0,sent=0;
+      if(incoming.length){
+        // applyRemoteRows refuses to overwrite projects: remote-only changes
+        // are imported here only when the local item has NOT changed from baseline.
+        const existingUpdates=incoming.filter(row=>locals[row.entity_type]?.has(row.entity_id));
+        const missing=incoming.filter(row=>!locals[row.entity_type]?.has(row.entity_id));
+        if(missing.length){applyRemoteRows(missing);received+=missing.length;}
+        if(existingUpdates.length){
+          const maps=readLocalEntities();
+          for(const row of existingUpdates){
+            const key=rowKey(row.entity_type,row.entity_id);
+            if(!baselines[key] || !sameData(maps[row.entity_type].get(row.entity_id),baselines[key].payload))continue;
+            maps[row.entity_type].set(row.entity_id,clone(row.payload));
+            nextBaselines[key]={payload:clone(row.payload),remote_updated_at:row.updated_at};
+            received++;
+          }
+          applyingRemote=true;
+          try{
+            nativeSetItem.call(localStorage,STORAGE_KEY_CLIENTS,JSON.stringify([...maps.client.values()]));
+            nativeSetItem.call(localStorage,PROJECTS_KEY,JSON.stringify([...maps.project.values()]));
+            nativeSetItem.call(localStorage,PROJECT_FOLDERS_KEY,JSON.stringify([...maps.folder.values()]));
+            nativeSetItem.call(localStorage,STORAGE_KEY_BEND_LIBRARY,JSON.stringify([...maps.settings.values()]));
+            clients=[...maps.client.values()].map(normalizeClient);
+            renderClientSelect();restoreCurrentProjectState();renderClientForm();renderPieces();updatePriceDisplay();
+            if(document.getElementById("projectsModal"))loadProjects();
+          }finally{applyingRemote=false;}
+        }
+        for(const row of incoming)nextBaselines[rowKey(row.entity_type,row.entity_id)]={payload:clone(row.payload),remote_updated_at:row.updated_at};
       }
-      // Ne jamais purger les modifications concernant des conflits.
-      if(safeKeys.size)savePending(loadPending().filter(row=>!safeKeys.has(rowKey(row.entity_type,row.entity_id))));
+      // INSERT only, never upsert an existing row. Check existence again to
+      // avoid a concurrent device turning an insert into an overwrite.
+      for(const row of toInsert){
+        const filter=`${TABLE}?workspace_id=eq.${encodeURIComponent(config.workspace)}&entity_type=eq.${encodeURIComponent(row.entity_type)}&entity_id=eq.${encodeURIComponent(row.entity_id)}&select=entity_id`;
+        const exists=await request(config,filter);
+        if(exists?.length)continue;
+        await request(config,TABLE,{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify([row])});
+        // A concurrent insertion may have won; verify payload before baseline.
+        const verify=await request(config,`${TABLE}?workspace_id=eq.${encodeURIComponent(config.workspace)}&entity_type=eq.${encodeURIComponent(row.entity_type)}&entity_id=eq.${encodeURIComponent(row.entity_id)}&select=payload,updated_at`);
+        if(verify?.length && sameData(verify[0].payload,row.payload)){
+          nextBaselines[rowKey(row.entity_type,row.entity_id)]={payload:clone(row.payload),remote_updated_at:verify[0].updated_at};sent++;
+        }
+      }
+      // Optimistic concurrency: PATCH only when the server timestamp still
+      // matches the timestamp read at the start of this synchronization.
+      for(const change of toUpdate){
+        const stamp=now();
+        const filter=`${TABLE}?workspace_id=eq.${encodeURIComponent(config.workspace)}&entity_type=eq.${encodeURIComponent(change.type)}&entity_id=eq.${encodeURIComponent(change.id)}&updated_at=eq.${encodeURIComponent(change.remoteStamp)}&deleted=eq.false`;
+        const updated=await request(config,filter+"&select=payload,updated_at",{method:"PATCH",headers:{Prefer:"return=representation"},body:JSON.stringify({payload:change.payload,updated_at:stamp})});
+        if(Array.isArray(updated) && updated.length===1){
+          nextBaselines[change.key]={payload:clone(change.payload),remote_updated_at:updated[0].updated_at};sent++;
+        }
+        // If another computer modified it concurrently, do not overwrite it.
+      }
+      saveBaselines(nextBaselines);
+      // Retain unresolved queue entries, clear only verified synchronized ones.
+      const syncedKeys=new Set(Object.keys(nextBaselines).filter(key=>{
+        const [type,...parts]=key.split(":");const id=parts.join(":");
+        const local=readLocalEntities()[type]?.get(id);
+        return local && sameData(local,nextBaselines[key].payload);
+      }));
+      savePending(loadPending().filter(row=>!syncedKeys.has(rowKey(row.entity_type,row.entity_id))));
       config.lastSyncAt=now();
       nativeSetItem.call(localStorage,CONFIG_KEY,JSON.stringify(config));
-      setSyncStatus(`Synchronisation active : ${incoming.length} reçu(s), ${safeRows.length} envoyé(s), ${conflicts} conflit(s) conservé(s) sans écrasement.`,conflicts?"error":"ok");
+      setSyncStatus(`Synchronisation active : ${received} reçu(s), ${sent} envoyé(s), ${conflicts.length} conflit(s) conservé(s) et ignoré(s).`,"ok");
     }catch(error){
-      console.error("Audit V118 :",error);
+      console.error("Synchronisation V120 :",error);
       setSyncStatus(`Synchronisation interrompue (données préservées) — ${error.message}`,"error");
     }finally{syncing=false;}
   }
@@ -9188,7 +9263,7 @@ if(quotePdfBtn){
     overlay.style.cssText='position:fixed;inset:0;background:#0009;z-index:999999;display:flex;align-items:center;justify-content:center;padding:15px';
     const panel=document.createElement('div');
     panel.style.cssText='background:#fff;color:#17283a;width:min(1100px,100%);max-height:94vh;overflow:auto;border-radius:12px;padding:18px';
-    const h=document.createElement('h2');h.textContent='V119 — Comparaison des conflits (lecture seule)';panel.append(h);
+    const h=document.createElement('h2');h.textContent='V120 — Comparaison des conflits (lecture seule)';panel.append(h);
     const info=document.createElement('p');info.textContent=`Espace : ${report.workspace} — ${records.length} conflits réels. Aucune action ne modifie les données. Conservez les deux versions tant que les conflits ne sont pas résolus.`;panel.append(info);
     const select=document.createElement('select');select.style.cssText='width:100%;padding:9px;margin-bottom:12px';
     records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${i+1}. ${r.entity_type} — ${r.local?.name||r.remote?.name||r.entity_id}`;select.append(o)});
