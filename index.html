@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V115</title>
+<title>RML PLIAGE ALU — V116</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -1777,7 +1777,7 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <h1>RML PLIAGE ALU</h1>
         <div class="subline">by Micouleau &amp; Lhérisson</div>
         <div class="baseline">Gouttière · Couvertine · Sous face · Pliage à façon · Clôture et portail en aluminium laqué</div>
-        <div class="app-version">VERSION 115</div>
+        <div class="app-version">VERSION 116</div>
       </div>
     </div>
     <div class="install">
@@ -9131,7 +9131,7 @@ if(quotePdfBtn){
     return rows.length;
   }
 
-  // V115 : rapprochement conservateur. Aucune suppression et aucun écrasement
+  // V116 : rapprochement conservateur. Aucune suppression et aucun écrasement
   // de ligne distante existante. Un conflit doit être résolu manuellement.
   async function syncNow({quiet=false}={}){
     if(syncing)return;
@@ -9139,7 +9139,7 @@ if(quotePdfBtn){
     if(!validConfig(config)){setSyncStatus("Configuration Supabase manquante.","error");return;}
     if(!navigator.onLine){setSyncStatus("Hors ligne : données locales conservées.");return;}
     syncing=true;
-    setSyncStatus("V115 : vérification sans suppression…");
+    setSyncStatus("V116 : vérification sans suppression…");
     try{
       const workspace=encodeURIComponent(config.workspace);
       const base=`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`;
@@ -9157,6 +9157,7 @@ if(quotePdfBtn){
       const pending=[];
       const incoming=[];
       let conflicts=0, ignored=0;
+      const conflictRecords=[];
       for(const [type,map] of Object.entries(locals)){
         for(const [id,payload] of map){
           const key=rowKey(type,id), row=remoteMap.get(key);
@@ -9165,6 +9166,7 @@ if(quotePdfBtn){
             pending.push({workspace_id:config.workspace,entity_type:type,entity_id:id,payload:clone(payload),updated_at:now(),deleted:false});
           }else if(JSON.stringify(payload)!==JSON.stringify(row.payload)){
             conflicts++; // Ne pas écraser la version locale NI la version distante.
+            conflictRecords.push({entity_type:type,entity_id:id,local:clone(payload),remote:clone(row.payload),remote_updated_at:row.updated_at});
           }
         }
       }
@@ -9174,6 +9176,12 @@ if(quotePdfBtn){
         if(row.entity_type==="settings" && row.payload?.kind!=="bend_library_model")continue;
         if(!map.has(row.entity_id))incoming.push(row);
       }
+      // V116 : audit local exportable. Les deux variantes des conflits sont
+      // enregistrées sans altérer les projets, clients ou paramètres existants.
+      // La clé est mise à jour à chaque audit ; aucune résolution implicite.
+      nativeSetItem.call(localStorage,"rml_v116_conflicts",JSON.stringify({
+        audited_at:now(),workspace:config.workspace,conflicts:conflictRecords
+      }));
       // Sauvegarde persistante des quatre collections AVANT toute importation.
       if(incoming.length){
         const stamp=new Date().toISOString().replace(/[:.]/g,"-");
@@ -9192,19 +9200,44 @@ if(quotePdfBtn){
         }
       }
       // Les anciennes files d'attente peuvent contenir des mises à jour risquées.
-      // Elles ne sont jamais envoyées automatiquement en V115.
+      // Elles ne sont jamais envoyées automatiquement en V116.
       const oldPending=loadPending();
       if(oldPending.length){
         nativeSetItem.call(localStorage,"rml_v115_pending_archive_"+Date.now(),JSON.stringify(oldPending));
         savePending([]);
       }
       localStorage.setItem(CONFIG_KEY,JSON.stringify({...config,lastSyncAt:now()}));
-      setSyncStatus(`V115 : ${incoming.length} reçu(s), ${pending.length} envoyé(s), ${conflicts} conflit(s) conservé(s)${ignored?`, ${ignored} vide(s) ignoré(s)`:""}. ${conflicts?"Ne pas modifier les mêmes projets sur plusieurs postes.":""}`,conflicts?"error":"ok");
+      setSyncStatus(`V116 : ${incoming.length} reçu(s), ${pending.length} envoyé(s), ${conflicts} conflit(s) conservé(s)${ignored?`, ${ignored} vide(s) ignoré(s)`:""}. ${conflicts?"Exporter le rapport des conflits avant toute résolution.":""}`,conflicts?"error":"ok");
     }catch(error){
-      console.error("Synchronisation V115 :",error);
-      setSyncStatus(`V115 : échec sans suppression — ${error.message}`,"error");
+      console.error("Synchronisation V116 :",error);
+      setSyncStatus(`V116 : échec sans suppression — ${error.message}`,"error");
     }finally{syncing=false;}
   }
+
+  // Export du rapport complet : aucune écriture réseau, aucune modification
+  // des projets. Il contient les données métier : à conserver confidentiel.
+  function exportConflictReport(){
+    const raw=localStorage.getItem("rml_v116_conflicts");
+    if(!raw){alert("Aucun rapport disponible. Lancez d'abord une synchronisation manuelle V116.");return;}
+    let report;
+    try{report=JSON.parse(raw);}catch(e){alert("Rapport de conflits illisible.");return;}
+    const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download="RML_PLIAGE_V116_CONFLITS_"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+  }
+  function addConflictExportButton(){
+    const syncButton=$("syncSupabaseMainBtn")||$("syncSupabaseNowBtn");
+    if(!syncButton || document.getElementById("rmlV116ExportConflicts"))return;
+    const button=document.createElement("button");
+    button.type="button";button.id="rmlV116ExportConflicts";
+    button.textContent="Exporter les conflits (JSON)";
+    button.style.cssText="display:block;margin-top:8px;padding:8px 12px;border-radius:8px;border:1px solid #94a3b8;background:#fff;color:#17324a;font-weight:700;cursor:pointer";
+    button.addEventListener("click",exportConflictReport);
+    syncButton.insertAdjacentElement("afterend",button);
+  }
+  addConflictExportButton();
 
   function scheduleSync(){
     clearTimeout(syncTimer);
@@ -9281,14 +9314,14 @@ create policy "RML Pliage modification" on public.${TABLE}
   window.addEventListener("online",()=>setSyncStatus("Connexion rétablie : synchronisation manuelle disponible."));
   window.addEventListener("offline",()=>setSyncStatus("Hors ligne : les changements sont conservés sur cet appareil."));
   window.addEventListener("storage",event=>{if(SYNC_KEYS[event.key]){captureLocalChange(event.key,event.oldValue,event.newValue);}});
-  // Pas de synchronisation automatique en V115 : validation manuelle obligatoire.
+  // Pas de synchronisation automatique en V116 : validation manuelle obligatoire.
   removeLegacyCurrentStateSyncQueue();
   restorePiecesFromSavedProject();
   renderPieces();
   Object.keys(SYNC_KEYS).forEach(key=>snapshots[key]=localStorage.getItem(key));
   lockSupabaseSettings();
   loadConfigForm();
-  setSyncStatus("V115 : synchronisation manuelle protégée. Aucun projet supprimé.");
+  setSyncStatus("V116 : synchronisation manuelle protégée. Aucun projet supprimé.");
   for(const id of ["syncSupabaseMainBtn","syncSupabaseNowBtn"]){
     const button=$(id);if(button){button.disabled=false;button.title="Synchroniser les nouveaux projets sans écraser les versions existantes";button.textContent="Synchroniser les projets";}
   }
