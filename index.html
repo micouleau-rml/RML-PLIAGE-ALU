@@ -9078,7 +9078,7 @@ if(quotePdfBtn){
     if(!validConfig(config)){setSyncStatus("Configuration Supabase manquante.","error");return;}
     if(!navigator.onLine){setSyncStatus("Hors ligne : données locales conservées.");return;}
     syncing=true;
-    setSyncStatus("V118 : audit en lecture seule…");
+    setSyncStatus("Synchronisation sécurisée en cours…");
     try{
       const workspace=encodeURIComponent(config.workspace);
       const base=`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`;
@@ -9129,10 +9129,30 @@ if(quotePdfBtn){
         remote_only:incoming.map(row=>({entity_type:row.entity_type,entity_id:row.entity_id})),
         local_only:pending.map(row=>({entity_type:row.entity_type,entity_id:row.entity_id}))
       }));
-      setSyncStatus(`V118 AUDIT : ${incoming.length} distant(s) uniquement, ${pending.length} local(aux) uniquement, ${conflicts} vrai(s) conflit(s). Aucune donnée envoyée, reçue ou supprimée.`,conflicts?"error":"ok");
+      // Sauvegarde avant toute réception ; jamais d'effacement automatique.
+      const backup={at:now(),clients:localStorage.getItem(STORAGE_KEY_CLIENTS),projects:localStorage.getItem(PROJECTS_KEY),folders:localStorage.getItem(PROJECT_FOLDERS_KEY),settings:localStorage.getItem(STORAGE_KEY_BEND_LIBRARY)};
+      nativeSetItem.call(localStorage,"rml_sync_backup_"+Date.now(),JSON.stringify(backup));
+      // Réception uniquement des identifiants absents localement.
+      if(incoming.length)applyRemoteRows(incoming);
+      // Envoi uniquement des identifiants absents de Supabase.
+      // Les 13 conflits restent intégralement intacts, sur les deux supports.
+      const safeKeys=new Set(pending.map(row=>rowKey(row.entity_type,row.entity_id)));
+      const oldQueue=loadPending();
+      const safeRows=pending.map(row=>{
+        const queued=oldQueue.find(item=>rowKey(item.entity_type,item.entity_id)===rowKey(row.entity_type,row.entity_id));
+        return queued && !queued.deleted?queued:row;
+      });
+      if(safeRows.length){
+        await request(config,TABLE,{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify(safeRows)});
+      }
+      // Ne jamais purger les modifications concernant des conflits.
+      if(safeKeys.size)savePending(loadPending().filter(row=>!safeKeys.has(rowKey(row.entity_type,row.entity_id))));
+      config.lastSyncAt=now();
+      nativeSetItem.call(localStorage,CONFIG_KEY,JSON.stringify(config));
+      setSyncStatus(`Synchronisation active : ${incoming.length} reçu(s), ${safeRows.length} envoyé(s), ${conflicts} conflit(s) conservé(s) sans écrasement.`,conflicts?"error":"ok");
     }catch(error){
       console.error("Audit V118 :",error);
-      setSyncStatus(`V118 : échec sans modification — ${error.message}`,"error");
+      setSyncStatus(`Synchronisation interrompue (données préservées) — ${error.message}`,"error");
     }finally{syncing=false;}
   }
 
@@ -9168,7 +9188,7 @@ if(quotePdfBtn){
     overlay.style.cssText='position:fixed;inset:0;background:#0009;z-index:999999;display:flex;align-items:center;justify-content:center;padding:15px';
     const panel=document.createElement('div');
     panel.style.cssText='background:#fff;color:#17283a;width:min(1100px,100%);max-height:94vh;overflow:auto;border-radius:12px;padding:18px';
-    const h=document.createElement('h2');h.textContent='V118 — Comparaison des conflits (lecture seule)';panel.append(h);
+    const h=document.createElement('h2');h.textContent='V119 — Comparaison des conflits (lecture seule)';panel.append(h);
     const info=document.createElement('p');info.textContent=`Espace : ${report.workspace} — ${records.length} conflits réels. Aucune action ne modifie les données. Conservez les deux versions tant que les conflits ne sont pas résolus.`;panel.append(info);
     const select=document.createElement('select');select.style.cssText='width:100%;padding:9px;margin-bottom:12px';
     records.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${i+1}. ${r.entity_type} — ${r.local?.name||r.remote?.name||r.entity_id}`;select.append(o)});
@@ -9214,9 +9234,7 @@ if(quotePdfBtn){
 
   function scheduleSync(){
     clearTimeout(syncTimer);
-    // Synchronisation volontaire uniquement : les projets locaux sont protégés
-    // tant que l'utilisateur n'a pas cliqué sur le bouton.
-    setSyncStatus("Modifications locales conservées. Cliquez sur Auditer pour comparer sans envoyer de données.");
+    syncTimer=setTimeout(()=>syncNow({quiet:true}),2200);
   }
 
   const SQL=`create table if not exists public.${TABLE} (
@@ -9262,7 +9280,7 @@ create policy "RML Pliage modification" on public.${TABLE}
     const config={url:normalizeUrl($("supabaseUrl").value),key:$("supabaseKey").value.trim(),workspace:$("supabaseWorkspace").value.trim()||DEFAULT_SUPABASE_CONFIG.workspace};
     if(!validConfig(config)){setSyncStatus("Configuration incomplète ou URL invalide.","error");return;}
     nativeSetItem.call(localStorage,CONFIG_KEY,JSON.stringify(config));
-    setSyncStatus("Configuration enregistrée. Synchronisation désactivée pour protéger les projets.");
+    setSyncStatus("Configuration enregistrée. Synchronisation sécurisée active.");
   });
   $("syncSupabaseNowBtn")?.addEventListener("click",()=>syncNow());
   $("syncSupabaseMainBtn")?.addEventListener("click",()=>syncNow());
@@ -9284,20 +9302,21 @@ create policy "RML Pliage modification" on public.${TABLE}
     try{await navigator.clipboard.writeText(SQL);setSyncStatus("SQL copié.","ok");}
     catch{$("supabaseSqlText").select();document.execCommand("copy");setSyncStatus("SQL copié.","ok");}
   });
-  window.addEventListener("online",()=>setSyncStatus("Connexion rétablie : synchronisation manuelle disponible."));
+  window.addEventListener("online",()=>setSyncStatus("Connexion rétablie : synchronisation sécurisée disponible."));
   window.addEventListener("offline",()=>setSyncStatus("Hors ligne : les changements sont conservés sur cet appareil."));
   window.addEventListener("storage",event=>{if(SYNC_KEYS[event.key]){captureLocalChange(event.key,event.oldValue,event.newValue);}});
-  // Pas de synchronisation automatique en V116 : validation manuelle obligatoire.
+  // Synchronisation non destructive : les conflits ne sont jamais écrasés.
   removeLegacyCurrentStateSyncQueue();
   restorePiecesFromSavedProject();
   renderPieces();
   Object.keys(SYNC_KEYS).forEach(key=>snapshots[key]=localStorage.getItem(key));
   lockSupabaseSettings();
   loadConfigForm();
-  setSyncStatus("V118 : audit manuel en lecture seule. Aucune écriture locale ou distante.");
+  setSyncStatus("Synchronisation sécurisée active : conflits conservés sans écrasement.");
   for(const id of ["syncSupabaseMainBtn","syncSupabaseNowBtn"]){
-    const button=$(id);if(button){button.disabled=false;button.title="Comparer les données sans aucune écriture";button.textContent="Auditer Supabase (lecture seule)";}
+    const button=$(id);if(button){button.disabled=false;button.title="Synchroniser sans écraser les conflits";button.textContent="Synchroniser Supabase";}
   }
+  setTimeout(()=>syncNow({quiet:true}),1800);
   window.RML_SUPABASE_SYNC={syncNow,status:()=>({configured:validConfig(loadConfig()),pending:loadPending().length,config:{...loadConfig(),key:loadConfig().key?"••••••••":""}})};
 })();
 </script>
