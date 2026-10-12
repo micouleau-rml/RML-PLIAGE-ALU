@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="RML Pliage"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-<title>RML PLIAGE ALU — V114</title>
+<title>RML PLIAGE ALU — V115</title>
 <style>
 :root{--card:#ffffff;--text:#17202a;--muted:#687684;--line:#d9e1ea;--accent:#0f62fe;--accent2:#0a4ecc;--danger:#c62828;--ok:#157347;--shadow:0 12px 30px rgba(18,36,56,.08);--radius:18px}
 *{box-sizing:border-box}
@@ -9131,44 +9131,86 @@ if(quotePdfBtn){
     return rows.length;
   }
 
+  // V115 : rapprochement conservateur. Aucune suppression et aucun écrasement
+  // de ligne distante existante. Un conflit doit être résolu manuellement.
   async function syncNow({quiet=false}={}){
-    // V114 : verrouillage INCONDITIONNEL des échanges réseau.
-    // Aucun état local ni distant ne peut être modifié par la synchronisation.
-    setSyncStatus("Sécurité V114 : synchronisation Supabase désactivée. Données locales conservées.");
-    return;
-    if(localStorage.getItem("rml_v112_sync_pause")==="1"){setSyncStatus("Synchronisation en pause : restauration à vérifier.");return;}
     if(syncing)return;
     const config=loadConfig();
-    if(!validConfig(config)){if(!quiet)setSyncStatus("Renseignez l’URL, la clé et l’espace de synchronisation.","error");return;}
-    if(!navigator.onLine){setSyncStatus("Hors ligne : les changements sont conservés sur cet appareil.");return;}
+    if(!validConfig(config)){setSyncStatus("Configuration Supabase manquante.","error");return;}
+    if(!navigator.onLine){setSyncStatus("Hors ligne : données locales conservées.");return;}
     syncing=true;
-    setSyncStatus("Synchronisation en cours…");
+    setSyncStatus("V115 : vérification sans suppression…");
     try{
       const workspace=encodeURIComponent(config.workspace);
-      let remote=await request(config,`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`);
-      remote=Array.isArray(remote)?remote:[];
-      applyRemoteRows(remote);
-      seedRowsMissingRemotely(remote);
-      const sent=await pushPending(config);
-      if(sent){
-        const refreshed=await request(config,`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`);
-        applyRemoteRows(Array.isArray(refreshed)?refreshed:[]);
+      const base=`${TABLE}?workspace_id=eq.${workspace}&select=workspace_id,entity_type,entity_id,payload,updated_at,deleted&order=updated_at.asc`;
+      // Pagination pour ne pas ignorer silencieusement des projets après 1000 lignes.
+      let remote=[];
+      for(let offset=0;offset<100000;offset+=500){
+        const page=await request(config,base,{headers:{Range:`${offset}-${offset+499}`}});
+        if(!Array.isArray(page))throw new Error("Réponse Supabase invalide");
+        remote.push(...page);
+        if(page.length<500)break;
+        if(offset>=99500)throw new Error("Trop de lignes distantes : arrêt de sécurité");
+      }
+      const remoteMap=new Map(remote.map(row=>[rowKey(row.entity_type,row.entity_id),row]));
+      const locals=readLocalEntities();
+      const pending=[];
+      const incoming=[];
+      let conflicts=0, ignored=0;
+      for(const [type,map] of Object.entries(locals)){
+        for(const [id,payload] of map){
+          const key=rowKey(type,id), row=remoteMap.get(key);
+          if(!payload || !Object.keys(payload).length){ignored++;continue;}
+          if(!row || row.deleted || !row.payload || !Object.keys(row.payload).length){
+            pending.push({workspace_id:config.workspace,entity_type:type,entity_id:id,payload:clone(payload),updated_at:now(),deleted:false});
+          }else if(JSON.stringify(payload)!==JSON.stringify(row.payload)){
+            conflicts++; // Ne pas écraser la version locale NI la version distante.
+          }
+        }
+      }
+      for(const row of remote){
+        const map=locals[row.entity_type];
+        if(!map || row.deleted || !row.payload || !Object.keys(row.payload).length)continue;
+        if(row.entity_type==="settings" && row.payload?.kind!=="bend_library_model")continue;
+        if(!map.has(row.entity_id))incoming.push(row);
+      }
+      // Sauvegarde persistante des quatre collections AVANT toute importation.
+      if(incoming.length){
+        const stamp=new Date().toISOString().replace(/[:.]/g,"-");
+        for(const storageKey of Object.keys(SYNC_KEYS)){
+          const old=localStorage.getItem(storageKey);
+          if(old!==null)nativeSetItem.call(localStorage,`rml_v115_backup_${stamp}_${storageKey}`,old);
+        }
+        applyRemoteRows(incoming);
+      }
+      // Supabase : upsert uniquement pour les ID absents ou anciennement supprimés.
+      // Un changement concurrent n'est pas écrasé volontairement ; ne pas utiliser
+      // cette version pour modifier le même projet sur deux postes simultanément.
+      if(pending.length){
+        for(let i=0;i<pending.length;i+=100){
+          await request(config,TABLE,{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(pending.slice(i,i+100))});
+        }
+      }
+      // Les anciennes files d'attente peuvent contenir des mises à jour risquées.
+      // Elles ne sont jamais envoyées automatiquement en V115.
+      const oldPending=loadPending();
+      if(oldPending.length){
+        nativeSetItem.call(localStorage,"rml_v115_pending_archive_"+Date.now(),JSON.stringify(oldPending));
+        savePending([]);
       }
       localStorage.setItem(CONFIG_KEY,JSON.stringify({...config,lastSyncAt:now()}));
-      setSyncStatus(`À jour — dernière synchronisation ${new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}`,"ok");
+      setSyncStatus(`V115 : ${incoming.length} reçu(s), ${pending.length} envoyé(s), ${conflicts} conflit(s) conservé(s)${ignored?`, ${ignored} vide(s) ignoré(s)`:""}. ${conflicts?"Ne pas modifier les mêmes projets sur plusieurs postes.":""}`,conflicts?"error":"ok");
     }catch(error){
-      console.error("Synchronisation Supabase V83 :",error);
-      setSyncStatus(`Échec de synchronisation : ${error.message}`,"error");
+      console.error("Synchronisation V115 :",error);
+      setSyncStatus(`V115 : échec sans suppression — ${error.message}`,"error");
     }finally{syncing=false;}
   }
 
   function scheduleSync(){
-    // V114 : aucun envoi automatique, y compris après changement local.
-    return;
-    if(localStorage.getItem("rml_v112_sync_pause")==="1")return;
     clearTimeout(syncTimer);
-    setSyncStatus(navigator.onLine?"Modification locale enregistrée.":"Hors ligne : modification locale enregistrée.");
-    syncTimer=setTimeout(()=>syncNow({quiet:true}),1500);
+    // Synchronisation volontaire uniquement : les projets locaux sont protégés
+    // tant que l'utilisateur n'a pas cliqué sur le bouton.
+    setSyncStatus("Modifications locales conservées. Cliquez sur Synchroniser pour échanger les nouveaux projets.");
   }
 
   const SQL=`create table if not exists public.${TABLE} (
@@ -9236,24 +9278,19 @@ create policy "RML Pliage modification" on public.${TABLE}
     try{await navigator.clipboard.writeText(SQL);setSyncStatus("SQL copié.","ok");}
     catch{$("supabaseSqlText").select();document.execCommand("copy");setSyncStatus("SQL copié.","ok");}
   });
-  window.addEventListener("online",()=>syncNow({quiet:true}));
+  window.addEventListener("online",()=>setSyncStatus("Connexion rétablie : synchronisation manuelle disponible."));
   window.addEventListener("offline",()=>setSyncStatus("Hors ligne : les changements sont conservés sur cet appareil."));
-  window.addEventListener("storage",event=>{if(SYNC_KEYS[event.key]){captureLocalChange(event.key,event.oldValue,event.newValue);syncNow({quiet:true});}});
-  setInterval(()=>syncNow({quiet:true}),60000);
+  window.addEventListener("storage",event=>{if(SYNC_KEYS[event.key]){captureLocalChange(event.key,event.oldValue,event.newValue);}});
+  // Pas de synchronisation automatique en V115 : validation manuelle obligatoire.
   removeLegacyCurrentStateSyncQueue();
   restorePiecesFromSavedProject();
   renderPieces();
   Object.keys(SYNC_KEYS).forEach(key=>snapshots[key]=localStorage.getItem(key));
   lockSupabaseSettings();
   loadConfigForm();
-  // V113 : première ouverture volontairement sans synchronisation automatique.
-  if(!localStorage.getItem("rml_v113_initialized")){
-    localStorage.setItem("rml_v113_initialized","1");
-    localStorage.setItem("rml_v112_sync_pause","1");
-  }
-  setSyncStatus("Sécurité V114 : synchronisation Supabase désactivée. Sauvegardez vos projets localement.");
+  setSyncStatus("V115 : synchronisation manuelle protégée. Aucun projet supprimé.");
   for(const id of ["syncSupabaseMainBtn","syncSupabaseNowBtn"]){
-    const button=$(id);if(button){button.disabled=true;button.title="Désactivé en V114 pour protéger les projets";button.textContent="Synchronisation suspendue";}
+    const button=$(id);if(button){button.disabled=false;button.title="Synchroniser les nouveaux projets sans écraser les versions existantes";button.textContent="Synchroniser les projets";}
   }
   window.RML_SUPABASE_SYNC={syncNow,status:()=>({configured:validConfig(loadConfig()),pending:loadPending().length,config:{...loadConfig(),key:loadConfig().key?"••••••••":""}})};
 })();
