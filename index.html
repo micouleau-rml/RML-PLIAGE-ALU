@@ -21,6 +21,7 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Hel
 h1{margin:0;font-size:clamp(1.8rem,3vw,2.6rem);line-height:1.05}
 .subline{font-size:1rem;color:#1f2937;margin-top:4px;font-weight:700}
 .baseline{color:var(--muted);margin-top:10px;font-size:1rem}
+.rml-version-highlight{font-size:1rem!important;padding:8px 16px!important;background:#e5f0ff!important;color:#0755d6!important;border:2px solid #2563eb!important;box-shadow:0 2px 8px #2563eb22!important;letter-spacing:.06em!important}
 .app-version{display:inline-block;margin-top:7px;padding:3px 8px;border:1px solid #d6dee8;border-radius:999px;background:#f7f9fc;color:#64748b;font-size:.68rem;font-weight:800;letter-spacing:.08em}
 .install{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;}
 .install button{min-width:180px;}
@@ -2005,6 +2006,12 @@ button{min-height:46px;border-radius:14px;touch-action:manipulation}.actions{gap
         <button type="button" class="btn-light" id="showSupabaseSqlBtn">Afficher le SQL d’installation</button>
       </div>
       <div id="supabaseSyncStatus" class="note" style="margin-top:10px" aria-live="polite">Synchronisation non configurée.</div>
+      <details id="rmlSupabaseMaintenance" style="margin-top:16px;padding:12px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc">
+        <summary style="cursor:pointer;font-weight:700;color:#17324a">Maintenance Supabase (conflits)</summary>
+        <p class="note" style="margin:10px 0">Outils de diagnostic uniquement : aucune modification des projets.</p>
+        <div id="rmlSupabaseMaintenanceActions" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </details>
+
       <div id="supabaseSqlBox" hidden style="margin-top:12px">
         <div class="note">À exécuter une seule fois dans l’éditeur SQL de Supabase. Ces règles conviennent à une application privée utilisant la clé publishable ; choisissez un nom d’espace difficile à deviner.</div>
         <textarea id="supabaseSqlText" readonly style="width:100%;min-height:250px;margin-top:8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px"></textarea>
@@ -9252,7 +9259,8 @@ if(quotePdfBtn){
     button.textContent="Exporter les conflits (JSON)";
     button.style.cssText="display:block;margin-top:8px;padding:8px 12px;border-radius:8px;border:1px solid #94a3b8;background:#fff;color:#17324a;font-weight:700;cursor:pointer";
     button.addEventListener("click",exportConflictReport);
-    syncButton.insertAdjacentElement("afterend",button);
+    const maintenance=document.getElementById("rmlSupabaseMaintenanceActions");
+    if(maintenance)maintenance.appendChild(button);
   }
   addConflictExportButton();
   function showConflictComparison(){
@@ -9304,7 +9312,9 @@ if(quotePdfBtn){
     const anchor=$(id);if(!anchor)continue;
     const btn=document.createElement('button');btn.type='button';btn.textContent='Comparer les conflits';
     btn.style.cssText='margin:8px;padding:8px 12px;border:1px solid #94a3b8;border-radius:8px;background:#fff;cursor:pointer';
-    btn.addEventListener('click',showConflictComparison);anchor.insertAdjacentElement('afterend',btn);
+    btn.addEventListener('click',showConflictComparison);
+    const maintenance=document.getElementById('rmlSupabaseMaintenanceActions');
+    if(maintenance && !maintenance.querySelector('[data-rml-compare]')){btn.dataset.rmlCompare='1';maintenance.appendChild(btn);}
   }
 
   function scheduleSync(){
